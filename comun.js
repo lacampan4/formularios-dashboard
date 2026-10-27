@@ -44,7 +44,7 @@ function iniciarSesion(alEntrar) {
       <h1>Operaciones</h1>
       <p class="nota">Ingrese con el usuario que le asignó la Dirección de Operaciones.</p>
       <label class="campo"><span>Usuario</span><input name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false"
-        pattern="[A-Za-z0-9._\-]+" title="Solo letras, números, punto, guion y guion bajo" required></label>
+        pattern="[A-Za-z0-9._\\-]+" title="Solo letras, números, punto, guion y guion bajo" required></label>
       <label class="campo"><span>Contraseña</span><input type="password" name="password" autocomplete="current-password" required></label>
       <button class="btn btn-red">Ingresar</button>
       <p class="msg" id="authMsg" role="status"></p>
