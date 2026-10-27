@@ -32,12 +32,12 @@ function etiquetar(tabla) {
 }
 
 const correoDeUsuario = (usuario) => usuario.trim().toLowerCase() + "@" + DOMINIO_USUARIOS;
-async function mostrarNombre(id) {
-  const { data } = await db.from("usuarios").select("nombre").eq("id", id).maybeSingle();
-  if (data) $("userName").textContent = data.nombre;
+async function cargarPerfil(id) {
+  const { data } = await db.from("usuarios").select("nombre, rol").eq("id", id).maybeSingle();
+  return data ?? { nombre: "", rol: "sin_rol" };
 }
 
-// Muestra el login o la app; llama a alEntrar() la primera vez que hay sesión.
+// Muestra el login o la app; llama a alEntrar(perfil) la primera vez que hay sesión.
 function iniciarSesion(alEntrar) {
   $("vistaAuth").innerHTML = `
     <form class="card" id="formLogin">
@@ -61,13 +61,21 @@ function iniciarSesion(alEntrar) {
   $("btnSalir").onclick = () => db.auth.signOut();
 
   let iniciado = false;
-  db.auth.onAuthStateChange((_evento, sesion) => {
+  db.auth.onAuthStateChange((evento, sesion) => {
+    if (evento === "SIGNED_OUT") return location.reload(); // el siguiente usuario parte de cero, con su propio rol
     $("vistaAuth").classList.toggle("hidden", !!sesion);
     $("vistaApp").classList.toggle("hidden", !sesion);
     $("userBox").classList.toggle("hidden", !sesion);
     $("userName").textContent = sesion?.user.email.split("@")[0] ?? "";
     // setTimeout: no llamar a Supabase dentro del callback de auth (bloquea el cliente)
-    if (sesion) setTimeout(() => mostrarNombre(sesion.user.id), 0);
-    if (sesion && !iniciado) { iniciado = true; setTimeout(alEntrar, 0); }
+    if (sesion && !iniciado) {
+      iniciado = true;
+      setTimeout(async () => {
+        const perfil = await cargarPerfil(sesion.user.id);
+        if (perfil.nombre) $("userName").textContent = perfil.nombre;
+        $("navDashboard").hidden = perfil.rol !== "admin";
+        alEntrar(perfil);
+      }, 0);
+    }
   });
 }

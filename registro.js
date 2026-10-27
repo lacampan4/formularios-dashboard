@@ -142,7 +142,18 @@ async function cargarListas() {
   $("dl-maquinas").innerHTML = opciones([...new Set(ots.data.map((o) => o.maquina))]);
 }
 
-async function alEntrar() {
+async function alEntrar(perfil) {
+  // Solo las pestañas de los formatos de su rol (sql/3_roles.sql); la base de datos también lo impone
+  const { data: rf } = await db.from("rol_formatos").select("formato").eq("rol", perfil.rol);
+  const permitidos = perfil.rol === "admin" ? FORMS : FORMS.filter((f) => (rf ?? []).some((r) => r.formato === f.toUpperCase()));
+  FORMS.forEach((f) => $("tab" + f).hidden = !permitidos.includes(f));
+  if (!permitidos.length) {
+    $("vistaApp").innerHTML = `<div class="card"><h2>Sin formularios asignados</h2>
+      <p class="nota">Su usuario todavía no tiene un rol. Pida a la Dirección de Operaciones que se lo asigne.</p></div>`;
+    return;
+  }
+  $("tab" + permitidos[0]).click();
+
   const { data, error } = await db.from("codigos_falla").select("codigo, descripcion").order("codigo");
   if (error) return aviso("No se pudieron cargar los códigos de falla: " + error.message, true);
   $("fila-ot").content.querySelector(".sel-codigo").innerHTML =

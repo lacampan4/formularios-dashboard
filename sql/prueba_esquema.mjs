@@ -22,10 +22,14 @@ await db.exec(`
 await db.exec(readFileSync(`${dir}/1_esquema.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/2_semillas.sql`, "utf8"));
 // Crear usuarios en auth.users llena public.usuarios (como hace Supabase > Authentication > Add user)
+const SIN_ROL = "22222222-2222-2222-2222-222222222222", PROD = "33333333-3333-3333-3333-333333333333";
 await db.exec(`insert into auth.users values ('${U}', 'fredy.verdugo@usuarios.lacampana.co', '{"nombre": "Fredy Verdugo"}'),
-  ('22222222-2222-2222-2222-222222222222', 'lina.h@usuarios.lacampana.co', '{}');`);
+  ('${SIN_ROL}', 'lina.h@usuarios.lacampana.co', '{}'), ('${PROD}', 'cesar.r@usuarios.lacampana.co', '{}');`);
+await db.exec(readFileSync(`${dir}/3_roles.sql`, "utf8"));
+// El rol lo asigna el administrador en Table Editor > usuarios
+await db.exec(`update usuarios set rol = 'admin' where id = '${U}'; update usuarios set rol = 'produccion' where id = '${PROD}';`);
 
-const comoUsuario = () => db.exec(`reset role; set app.uid = '${U}'; set role authenticated;`);
+const comoUsuario = (uid = U) => db.exec(`reset role; set app.uid = '${uid}'; set role authenticated;`);
 const val = async (sql, p) => Object.values((await db.query(sql, p)).rows[0] ?? {})[0];
 const falla = async (sql, p, texto) => {
   await db.exec("savepoint s");
@@ -37,9 +41,12 @@ await db.exec("begin");
 assert.equal(await val("select count(*)::int from codigos_falla"), 87);
 assert.equal(await val("select count(*)::int from codigos_falla where codigo = 77"), 0);
 
+assert.equal(await val("select nombre from usuarios where usuario = 'lina.h'"), "lina.h");   // sin nombre: usa el usuario
+assert.equal(await val("select rol from usuarios where usuario = 'lina.h'"), "sin_rol");    // usuario nuevo: sin rol
+
 await comoUsuario();
 assert.equal(await val(`select nombre from usuarios where id = '${U}'`), "Fredy Verdugo");
-assert.equal(await val("select nombre from usuarios where usuario = 'lina.h'"), "lina.h"); // sin nombre: usa el usuario
+assert.equal(await val("select count(*)::int from usuarios"), 1);                           // cada uno ve solo su perfil
 await falla("insert into usuarios values (gen_random_uuid(), 'x', 'x')", [], /permission denied/);
 await falla("update usuarios set nombre = 'otro'", [], /permission denied/);
 
@@ -93,6 +100,31 @@ assert.match(await os({ area_solicitante: "Formadoras", prioridad: "Rojo", ot_id
 // Vistas del dashboard
 assert.equal(await val("select count(*)::int from v_ordenes"), 3);
 assert.equal(await val("select count(*)::int from v_fallas where codigo_falla = 5"), 2);
+
+// Producción: llena OT y OS; no ATS ni Permiso; no ve el dashboard, no firma ni cambia su rol
+await comoUsuario(PROD);
+assert.match(await ot({ maquina: "Tubería 3", prioridad: "Verde" }, linea), /^OT-\d{4}$/);
+assert.match(await os({ area_solicitante: "Tuberías", prioridad: "Verde" }, [item]), /^OS-\d{4}$/);
+await falla("select crear_ats($1, $2, $3)", [{ ...ats, firma_coord_alturas: "Lina" }, trab, pasos], /row-level security/);
+await falla(permiso, [null, ["alturas"], null], /row-level security/);
+assert.equal(await val("select count(*)::int from v_ordenes"), 0);
+assert.equal(await val("select count(*)::int from v_fallas"), 0);
+assert.equal(await val("select count(*)::int from ordenes_suministro"), 1);                             // solo la suya
+assert.equal(await val("select count(*)::int from ot_lineas"), 0);
+assert.equal(await val("select count(*)::int from ats"), 0);
+assert.equal(await val("select count(*)::int from usuarios"), 1);                                       // solo su perfil
+await db.query("update ordenes_trabajo set autorizado_por = 'yo' where id = 1");                          // RLS: no actualiza nada
+await falla("update usuarios set rol = 'admin'", [], /permission denied/);
+// Producción no puede colgar líneas a una OT ajena
+await falla("insert into ot_lineas (ot_id, codigo_falla, reporte) values (1, 5, 'x')", [], /row-level security/);
+await comoUsuario();
+assert.equal(await val("select autorizado_por from ordenes_trabajo where id = 1"), "Ivan");
+
+// Sin rol: no hace nada
+await comoUsuario(SIN_ROL);
+await falla("select crear_ot($1, $2)", [{ maquina: "F1", prioridad: "Rojo" }, linea], /row-level security/);
+await falla("select crear_os($1, $2)", [{ area_solicitante: "Corte", prioridad: "Rojo" }, [item]], /row-level security/);
+assert.equal(await val("select count(*)::int from ordenes_trabajo"), 0);
 
 // Sin sesión no se ve ni se crea nada
 await db.exec("reset role; set app.uid = ''; set role anon;");

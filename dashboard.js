@@ -150,4 +150,10 @@ $("formFirmas").onsubmit = async (e) => {
   cargar();
 };
 
-iniciarSesion(cargar);
+// Solo el rol admin ve el dashboard; las vistas v_ordenes y v_fallas tampoco devuelven nada a otros roles
+iniciarSesion((perfil) => {
+  if (perfil.rol === "admin") return cargar();
+  $("vistaApp").innerHTML = `<div class="card"><h2>Acceso restringido</h2>
+    <p class="nota">El dashboard es solo para la Dirección de Operaciones.</p>
+    <p><a class="btn btn-red" href="registro.html">Ir al registro</a></p></div>`;
+});
