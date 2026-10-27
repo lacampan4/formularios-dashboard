@@ -44,7 +44,7 @@ function reiniciar(form) {
 async function guardar(form, accion) {
   const m = form.querySelector(".msg");
   if (!form.reportValidity()) return msg(m, "Revise los campos marcados.", "error");
-  const btn = form.querySelector(".acciones .btn");
+  const btn = form.querySelector(".btn-guardar");
   btn.disabled = true; msg(m, "Guardando...");
   try {
     const texto = await accion();
@@ -62,10 +62,12 @@ FORMS.forEach((f) => $("tab" + f).onclick = () => FORMS.forEach((g) => {
   $("form" + g).classList.toggle("hidden", f !== g);
 }));
 
-// Agregar / quitar filas (deja siempre una)
+// Agregar / quitar filas (deja siempre una) y limpiar. closest(): el clic puede caer en el ícono del botón.
 document.addEventListener("click", (e) => {
-  if (e.target.matches("[data-agregar]")) agregarFila(e.target.form.querySelector(".tabla"));
-  if (e.target.matches("[data-quitar]")) { const tb = e.target.closest("tbody"); if (tb.rows.length > 1) e.target.closest("tr").remove(); }
+  const agregar = e.target.closest("[data-agregar]"), quitar = e.target.closest("[data-quitar]"), limpiar = e.target.closest("[data-limpiar]");
+  if (agregar) agregarFila(agregar.closest(".bloque").querySelector(".tabla")); // la tabla de su propia sección
+  if (quitar) { const tb = quitar.closest("tbody"); if (tb.rows.length > 1) quitar.closest("tr").remove(); }
+  if (limpiar && confirm("¿Borrar todo lo escrito en este formulario?")) { reiniciar(limpiar.form); msg(limpiar.form.querySelector(".msg"), ""); }
 });
 
 // ---------------- Catálogos fijos ----------------

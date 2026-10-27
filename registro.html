@@ -30,228 +30,273 @@
     </div>
 
     <!-- ================= FO-OPE-001 ORDEN DE TRABAJO ================= -->
-    <form class="card" id="formOT" role="tabpanel" aria-labelledby="tabOT" novalidate>
-      <div class="formato-head">
-        <div><h2>Orden de Trabajo</h2><p>FO-OPE-001 · Versión 01</p></div>
+    <form class="formato" id="formOT" role="tabpanel" aria-labelledby="tabOT" novalidate>
+      <div class="page-head">
+        <span class="ico ico-lg" data-icono="doc"></span>
+        <div><h2>Orden de Trabajo</h2><p>FO-OPE-001 · Versión 01 · Complete los campos requeridos para guardar la orden.</p></div>
         <div class="no-orden"><b>No. ORDEN</b><span>Se asigna al guardar</span></div>
       </div>
 
-      <div class="grid">
-        <label class="campo"><span class="req">Máquina</span><input name="maquina" list="dl-maquinas" required placeholder="Nombre o código de la máquina"></label>
-        <div class="campo"><span>Fecha y hora</span><p class="nota">Se registra automáticamente al guardar.</p></div>
-        <label class="campo"><span>Hora real del evento (si se pidió de palabra)</span><input type="datetime-local" name="hora_evento"></label>
-      </div>
-
-      <fieldset class="campo" style="margin-top:16px">
-        <legend class="req">Prioridad</legend>
-        <div class="prioridad">
-          <label class="rojo"><input type="radio" name="prioridad" value="Rojo" required><span>Rojo<small>Urgente</small></span></label>
-          <label class="amarillo"><input type="radio" name="prioridad" value="Amarillo"><span>Amarillo<small>Programable</small></span></label>
-          <label class="verde"><input type="radio" name="prioridad" value="Verde"><span>Verde<small>Preventivo</small></span></label>
+      <section class="card bloque">
+        <h3 class="seccion"><span class="ico" data-icono="info"></span>1. Información general</h3>
+        <div class="grid">
+          <label class="campo"><span class="req">Máquina</span><input name="maquina" list="dl-maquinas" required placeholder="Nombre o código de la máquina"></label>
+          <div class="campo"><span>Fecha y hora</span><p class="nota">Se registra automáticamente al guardar.</p></div>
+          <label class="campo"><span>Hora real del evento (si se pidió de palabra)</span><input type="datetime-local" name="hora_evento"></label>
         </div>
-        <p class="nota">Rojo es solo para emergencias: máquina parada, riesgo para personas o un pedido que se cae hoy.</p>
-      </fieldset>
+        <fieldset class="campo" style="margin-top:16px">
+          <legend class="req">Prioridad</legend>
+          <div class="prioridad">
+            <label class="rojo"><input type="radio" name="prioridad" value="Rojo" required><span>Rojo<small>Urgente</small></span></label>
+            <label class="amarillo"><input type="radio" name="prioridad" value="Amarillo"><span>Amarillo<small>Programable</small></span></label>
+            <label class="verde"><input type="radio" name="prioridad" value="Verde"><span>Verde<small>Preventivo</small></span></label>
+          </div>
+          <p class="nota">Rojo es solo para emergencias: máquina parada, riesgo para personas o un pedido que se cae hoy.</p>
+        </fieldset>
+        <div class="checks" style="margin-top:6px">
+          <label class="check"><input type="checkbox" name="riesgo_personas" id="otRiesgo"> Hay riesgo para personas</label>
+          <label class="check"><input type="checkbox" name="alto_riesgo" id="otAltoRiesgo"> Tarea de alto riesgo (alturas, caliente o energías peligrosas)</label>
+        </div>
+        <p class="alerta hidden" id="otAvisoSST">Avise de inmediato a SST (Lina Hernández). La orden queda en prioridad Rojo.</p>
+        <p class="alerta hidden" id="otAvisoATS">No se empieza sin ATS y Permiso de Trabajo firmados. La OT no podrá marcarse como entregada sin ellos.</p>
+      </section>
 
-      <div class="checks" style="margin-top:10px">
-        <label class="check"><input type="checkbox" name="riesgo_personas" id="otRiesgo"> Hay riesgo para personas</label>
-        <label class="check"><input type="checkbox" name="alto_riesgo" id="otAltoRiesgo"> Tarea de alto riesgo (alturas, caliente o energías peligrosas)</label>
+      <section class="card bloque">
+        <h3 class="seccion"><span class="ico" data-icono="llave"></span>2. Código y reporte de falla</h3>
+        <div class="table-wrap">
+          <table class="tabla" data-fila="ot">
+            <thead><tr><th class="req">Código</th><th class="req">Reporte de falla</th><th><span class="sr-only">Quitar</span></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button type="button" class="btn btn-sec btn-ico" data-agregar><span class="ico" data-icono="mas"></span>Agregar fila</button>
+        <p class="nota">Si ningún código aplica use 83 – Otros y explique en el reporte.</p>
+      </section>
+
+      <section class="card bloque">
+        <h3 class="seccion"><span class="ico" data-icono="firma"></span>3. Firmas</h3>
+        <div class="grid">
+          <label class="campo"><span>Autorizado por</span><input name="autorizado_por" list="dl-personas" placeholder="Nombre completo"></label>
+          <label class="campo"><span>Entregado por</span><input name="entregado_por" list="dl-personas" placeholder="Nombre completo"></label>
+          <label class="campo"><span>Recibido por</span><input name="recibido_por" list="dl-personas" placeholder="Nombre completo"></label>
+        </div>
+        <p class="nota">Las que falten las completa la Dirección de Operaciones desde el Dashboard. La orden se cierra cuando tiene las tres.</p>
+      </section>
+
+      <div class="acciones">
+        <button type="button" class="btn btn-sec btn-ico" data-limpiar><span class="ico" data-icono="basura"></span>Limpiar formulario</button>
+        <button class="btn btn-red btn-ico btn-guardar"><span class="ico" data-icono="guardar"></span>Guardar orden de trabajo</button>
       </div>
-      <p class="alerta hidden" id="otAvisoSST">Avise de inmediato a SST (Lina Hernández). La orden queda en prioridad Rojo.</p>
-      <p class="alerta hidden" id="otAvisoATS">No se empieza sin ATS y Permiso de Trabajo firmados. La OT no podrá marcarse como entregada sin ellos.</p>
-
-      <h3 class="seccion">Código y reporte de falla</h3>
-      <div class="table-wrap">
-        <table class="tabla" data-fila="ot">
-          <thead><tr><th class="req">Código</th><th class="req">Reporte de falla</th><th><span class="sr-only">Quitar</span></th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <button type="button" class="btn btn-sec" data-agregar>+ Agregar fila</button>
-      <p class="nota">Si ningún código aplica use 83 – Otros y explique en el reporte.</p>
-
-      <h3 class="seccion">Firmas</h3>
-      <div class="grid">
-        <label class="campo"><span>Autorizado por</span><input name="autorizado_por" list="dl-personas"></label>
-        <label class="campo"><span>Entregado por</span><input name="entregado_por" list="dl-personas"></label>
-        <label class="campo"><span>Recibido por</span><input name="recibido_por" list="dl-personas"></label>
-      </div>
-      <p class="nota">Las que falten las completa la Dirección de Operaciones desde el Dashboard. La orden se cierra cuando tiene las tres.</p>
-
-      <div class="acciones"><button class="btn btn-red">Guardar orden de trabajo</button></div>
       <p class="msg" role="status"></p>
     </form>
 
     <!-- ================= FO-OPE-002 ORDEN DE SUMINISTRO ================= -->
-    <form class="card hidden" id="formOS" role="tabpanel" aria-labelledby="tabOS" novalidate>
-      <div class="formato-head">
-        <div><h2>Orden de Suministro</h2><p>FO-OPE-002 · Versión 01</p></div>
+    <form class="formato hidden" id="formOS" role="tabpanel" aria-labelledby="tabOS" novalidate>
+      <div class="page-head">
+        <span class="ico ico-lg" data-icono="doc"></span>
+        <div><h2>Orden de Suministro</h2><p>FO-OPE-002 · Versión 01 · Complete los campos requeridos para guardar la orden.</p></div>
         <div class="no-orden"><b>No. ORDEN</b><span>Se asigna al guardar</span></div>
       </div>
 
-      <div class="grid">
-        <label class="campo"><span class="req">Área solicitante</span><select name="area_solicitante" id="osArea" required></select></label>
-        <div class="campo"><span>Fecha y hora</span><p class="nota">Se registra automáticamente al guardar.</p></div>
-        <label class="campo"><span>OT relacionada (si es para una OT)</span><select name="ot_id" data-tipo="num" class="sel-ot"></select></label>
-      </div>
-
-      <fieldset class="campo" style="margin-top:16px">
-        <legend class="req">Prioridad</legend>
-        <div class="prioridad">
-          <label class="rojo"><input type="radio" name="prioridad" value="Rojo" required><span>Rojo<small>Urgente</small></span></label>
-          <label class="amarillo"><input type="radio" name="prioridad" value="Amarillo"><span>Amarillo<small>Programable</small></span></label>
-          <label class="verde"><input type="radio" name="prioridad" value="Verde"><span>Verde<small>Preventivo</small></span></label>
+      <section class="card bloque">
+        <h3 class="seccion"><span class="ico" data-icono="info"></span>1. Información general</h3>
+        <div class="grid">
+          <label class="campo"><span class="req">Área solicitante</span><select name="area_solicitante" id="osArea" required></select></label>
+          <div class="campo"><span>Fecha y hora</span><p class="nota">Se registra automáticamente al guardar.</p></div>
+          <label class="campo"><span>OT relacionada (si es para una OT)</span><select name="ot_id" data-tipo="num" class="sel-ot"></select></label>
         </div>
-      </fieldset>
+        <fieldset class="campo" style="margin-top:16px">
+          <legend class="req">Prioridad</legend>
+          <div class="prioridad">
+            <label class="rojo"><input type="radio" name="prioridad" value="Rojo" required><span>Rojo<small>Urgente</small></span></label>
+            <label class="amarillo"><input type="radio" name="prioridad" value="Amarillo"><span>Amarillo<small>Programable</small></span></label>
+            <label class="verde"><input type="radio" name="prioridad" value="Verde"><span>Verde<small>Preventivo</small></span></label>
+          </div>
+        </fieldset>
+      </section>
 
-      <h3 class="seccion">Ítems</h3>
-      <div class="table-wrap">
-        <table class="tabla" data-fila="os">
-          <thead><tr><th class="req">Máquina</th><th>Referencia</th><th>Marca</th><th>Código</th><th class="req">Cantidad</th><th class="req">Medida</th><th class="req">Descripción</th><th>Función</th><th><span class="sr-only">Quitar</span></th></tr></thead>
-          <tbody></tbody>
-        </table>
+      <section class="card bloque">
+        <h3 class="seccion"><span class="ico" data-icono="caja"></span>2. Ítems solicitados</h3>
+        <div class="table-wrap">
+          <table class="tabla" data-fila="os">
+            <thead><tr><th class="req">Máquina</th><th>Referencia</th><th>Marca</th><th>Código</th><th class="req">Cantidad</th><th class="req">Medida</th><th class="req">Descripción</th><th>Función</th><th><span class="sr-only">Quitar</span></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button type="button" class="btn btn-sec btn-ico" data-agregar><span class="ico" data-icono="mas"></span>Agregar ítem</button>
+        <p class="nota">Cuando la máquina trabaja dos turnos, el primer turno deja listos los suministros del segundo.</p>
+      </section>
+
+      <section class="card bloque">
+        <h3 class="seccion"><span class="ico" data-icono="firma"></span>3. Firmas</h3>
+        <div class="grid">
+          <label class="campo"><span>Autorizado por</span><input name="autorizado_por" list="dl-personas" placeholder="Nombre completo"></label>
+          <label class="campo"><span>Entregado por (almacén o compras)</span><input name="entregado_por" list="dl-personas" placeholder="Nombre completo"></label>
+          <label class="campo"><span>Recibido por</span><input name="recibido_por" list="dl-personas" placeholder="Nombre completo"></label>
+        </div>
+      </section>
+
+      <div class="acciones">
+        <button type="button" class="btn btn-sec btn-ico" data-limpiar><span class="ico" data-icono="basura"></span>Limpiar formulario</button>
+        <button class="btn btn-red btn-ico btn-guardar"><span class="ico" data-icono="guardar"></span>Guardar orden de suministro</button>
       </div>
-      <button type="button" class="btn btn-sec" data-agregar>+ Agregar ítem</button>
-      <p class="nota">Cuando la máquina trabaja dos turnos, el primer turno deja listos los suministros del segundo.</p>
-
-      <h3 class="seccion">Firmas</h3>
-      <div class="grid">
-        <label class="campo"><span>Autorizado por</span><input name="autorizado_por" list="dl-personas"></label>
-        <label class="campo"><span>Entregado por (almacén o compras)</span><input name="entregado_por" list="dl-personas"></label>
-        <label class="campo"><span>Recibido por</span><input name="recibido_por" list="dl-personas"></label>
-      </div>
-
-      <div class="acciones"><button class="btn btn-red">Guardar orden de suministro</button></div>
       <p class="msg" role="status"></p>
     </form>
 
     <!-- ================= FR-SST-011 ATS ================= -->
-    <form class="card hidden" id="formATS" role="tabpanel" aria-labelledby="tabATS" novalidate>
-      <div class="formato-head">
+    <form class="formato hidden" id="formATS" role="tabpanel" aria-labelledby="tabATS" novalidate>
+      <div class="page-head">
+        <span class="ico ico-lg" data-icono="escudo"></span>
         <div><h2>Análisis de Trabajo Seguro</h2><p>FR-SST-011 · Versión 1 · Diligencie todas las casillas antes de iniciar la tarea.</p></div>
       </div>
 
-      <div class="grid">
-        <label class="campo"><span class="req">Orden de trabajo</span><select name="ot_id" data-tipo="num" class="sel-ot" required></select></label>
-        <label class="campo"><span>Sede</span><input name="sede"></label>
-        <label class="campo"><span>Área de ubicación del trabajo</span><input name="area"></label>
-        <label class="campo"><span>Jefe inmediato</span><input name="jefe_inmediato" list="dl-personas"></label>
-        <label class="campo"><span>Responsables del trabajo</span><input name="responsables"></label>
-      </div>
-
-      <fieldset style="margin-top:16px">
-        <legend>Permisos de trabajo adicionales</legend>
-        <div class="checks">
-          <label class="check"><input type="checkbox" name="alturas" id="atsAlturas"> Trabajo en alturas</label>
-          <label class="check"><input type="checkbox" name="caliente"> Trabajo en caliente</label>
-          <label class="check"><input type="checkbox" name="energias"> Energías peligrosas</label>
+      <section class="card bloque">
+        <h3 class="seccion"><span class="ico" data-icono="info"></span>1. Información general</h3>
+        <div class="grid">
+          <label class="campo"><span class="req">Orden de trabajo</span><select name="ot_id" data-tipo="num" class="sel-ot" required></select></label>
+          <label class="campo"><span>Sede</span><input name="sede" placeholder="Sede"></label>
+          <label class="campo"><span>Área de ubicación del trabajo</span><input name="area" placeholder="Área"></label>
+          <label class="campo"><span>Jefe inmediato</span><input name="jefe_inmediato" list="dl-personas" placeholder="Nombre completo"></label>
+          <label class="campo"><span>Responsables del trabajo</span><input name="responsables" placeholder="Nombres"></label>
         </div>
-      </fieldset>
+        <fieldset style="margin-top:16px">
+          <legend>Permisos de trabajo adicionales</legend>
+          <div class="checks">
+            <label class="check"><input type="checkbox" name="alturas" id="atsAlturas"> Trabajo en alturas</label>
+            <label class="check"><input type="checkbox" name="caliente"> Trabajo en caliente</label>
+            <label class="check"><input type="checkbox" name="energias"> Energías peligrosas</label>
+          </div>
+        </fieldset>
+      </section>
 
-      <h3 class="seccion">Datos de identificación · Trabajadores autorizados</h3>
-      <div class="table-wrap">
-        <table class="tabla" data-fila="trab">
-          <thead><tr><th class="req">Nombre</th><th>Cargo</th><th class="req">Óptimo estado de salud</th><th class="req">Medicamentos que causan sueño</th><th class="req">Afiliación vigente al SGSS</th><th class="req">Certificado para la actividad</th><th><span class="sr-only">Quitar</span></th></tr></thead>
-          <tbody></tbody>
-        </table>
+      <section class="card bloque">
+        <h3 class="seccion"><span class="ico" data-icono="personas"></span>2. Trabajadores autorizados</h3>
+        <div class="table-wrap">
+          <table class="tabla" data-fila="trab">
+            <thead><tr><th class="req">Nombre</th><th>Cargo</th><th class="req">Óptimo estado de salud</th><th class="req">Medicamentos que causan sueño</th><th class="req">Afiliación vigente al SGSS</th><th class="req">Certificado para la actividad</th><th><span class="sr-only">Quitar</span></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button type="button" class="btn btn-sec btn-ico" data-agregar><span class="ico" data-icono="mas"></span>Agregar trabajador</button>
+      </section>
+
+      <section class="card bloque">
+        <h3 class="seccion"><span class="ico" data-icono="caja"></span>3. Descripción de la labor</h3>
+        <div class="grid grid-2">
+          <label class="campo"><span class="req">Descripción de la labor</span><textarea name="descripcion_labor" required placeholder="Tarea a realizar y medios o recursos que necesita"></textarea></label>
+          <label class="campo"><span>Equipos, herramientas, materiales y/o sustancias químicas</span><textarea name="equipos" placeholder="Escriba los equipos (opcional)"></textarea></label>
+        </div>
+      </section>
+
+      <section class="card bloque">
+        <h3 class="seccion"><span class="ico" data-icono="lista"></span>4. Paso a paso de la actividad</h3>
+        <div class="table-wrap">
+          <table class="tabla" data-fila="paso">
+            <thead><tr><th class="req">Paso</th><th>Peligros / riesgos del entorno</th><th>Consecuencias</th><th class="req">Medidas de control</th><th><span class="sr-only">Quitar</span></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button type="button" class="btn btn-sec btn-ico" data-agregar><span class="ico" data-icono="mas"></span>Agregar paso</button>
+        <p class="nota">Si cambian las condiciones (lluvia, viento fuerte, tormenta eléctrica, emergencia) el permiso queda suspendido hasta nueva orden.</p>
+      </section>
+
+      <section class="card bloque">
+        <h3 class="seccion"><span class="ico" data-icono="firma"></span>5. Fechas y responsables</h3>
+        <div class="grid">
+          <label class="campo"><span class="req">Fecha de apertura</span><input type="date" name="fecha_apertura" required></label>
+          <label class="campo"><span>Fecha de cierre</span><input type="date" name="fecha_cierre"></label>
+          <label class="campo"><span class="req">Trabajador encargado de la tarea</span><input name="firma_encargado" required placeholder="Nombre completo"></label>
+          <label class="campo"><span class="req">Jefe inmediato (firma)</span><input name="firma_jefe" list="dl-personas" required placeholder="Nombre completo"></label>
+          <label class="campo"><span id="lblCoord">Coordinador de trabajo en alturas (si aplica)</span><input name="firma_coord_alturas" id="atsCoord" placeholder="Nombre completo"></label>
+          <label class="campo"><span>Seguridad y Salud en el Trabajo</span><input name="firma_sst" list="dl-personas" placeholder="Nombre completo"></label>
+        </div>
+      </section>
+
+      <div class="acciones">
+        <button type="button" class="btn btn-sec btn-ico" data-limpiar><span class="ico" data-icono="basura"></span>Limpiar formulario</button>
+        <button class="btn btn-red btn-ico btn-guardar"><span class="ico" data-icono="guardar"></span>Guardar ATS</button>
       </div>
-      <button type="button" class="btn btn-sec" data-agregar>+ Agregar trabajador</button>
-
-      <div class="grid" style="margin-top:16px">
-        <label class="campo"><span class="req">Descripción de la labor</span><textarea name="descripcion_labor" required placeholder="Tarea a realizar y medios o recursos que necesita"></textarea></label>
-        <label class="campo"><span>Equipos, herramientas, materiales y/o sustancias químicas</span><textarea name="equipos"></textarea></label>
-      </div>
-
-      <h3 class="seccion">Paso a paso de la actividad</h3>
-      <div class="table-wrap">
-        <table class="tabla" data-fila="paso">
-          <thead><tr><th class="req">Paso</th><th>Peligros / riesgos del entorno</th><th>Consecuencias</th><th class="req">Medidas de control</th><th><span class="sr-only">Quitar</span></th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <button type="button" class="btn btn-sec" data-agregar>+ Agregar paso</button>
-      <p class="nota">Si cambian las condiciones (lluvia, viento fuerte, tormenta eléctrica, emergencia) el permiso queda suspendido hasta nueva orden.</p>
-
-      <h3 class="seccion">Fechas y responsables</h3>
-      <div class="grid">
-        <label class="campo"><span class="req">Fecha de apertura</span><input type="date" name="fecha_apertura" required></label>
-        <label class="campo"><span>Fecha de cierre</span><input type="date" name="fecha_cierre"></label>
-        <label class="campo"><span class="req">Trabajador encargado de la tarea</span><input name="firma_encargado" required></label>
-        <label class="campo"><span class="req">Jefe inmediato (firma)</span><input name="firma_jefe" list="dl-personas" required></label>
-        <label class="campo"><span id="lblCoord">Coordinador de trabajo en alturas (si aplica)</span><input name="firma_coord_alturas" id="atsCoord"></label>
-        <label class="campo"><span>Seguridad y Salud en el Trabajo</span><input name="firma_sst" list="dl-personas"></label>
-      </div>
-
-      <div class="acciones"><button class="btn btn-red">Guardar ATS</button></div>
       <p class="msg" role="status"></p>
     </form>
 
     <!-- ================= FR-SST-039 PERMISO ================= -->
-    <form class="card hidden" id="formPermiso" role="tabpanel" aria-labelledby="tabPermiso" novalidate>
-      <div class="formato-head">
+    <form class="formato hidden" id="formPermiso" role="tabpanel" aria-labelledby="tabPermiso" novalidate>
+      <div class="page-head">
+        <span class="ico ico-lg" data-icono="escudo"></span>
         <div><h2>Permiso de Trabajo Tareas de Alto Riesgo</h2><p>FR-SST-039 · Versión 1 · Área de Mantenimiento</p></div>
       </div>
 
-      <div class="grid">
-        <label class="campo"><span class="req">Orden de trabajo</span><select name="ot_id" data-tipo="num" class="sel-ot" required></select></label>
-        <label class="campo"><span>ATS relacionado</span><select name="ats_id" data-tipo="num" id="selATS"></select></label>
-      </div>
+      <section class="card bloque">
+        <h3 class="seccion"><span class="ico" data-icono="info"></span>1. Datos básicos del permiso</h3>
+        <div class="grid">
+          <label class="campo"><span class="req">Orden de trabajo</span><select name="ot_id" data-tipo="num" class="sel-ot" required></select></label>
+          <label class="campo"><span>ATS relacionado</span><select name="ats_id" data-tipo="num" id="selATS"></select></label>
+          <label class="campo"><span class="req">Área / proceso</span><input name="area_proceso" required placeholder="Área o proceso"></label>
+          <label class="campo"><span>Ubicación donde se realiza la labor</span><input name="ubicacion" placeholder="Ubicación"></label>
+          <label class="campo"><span>Sede</span><input name="sede" placeholder="Sede"></label>
+          <label class="campo"><span class="req">Fecha de ejecución</span><input type="date" name="fecha_ejecucion" required></label>
+          <label class="campo"><span>Hora de inicio estimada</span><input type="time" name="hora_inicio"></label>
+          <label class="campo"><span>Hora de finalización estimada</span><input type="time" name="hora_fin"></label>
+          <label class="campo"><span>Vigencia del permiso</span><input name="vigencia" placeholder="Ej: 1 día"></label>
+          <label class="campo"><span class="req">Trabajador encargado</span><input name="trabajador_encargado" required placeholder="Nombre completo"></label>
+          <label class="campo"><span>Ayudante de seguridad</span><input name="ayudante_seguridad" placeholder="Nombre completo"></label>
+        </div>
+      </section>
 
-      <h3 class="seccion">1. Datos básicos del permiso</h3>
-      <div class="grid">
-        <label class="campo"><span class="req">Área / proceso</span><input name="area_proceso" required></label>
-        <label class="campo"><span>Ubicación donde se realiza la labor</span><input name="ubicacion"></label>
-        <label class="campo"><span>Sede</span><input name="sede"></label>
-        <label class="campo"><span class="req">Fecha de ejecución</span><input type="date" name="fecha_ejecucion" required></label>
-        <label class="campo"><span>Hora de inicio estimada</span><input type="time" name="hora_inicio"></label>
-        <label class="campo"><span>Hora de finalización estimada</span><input type="time" name="hora_fin"></label>
-        <label class="campo"><span>Vigencia del permiso</span><input name="vigencia"></label>
-        <label class="campo"><span class="req">Trabajador encargado</span><input name="trabajador_encargado" required></label>
-        <label class="campo"><span>Ayudante de seguridad</span><input name="ayudante_seguridad"></label>
-      </div>
-
-      <h3 class="seccion">2. Descripción del trabajo a realizar</h3>
-      <div class="grid">
-        <label class="campo"><span class="req">Tarea a realizar</span><input name="tarea" required></label>
-        <label class="campo"><span>Herramientas y/o equipos a utilizar</span><textarea name="herramientas"></textarea></label>
-      </div>
-      <label class="campo" style="margin-top:14px"><span>Descripción de la tarea a ejecutar</span><textarea name="descripcion"></textarea></label>
-      <fieldset style="margin-top:14px">
-        <legend class="req">Tipo de tarea de alto riesgo (sección 5 que aplica)</legend>
-        <div class="checks" id="tiposPermiso"></div>
-      </fieldset>
-      <div class="grid" id="bloqueElectrico" hidden>
-        <fieldset class="campo">
-          <legend class="req">Método de trabajo eléctrico</legend>
-          <div class="checks">
-            <label class="check"><input type="radio" name="metodo_electrico" value="Energizado"> Energizado</label>
-            <label class="check"><input type="radio" name="metodo_electrico" value="Desenergizado"> Desenergizado</label>
-          </div>
+      <section class="card bloque">
+        <h3 class="seccion"><span class="ico" data-icono="llave"></span>2. Descripción del trabajo a realizar</h3>
+        <div class="grid grid-2">
+          <label class="campo"><span class="req">Tarea a realizar</span><input name="tarea" required placeholder="Tarea"></label>
+          <label class="campo"><span>Herramientas y/o equipos a utilizar</span><textarea name="herramientas" placeholder="Herramientas (opcional)"></textarea></label>
+        </div>
+        <label class="campo" style="margin-top:14px"><span>Descripción de la tarea a ejecutar</span><textarea name="descripcion" placeholder="Describa la tarea (opcional)"></textarea></label>
+        <fieldset style="margin-top:14px">
+          <legend class="req">Tipo de tarea de alto riesgo (sección 5 que aplica)</legend>
+          <div class="checks" id="tiposPermiso"></div>
         </fieldset>
-        <label class="campo"><span>Nivel de tensión</span><input name="nivel_tension"></label>
-      </div>
+        <div class="grid" id="bloqueElectrico" hidden>
+          <fieldset class="campo">
+            <legend class="req">Método de trabajo eléctrico</legend>
+            <div class="checks">
+              <label class="check"><input type="radio" name="metodo_electrico" value="Energizado"> Energizado</label>
+              <label class="check"><input type="radio" name="metodo_electrico" value="Desenergizado"> Desenergizado</label>
+            </div>
+          </fieldset>
+          <label class="campo"><span>Nivel de tensión</span><input name="nivel_tension" placeholder="Ej: 440 V"></label>
+        </div>
+      </section>
 
-      <h3 class="seccion">3. Medidas de prevención y protección (EPP)</h3>
-      <div class="grid" id="eppLista"></div>
+      <section class="card bloque">
+        <h3 class="seccion"><span class="ico" data-icono="escudo"></span>3. Medidas de prevención y protección (EPP)</h3>
+        <div class="grid" id="eppLista"></div>
+      </section>
 
-      <h3 class="seccion">Documentos anexos y firmas de emisión</h3>
-      <div class="checks">
-        <label class="check"><input type="checkbox" name="afiliacion_ss"> Afiliación a seguridad social revisada</label>
-        <label class="check"><input type="checkbox" name="aptitud_medica"> Aptitud médica revisada</label>
-      </div>
-      <div class="grid">
-        <label class="campo"><span class="req">Ejecutor</span><input name="firma_ejecutor" required></label>
-        <label class="campo"><span class="req">Emisor</span><input name="firma_emisor" list="dl-personas" required></label>
-        <label class="campo"><span>Revisado por SST</span><input name="revisado_sst" list="dl-personas"></label>
-      </div>
+      <section class="card bloque">
+        <h3 class="seccion"><span class="ico" data-icono="firma"></span>4. Documentos anexos y firmas de emisión</h3>
+        <div class="checks">
+          <label class="check"><input type="checkbox" name="afiliacion_ss"> Afiliación a seguridad social revisada</label>
+          <label class="check"><input type="checkbox" name="aptitud_medica"> Aptitud médica revisada</label>
+        </div>
+        <div class="grid">
+          <label class="campo"><span class="req">Ejecutor</span><input name="firma_ejecutor" required placeholder="Nombre completo"></label>
+          <label class="campo"><span class="req">Emisor</span><input name="firma_emisor" list="dl-personas" required placeholder="Nombre completo"></label>
+          <label class="campo"><span>Revisado por SST</span><input name="revisado_sst" list="dl-personas" placeholder="Nombre completo"></label>
+        </div>
+      </section>
 
-      <h3 class="seccion">Cierre del permiso</h3>
-      <div class="grid">
-        <label class="campo"><span>Cierre trabajador</span><select name="cierre_trabajador" data-tipo="bool"><option value="">Pendiente</option><option value="true">Sí</option><option value="false">No</option></select></label>
-        <label class="campo"><span>Cierre jefe de SST</span><select name="cierre_sst" data-tipo="bool"><option value="">Pendiente</option><option value="true">Sí</option><option value="false">No</option></select></label>
-      </div>
-      <p class="nota">La guía solo incluye la primera página del FR-SST-039. Las listas de verificación (trabajo en caliente), la verificación diaria y la sección 5 detallada se siguen diligenciando en papel y se archivan con la OT.</p>
+      <section class="card bloque">
+        <h3 class="seccion"><span class="ico" data-icono="check"></span>5. Cierre del permiso</h3>
+        <div class="grid">
+          <label class="campo"><span>Cierre trabajador</span><select name="cierre_trabajador" data-tipo="bool"><option value="">Pendiente</option><option value="true">Sí</option><option value="false">No</option></select></label>
+          <label class="campo"><span>Cierre jefe de SST</span><select name="cierre_sst" data-tipo="bool"><option value="">Pendiente</option><option value="true">Sí</option><option value="false">No</option></select></label>
+        </div>
+        <p class="nota">La guía solo incluye la primera página del FR-SST-039. Las listas de verificación (trabajo en caliente), la verificación diaria y la sección 5 detallada se siguen diligenciando en papel y se archivan con la OT.</p>
+      </section>
 
-      <div class="acciones"><button class="btn btn-red">Guardar permiso</button></div>
+      <div class="acciones">
+        <button type="button" class="btn btn-sec btn-ico" data-limpiar><span class="ico" data-icono="basura"></span>Limpiar formulario</button>
+        <button class="btn btn-red btn-ico btn-guardar"><span class="ico" data-icono="guardar"></span>Guardar permiso</button>
+      </div>
       <p class="msg" role="status"></p>
     </form>
   </main>
@@ -263,19 +308,19 @@
     <td class="quitar"><button type="button" class="btn-link" data-quitar aria-label="Quitar fila">✕</button></td>
   </tr></template>
   <template id="fila-os"><tr>
-    <td><input data-k="maquina" list="dl-maquinas" required></td>
-    <td><input data-k="referencia"></td>
-    <td><input data-k="marca"></td>
-    <td><input data-k="codigo"></td>
-    <td><input data-k="cantidad" data-tipo="num" type="number" min="0.01" step="any" required></td>
+    <td><input data-k="maquina" list="dl-maquinas" required placeholder="Máquina"></td>
+    <td><input data-k="referencia" placeholder="Referencia"></td>
+    <td><input data-k="marca" placeholder="Marca"></td>
+    <td><input data-k="codigo" placeholder="Código"></td>
+    <td><input data-k="cantidad" data-tipo="num" type="number" min="0.01" step="any" required placeholder="0"></td>
     <td><select data-k="medida" class="sel-medida" required></select></td>
-    <td><input data-k="descripcion" required></td>
-    <td><input data-k="funcion"></td>
+    <td><input data-k="descripcion" required placeholder="Qué es el ítem"></td>
+    <td><input data-k="funcion" placeholder="Para qué se usa"></td>
     <td class="quitar"><button type="button" class="btn-link" data-quitar aria-label="Quitar ítem">✕</button></td>
   </tr></template>
   <template id="fila-trab"><tr>
-    <td><input data-k="nombre" required></td>
-    <td><input data-k="cargo"></td>
+    <td><input data-k="nombre" required placeholder="Nombre completo"></td>
+    <td><input data-k="cargo" placeholder="Cargo"></td>
     <td><select data-k="salud_ok" data-tipo="bool" class="sel-sino" required></select></td>
     <td><select data-k="medicamentos_sueno" data-tipo="bool" class="sel-sino" required></select></td>
     <td><select data-k="afiliacion_ss" data-tipo="bool" class="sel-sino" required></select></td>
@@ -283,10 +328,10 @@
     <td class="quitar"><button type="button" class="btn-link" data-quitar aria-label="Quitar trabajador">✕</button></td>
   </tr></template>
   <template id="fila-paso"><tr>
-    <td><textarea data-k="paso" rows="2" required></textarea></td>
-    <td><textarea data-k="peligros" rows="2"></textarea></td>
-    <td><textarea data-k="consecuencias" rows="2"></textarea></td>
-    <td><textarea data-k="controles" rows="2" required></textarea></td>
+    <td><textarea data-k="paso" rows="2" required placeholder="Describa el paso"></textarea></td>
+    <td><textarea data-k="peligros" rows="2" placeholder="A qué se expone"></textarea></td>
+    <td><textarea data-k="consecuencias" rows="2" placeholder="Qué puede pasar"></textarea></td>
+    <td><textarea data-k="controles" rows="2" required placeholder="Cómo se controla"></textarea></td>
     <td class="quitar"><button type="button" class="btn-link" data-quitar aria-label="Quitar paso">✕</button></td>
   </tr></template>
 

@@ -91,12 +91,12 @@ Contraste verificado (AA): `rojo` sobre blanco 4.7:1, blanco sobre `rojo` 4.7:1,
 
 Poppins (la misma de mesa-ayuda-campana). Los números de KPI y consecutivos usan `font-variant-numeric: tabular-nums`; los consecutivos (`OT-0001`) y códigos de falla (`37`) van en `mono`.
 
-Etiquetas de campo: estilo `label` (mayúscula, 12px, gris-600), arriba del input — calca los formatos impresos ("MÁQUINA", "FECHA", "HORA").
+Etiquetas de campo: 13px, peso 600, color `negro`, en minúscula normal ("Máquina", "Fecha de registro"), arriba del input, con asterisco rojo si es obligatorio. Las cabeceras de las tablas de líneas sí van en mayúscula pequeña.
 
 ## 4. Layout
 
 - Ancho máx. contenido: 1200px, margen lateral 16px en móvil.
-- **registro.html**: una columna en móvil, grilla de 12 columnas en escritorio. Arriba, selector de formato en pestañas (OT · OS · ATS · Permiso). Cada formato = una tarjeta con secciones numeradas como el papel.
+- **registro.html**: arriba, pestañas de formato (solo las del rol). Debajo, encabezado de página (ícono rojo en caja con borde, título, subtítulo con código y versión, y "No. ORDEN" a la derecha). Cada sección numerada es su **propia tarjeta** blanca. Campos en grilla de 3 columnas (2 en tablet, 1 en celular). Al final, una barra blanca con "Limpiar formulario" a la izquierda y "Guardar" a la derecha.
 - **dashboard.html**: fila de 4 KPIs → fila de filtros (rango de fechas, formato, prioridad, frente) → grilla de gráficas 2×N (1 columna en móvil) → tabla de órdenes recientes.
 - El formulario se usa en planta desde celular: botones y controles mínimo 44px de alto.
 
@@ -104,11 +104,11 @@ Etiquetas de campo: estilo `label` (mayúscula, 12px, gris-600), arriba del inpu
 
 **Barra superior** — fondo `rojo`, logo blanco a la izquierda (`img/logo.png` de mesa-ayuda), enlaces "Registro" / "Dashboard" en blanco 600; el activo con subrayado blanco de 2px. Sticky, sombra `topbar`.
 
-**Encabezado de formato** — replica el papel: a la izquierda título del formato (h2) y debajo código y versión en `caption` ("FO-OPE-001 · Versión 01"); a la derecha caja gris-50 con "No. ORDEN" en `rojo` y el consecutivo en `mono` (lo asigna la base de datos; antes de guardar muestra "Se asigna al guardar").
+**Encabezado de página** — ícono de trazo rojo dentro de una caja de 52px con borde rojo 2px y radio 12px; a su lado título 26px/700 y subtítulo 14px `gris-600` ("FO-OPE-001 · Versión 01 · Complete los campos requeridos…"); a la derecha caja blanca con borde `gris-200`, "No. ORDEN" en `rojo` y "Se asigna al guardar" (el número lo pone la base de datos).
 
-**Título de sección** — h3 en mayúscula con `border-bottom: 2px solid rojo`, igual a "1. DATOS BÁSICOS DEL PERMISO".
+**Título de sección** — dentro de su tarjeta: ícono de trazo rojo de 22px + texto 17px/700 en minúscula normal ("1. Información general"), sin subrayado. Íconos: formas de Lucide (licencia ISC), definidas en `comun.js` (`ICONOS`), trazo 2px, `currentColor`.
 
-**Input / select / textarea** — fondo blanco, borde 1px `gris-200`, radio `sm`, alto 44px, padding 10px 12px. Foco: borde `rojo` + `box-shadow: 0 0 0 3px rgba(226,35,26,.18)`. Error: borde `rojo-osc`, mensaje `caption` en `rojo-osc` debajo, `aria-invalid="true"`. Obligatorio: asterisco rojo tras la etiqueta.
+**Input / select / textarea** — fondo blanco, borde 1px `gris-200`, radio 8px, alto 44px, placeholder `gris-400` (también el select sin elegir), padding 10px 12px. Foco: borde `rojo` + `box-shadow: 0 0 0 3px rgba(226,35,26,.18)`. Error: borde `rojo-osc`, mensaje `caption` en `rojo-osc` debajo, `aria-invalid="true"`. Obligatorio: asterisco rojo tras la etiqueta.
 
 **Selector de prioridad** — tres botones-radio grandes en fila con el color del semáforo; no seleccionado = borde del color y fondo blanco; seleccionado = fondo del color + ✓. Es un `<fieldset>` con radios reales (accesible por teclado).
 
@@ -116,7 +116,7 @@ Etiquetas de campo: estilo `label` (mayúscula, 12px, gris-600), arriba del inpu
 
 **Sí/No (EPP, condiciones de salud)** — `<select>` obligatorio con opciones "Sí / No" y sin respuesta por defecto (el papel exige marcar); funciona igual en tabla y en celular.
 
-**Botones**
+**Botones** — con ícono a la izquierda cuando ayuda ("Guardar", "Limpiar formulario", "Agregar fila"). "Limpiar formulario" pide confirmación antes de borrar.
 - Primario: fondo `rojo`, texto blanco, radio `sm`, padding 12px 20px; hover `rojo-osc`; disabled opacidad .6.
 - Secundario: fondo blanco, borde `gris-200`, texto `negro`; hover fondo `gris-100`.
 - Peligro (quitar fila): texto `rojo-osc`, sin fondo.
