@@ -9,6 +9,12 @@ Registro digital de la Orden de Trabajo (FO-OPE-001), la Orden de Suministro (FO
 3. **`config.js`:** ponga `SUPABASE_URL` y `SUPABASE_ANON_KEY` (Project Settings → API).
 4. Publique la carpeta en cualquier hosting estático (GitHub Pages, Netlify…) y abra `registro.html`.
 
+## Seguridad: nada de contraseñas en el código
+
+- **Nunca** ponga en el código ni suba a GitHub contraseñas, la llave secreta (`sb_secret_…` o `service_role`) ni la contraseña de la base de datos. Si alguna se sube, rótela de inmediato en Supabase: borrarla del repositorio no basta, porque queda en el historial.
+- En `config.js` solo va la URL y la llave **publishable** (`sb_publishable_…` o `anon`). Esa llave está hecha para ir en el navegador; lo que protege los datos son las reglas RLS de `sql/1_esquema.sql`. Si alguien pega la llave secreta, la app se niega a arrancar.
+- Las contraseñas de los usuarios las guarda Supabase Auth, cifradas. La app nunca las almacena.
+
 ## Archivos
 
 | Archivo | Qué hace |

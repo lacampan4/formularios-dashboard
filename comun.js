@@ -1,6 +1,12 @@
 // =====================================================================
 //  Utilidades y sesión compartidas por registro.html y dashboard.html
 // =====================================================================
+// La llave secreta (sb_secret_… o service_role) se salta toda la seguridad: nunca debe ir en el navegador ni en GitHub.
+const rolLlave = (k) => { try { return JSON.parse(atob(k.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).role; } catch { return null; } };
+if (SUPABASE_ANON_KEY.startsWith("sb_secret_") || rolLlave(SUPABASE_ANON_KEY) === "service_role") {
+  document.body.innerHTML = "<p style='padding:24px;font:16px sans-serif'>config.js tiene la llave SECRETA de Supabase. Bórrela, póngale la llave publishable y genere una llave secreta nueva en Supabase, porque esta ya quedó expuesta.</p>";
+  throw new Error("Llave secreta de Supabase en config.js");
+}
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const $ = (id) => document.getElementById(id);
 
