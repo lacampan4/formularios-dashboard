@@ -135,7 +135,7 @@ $("tiposPermiso").addEventListener("change", () => $("formPermiso").querySelecto
 async function cargarListas() {
   const [ots, atss] = await Promise.all([
     db.from("ordenes_trabajo").select("id, numero, maquina, estado, alto_riesgo").order("id", { ascending: false }).limit(300),
-    db.from("ats").select("id, fecha_apertura, ordenes_trabajo(numero)").order("id", { ascending: false }).limit(300),
+    db.from("ats").select("id, fecha_apertura, ordenes_trabajo!ats_ot_id_fkey(numero)") /* !fk: permisos_trabajo también une ATS y OT */.order("id", { ascending: false }).limit(300),
   ]);
   if (ots.error || atss.error) return aviso("No se pudieron cargar las órdenes: " + (ots.error || atss.error).message, true);
   const lista = ots.data.map((o) => ({ v: o.id, t: `${o.numero} · ${o.maquina}${o.alto_riesgo ? " · alto riesgo" : ""} (${o.estado})` }));

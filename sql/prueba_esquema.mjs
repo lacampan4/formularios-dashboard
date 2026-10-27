@@ -52,7 +52,7 @@ assert.equal(await val("select rol from usuarios where usuario = 'lina.h'"), "si
 
 await comoUsuario();
 assert.equal(await val(`select nombre from usuarios where id = '${U}'`), "Fredy Verdugo");
-assert.equal(await val("select count(*)::int from usuarios"), 1);                           // cada uno ve solo su perfil
+assert.equal(await val("select count(*)::int from usuarios"), 3);                           // admin ve todos los perfiles
 await falla("insert into usuarios values (gen_random_uuid(), 'x', 'x')", [], /permission denied/);
 await falla("update usuarios set nombre = 'otro'", [], /permission denied/);
 

@@ -15,7 +15,7 @@ Registro digital de la Orden de Trabajo (FO-OPE-001), la Orden de Suministro (FO
 
 | Rol | Formularios que llena | Dashboard |
 |---|---|---|
-| `admin` (Dirección de Operaciones) | Todos, y completa las firmas | Sí |
+| `admin` (Dirección de Operaciones) | Todos, completa las firmas y usa la Consulta | Sí |
 | `produccion` | OT y OS | No |
 | `mantenimiento` | OT, OS, ATS y Permiso | No |
 | `abastecimiento` | OS | No |
@@ -37,6 +37,7 @@ Qué formato llena cada rol está en la tabla `rol_formatos` (Table Editor) y se
 | Archivo | Qué hace |
 |---|---|
 | `registro.html` / `registro.js` | Los cuatro formatos en pestañas |
+| `consulta.html` / `consulta.js` | Lista de formatos guardados y detalle completo de cada uno, con impresión (solo admin). Enlace directo: `consulta.html#OT/5`, `#OS/3`, `#ATS/2`, `#PT/4` |
 | `dashboard.html` / `dashboard.js` | Indicadores, gráficas, tabla de órdenes y firmas |
 | `comun.js` | Cliente Supabase, login y utilidades compartidas |
 | `config.js` | Llaves y catálogos de la guía (frentes, líderes, EPP, medidas) |

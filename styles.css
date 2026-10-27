@@ -144,6 +144,24 @@ dialog form { display: flex; flex-direction: column; gap: 14px; }
 .toast { position: fixed; bottom: 20px; right: 20px; background: var(--gris-900); color: #fff; padding: 14px 20px; border-radius: 8px; border-left: 4px solid var(--ok); z-index: 60; box-shadow: 0 6px 20px rgba(0,0,0,.3); }
 .toast.error { border-left-color: var(--rojo); }
 
+/* ================= CONSULTA (detalle de un formato) ================= */
+.grid-datos { gap: 18px 20px; }
+.dato { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.dato > span { font-size: 12px; font-weight: 600; color: var(--gris-600); }
+.dato > b { font-weight: 500; font-size: 15px; overflow-wrap: anywhere; }
+.dato-largo p { margin: 0; padding: 12px 14px; background: var(--gris-50); border-radius: 8px; white-space: pre-wrap; font-size: 14px; }
+.dato a, .tabla a { color: var(--rojo-osc); font-weight: 600; }
+a.btn { display: inline-flex; align-items: center; text-decoration: none; }
+@media print {
+  .topbar, .no-imprimir, .toast { display: none !important; }
+  body { background: #fff; font-size: 12px; }
+  .container { padding: 0; max-width: none; }
+  .card { box-shadow: none; border: 1px solid var(--gris-200); padding: 14px; break-inside: avoid; }
+  .bloque { margin-bottom: 10px; }
+  .chip { border: 1px solid currentColor; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
 /* ================= CELULARES ================= */
 @media (max-width: 900px) { .graficas { grid-template-columns: 1fr; } .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 700px) {

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Consulta de formatos | La Campana</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="logo" href="registro.html" aria-label="La Campana Servicios de Acero">
+        <span class="logo-icon"></span><span class="logo-text"><small>la</small>campana<em>servicios de acero</em></span>
+      </a>
+      <nav class="menu"><a href="registro.html">Registro</a><a href="consulta.html" data-solo-admin aria-current="page" hidden>Consulta</a><a href="dashboard.html" data-solo-admin hidden>Dashboard</a></nav>
+      <div class="user-box hidden" id="userBox"><span id="userName"></span><button class="btn btn-white" id="btnSalir">Salir</button></div>
+    </div>
+  </header>
+
+  <main id="vistaAuth" class="auth"></main>
+
+  <main id="vistaApp" class="container hidden">
+    <!-- Lista de formatos guardados -->
+    <section id="vistaLista">
+      <div class="page-head">
+        <span class="ico ico-lg" data-icono="lista"></span>
+        <div><h2>Consulta de formatos</h2><p>Busque una orden, ATS o permiso y ábralo para ver todo su detalle.</p></div>
+      </div>
+
+      <form class="card filtros" id="filtros">
+        <label class="campo"><span>Formato</span><select name="formato"><option value="">Todos</option><option value="OT">Orden de Trabajo</option><option value="OS">Orden de Suministro</option><option value="ATS">ATS</option><option value="PT">Permiso de trabajo</option></select></label>
+        <label class="campo"><span>Desde</span><input type="date" name="desde" required></label>
+        <label class="campo"><span>Hasta</span><input type="date" name="hasta" required></label>
+        <label class="campo"><span>Estado</span><select name="estado"><option value="">Todos</option><option>Abierta</option><option>Cerrada</option></select></label>
+        <label class="campo"><span>Buscar</span><input type="search" name="buscar" placeholder="No., máquina, área, tarea…"></label>
+        <button class="btn btn-red">Buscar</button>
+      </form>
+
+      <section class="card">
+        <div class="table-wrap">
+          <table class="tabla" id="tabla">
+            <thead><tr><th>No.</th><th>Formato</th><th>Fecha</th><th>Prioridad</th><th>Máquina / Área / Tarea</th><th>Estado</th><th><span class="sr-only">Ver</span></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="nota" id="conteo"></p>
+      </section>
+    </section>
+
+    <!-- Detalle de un formato -->
+    <section id="vistaDetalle" class="hidden">
+      <div class="acciones no-imprimir" style="margin-bottom:16px">
+        <a class="btn btn-sec btn-ico" href="#"><span class="ico" data-icono="volver"></span>Volver a la lista</a>
+        <button type="button" class="btn btn-red btn-ico" id="btnImprimir"><span class="ico" data-icono="imprimir"></span>Imprimir / PDF</button>
+      </div>
+      <div id="detalle"></div>
+    </section>
+  </main>
+
+  <div class="toast hidden" id="toast" role="status"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <script src="comun.js"></script>
+  <script src="consulta.js"></script>
+</body>
+</html>

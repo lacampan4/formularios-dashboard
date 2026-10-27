@@ -57,8 +57,9 @@ end $$;
 
 create policy "leer" on public.codigos_falla for select to authenticated using (true);
 create policy "leer" on public.rol_formatos  for select to authenticated using (true);
--- Solo su propio perfil: llamar es_admin() aquí haría que la política se consulte a sí misma
-create policy "leer" on public.usuarios      for select to authenticated using (id = auth.uid());
+-- Cada uno ve su perfil; admin ve todos (para mostrar quién registró cada formato en consulta.html).
+-- es_admin() es security definer: lee usuarios como dueño de la tabla, sin volver a pasar por esta política.
+create policy "leer" on public.usuarios      for select to authenticated using (id = auth.uid() or public.es_admin());
 
 -- OT: todos los que tienen rol la ven (para vincular OS, ATS y Permiso); crean solo los roles con OT
 create policy "leer"   on public.ordenes_trabajo for select to authenticated using (public.mi_rol() <> 'sin_rol');

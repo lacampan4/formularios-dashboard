@@ -115,7 +115,7 @@ function pintar(lista, fallas) {
 
   const firmas = (o) => [o.autorizado_por, o.entregado_por, o.recibido_por].filter(Boolean).length;
   $("tabla").tBodies[0].innerHTML = lista.length ? lista.map((o, i) => `<tr>
-      <td class="mono">${esc(o.numero)}${o.riesgo_personas ? " ⚠" : ""}</td>
+      <td class="mono"><a href="consulta.html#${o.formato}/${o.id}">${esc(o.numero)}</a>${o.riesgo_personas ? " ⚠" : ""}</td>
       <td>${fecha(o.creado_en)}</td>
       <td>${chip(o.prioridad)}</td>
       <td>${esc(o.detalle)}</td>
