@@ -31,13 +31,20 @@ function etiquetar(tabla) {
   tabla.querySelectorAll("tbody tr").forEach((tr) => tr.querySelectorAll("td").forEach((td, i) => td.dataset.label = titulos[i] || ""));
 }
 
+const correoDeUsuario = (usuario) => usuario.trim().toLowerCase() + "@" + DOMINIO_USUARIOS;
+async function mostrarNombre(id) {
+  const { data } = await db.from("usuarios").select("nombre").eq("id", id).maybeSingle();
+  if (data) $("userName").textContent = data.nombre;
+}
+
 // Muestra el login o la app; llama a alEntrar() la primera vez que hay sesión.
 function iniciarSesion(alEntrar) {
   $("vistaAuth").innerHTML = `
     <form class="card" id="formLogin">
       <h1>Operaciones</h1>
-      <p class="nota">Ingrese con el correo que le asignó la Dirección de Operaciones.</p>
-      <label class="campo"><span>Correo</span><input type="email" name="email" autocomplete="username" required></label>
+      <p class="nota">Ingrese con el usuario que le asignó la Dirección de Operaciones.</p>
+      <label class="campo"><span>Usuario</span><input name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false"
+        pattern="[A-Za-z0-9._\-]+" title="Solo letras, números, punto, guion y guion bajo" required></label>
       <label class="campo"><span>Contraseña</span><input type="password" name="password" autocomplete="current-password" required></label>
       <button class="btn btn-red">Ingresar</button>
       <p class="msg" id="authMsg" role="status"></p>
@@ -48,8 +55,8 @@ function iniciarSesion(alEntrar) {
     e.preventDefault();
     const f = new FormData(e.target);
     msg($("authMsg"), "Ingresando...");
-    const { error } = await db.auth.signInWithPassword({ email: f.get("email"), password: f.get("password") });
-    msg($("authMsg"), error ? (error.message === "Invalid login credentials" ? "Correo o contraseña incorrectos" : error.message) : "", error && "error");
+    const { error } = await db.auth.signInWithPassword({ email: correoDeUsuario(f.get("usuario")), password: f.get("password") });
+    msg($("authMsg"), error ? (error.message === "Invalid login credentials" ? "Usuario o contraseña incorrectos" : error.message) : "", error && "error");
   };
   $("btnSalir").onclick = () => db.auth.signOut();
 
@@ -58,8 +65,9 @@ function iniciarSesion(alEntrar) {
     $("vistaAuth").classList.toggle("hidden", !!sesion);
     $("vistaApp").classList.toggle("hidden", !sesion);
     $("userBox").classList.toggle("hidden", !sesion);
-    $("userName").textContent = sesion?.user.email ?? "";
+    $("userName").textContent = sesion?.user.email.split("@")[0] ?? "";
     // setTimeout: no llamar a Supabase dentro del callback de auth (bloquea el cliente)
+    if (sesion) setTimeout(() => mostrarNombre(sesion.user.id), 0);
     if (sesion && !iniciado) { iniciado = true; setTimeout(alEntrar, 0); }
   });
 }

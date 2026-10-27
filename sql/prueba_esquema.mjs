@@ -11,8 +11,7 @@ const U = "11111111-1111-1111-1111-111111111111";
 // Lo mínimo de Supabase que usa el esquema: auth.users, auth.uid() y los roles.
 await db.exec(`
   create schema auth;
-  create table auth.users (id uuid primary key);
-  insert into auth.users values ('${U}');
+  create table auth.users (id uuid primary key, email text, raw_user_meta_data jsonb);
   create function auth.uid() returns uuid language sql stable as
     $$ select nullif(current_setting('app.uid', true), '')::uuid $$;
   create role anon; create role authenticated;
@@ -22,6 +21,9 @@ await db.exec(`
 `);
 await db.exec(readFileSync(`${dir}/1_esquema.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/2_semillas.sql`, "utf8"));
+// Crear usuarios en auth.users llena public.usuarios (como hace Supabase > Authentication > Add user)
+await db.exec(`insert into auth.users values ('${U}', 'fredy.verdugo@usuarios.lacampana.co', '{"nombre": "Fredy Verdugo"}'),
+  ('22222222-2222-2222-2222-222222222222', 'lina.h@usuarios.lacampana.co', '{}');`);
 
 const comoUsuario = () => db.exec(`reset role; set app.uid = '${U}'; set role authenticated;`);
 const val = async (sql, p) => Object.values((await db.query(sql, p)).rows[0] ?? {})[0];
@@ -36,7 +38,12 @@ assert.equal(await val("select count(*)::int from codigos_falla"), 87);
 assert.equal(await val("select count(*)::int from codigos_falla where codigo = 77"), 0);
 
 await comoUsuario();
-const ot = (orden, lineas) => val("select crear_ot($1, $2)", [orden, lineas]);
+assert.equal(await val(`select nombre from usuarios where id = '${U}'`), "Fredy Verdugo");
+assert.equal(await val("select nombre from usuarios where usuario = 'lina.h'"), "lina.h"); // sin nombre: usa el usuario
+await falla("insert into usuarios values (gen_random_uuid(), 'x', 'x')", [], /permission denied/);
+await falla("update usuarios set nombre = 'otro'", [], /permission denied/);
+
+const ot =(orden, lineas) => val("select crear_ot($1, $2)", [orden, lineas]);
 const linea = [{ codigo_falla: 5, reporte: "Se reventó una manguera" }];
 
 assert.equal(await ot({ maquina: "Formadora 1", prioridad: "Rojo" }, linea), "OT-0001");

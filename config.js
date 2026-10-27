@@ -1,6 +1,9 @@
 // Supabase > Project Settings > API. La llave publishable (anon) es pública por diseño; la seguridad está en RLS (sql/1_esquema.sql).
 const SUPABASE_URL = "https://TU-PROYECTO.supabase.co";
 const SUPABASE_ANON_KEY = "TU_LLAVE_PUBLISHABLE";
+// Se entra con usuario: Supabase exige correo, así que "juan.perez" se guarda como "juan.perez@usuarios.lacampana.co".
+// Ese correo no existe y nunca recibe mensajes. Al crear usuarios en Supabase use exactamente este dominio.
+const DOMINIO_USUARIOS = "usuarios.lacampana.co";
 
 // Guía de formatos de operaciones, sección 1 "Quién es quién"
 const FRENTES = [

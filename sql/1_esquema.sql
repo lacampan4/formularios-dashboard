@@ -9,6 +9,29 @@ create table if not exists public.codigos_falla (
   descripcion text not null
 );
 
+-- ---------- USUARIOS (se entra con usuario, no con correo) ----------
+-- Supabase Auth exige correo: la app usa "<usuario>@usuarios.lacampana.co" (ver DOMINIO_USUARIOS en config.js).
+-- Al crear el usuario en Authentication se crea su fila aquí; el nombre completo se edita en Table Editor > usuarios.
+create table if not exists public.usuarios (
+  id      uuid primary key references auth.users(id) on delete cascade,
+  usuario text not null unique,
+  nombre  text not null
+);
+
+create or replace function public.crear_perfil_usuario()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into usuarios (id, usuario, nombre)
+  values (new.id, split_part(new.email, '@', 1),
+          coalesce(nullif(btrim(new.raw_user_meta_data->>'nombre'), ''), split_part(new.email, '@', 1)))
+  on conflict (id) do nothing;
+  return new;
+end; $$;
+
+drop trigger if exists al_crear_usuario on auth.users;
+create trigger al_crear_usuario after insert on auth.users
+for each row execute function public.crear_perfil_usuario();
+
 -- ---------- ORDEN DE TRABAJO (FO-OPE-001) ----------
 create table if not exists public.ordenes_trabajo (
   id              bigint generated always as identity primary key,
@@ -264,6 +287,7 @@ create or replace view public.v_fallas with (security_invoker = true) as
 
 -- ---------- SEGURIDAD: solo usuarios con sesión ----------
 alter table public.codigos_falla      enable row level security;
+alter table public.usuarios           enable row level security;
 alter table public.ordenes_trabajo    enable row level security;
 alter table public.ot_lineas          enable row level security;
 alter table public.ordenes_suministro enable row level security;
@@ -276,13 +300,13 @@ alter table public.permisos_trabajo   enable row level security;
 do $$
 declare t text;
 begin
-  foreach t in array array['codigos_falla','ordenes_trabajo','ot_lineas','ordenes_suministro','os_items',
+  foreach t in array array['codigos_falla','usuarios','ordenes_trabajo','ot_lineas','ordenes_suministro','os_items',
                            'ats','ats_trabajadores','ats_pasos','permisos_trabajo'] loop
     execute format('revoke all on public.%I from anon, authenticated', t);
     execute format('grant select on public.%I to authenticated', t);
     execute format('drop policy if exists "leer" on public.%I', t);
     execute format('create policy "leer" on public.%I for select to authenticated using (true)', t);
-    if t <> 'codigos_falla' then
+    if t not in ('codigos_falla', 'usuarios') then
       execute format('grant insert on public.%I to authenticated', t);
       execute format('drop policy if exists "crear" on public.%I', t);
       execute format('create policy "crear" on public.%I for insert to authenticated with check (%s)', t,

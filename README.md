@@ -5,7 +5,9 @@ Registro digital de la Orden de Trabajo (FO-OPE-001), la Orden de Suministro (FO
 ## Puesta en marcha
 
 1. **Supabase → SQL Editor:** ejecute `sql/1_esquema.sql` y después `sql/2_semillas.sql`.
-2. **Supabase → Authentication → Users:** cree (o invite) a cada usuario con su correo. La app no tiene registro abierto.
+2. **Supabase → Authentication → Sign In / Providers:** desactive **"Allow new users to sign up"**. Si queda activo, cualquiera podría crearse una cuenta.
+   **Authentication → Users → Add user → Create new user:** se entra con **usuario y contraseña**, sin correo real. Para el usuario `juan.perez` escriba como Email `juan.perez@usuarios.lacampana.co` (el dominio de `DOMINIO_USUARIOS` en `config.js`), ponga la contraseña y marque **Auto Confirm User**. Ese correo no existe y nunca recibe mensajes.
+   **Table Editor → usuarios:** al crear el usuario aparece su fila; escriba su nombre completo en `nombre`, que es el que se ve en la barra superior.
 3. **`config.js`:** ponga `SUPABASE_URL` y `SUPABASE_ANON_KEY` (Project Settings → API).
 4. Publique la carpeta en cualquier hosting estático (GitHub Pages, Netlify…) y abra `registro.html`.
 
