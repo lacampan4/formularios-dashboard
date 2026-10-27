@@ -4,7 +4,7 @@ Registro digital de la Orden de Trabajo (FO-OPE-001), la Orden de Suministro (FO
 
 ## Puesta en marcha
 
-1. **Supabase → SQL Editor:** ejecute en orden `sql/1_esquema.sql`, `sql/2_semillas.sql` y `sql/3_roles.sql`.
+1. **Supabase → SQL Editor:** ejecute en orden `sql/1_esquema.sql`, `sql/2_semillas.sql`, `sql/3_roles.sql` y `sql/4_lista_roles.sql`.
 2. **Supabase → Authentication → Sign In / Providers:** desactive **"Allow new users to sign up"**. Si queda activo, cualquiera podría crearse una cuenta.
    **Authentication → Users → Add user → Create new user:** se entra con **usuario y contraseña**, sin correo real. Para el usuario `juan.perez` escriba como Email `juan.perez@usuarios.lacampana.co` (el dominio de `DOMINIO_USUARIOS` en `config.js`), ponga la contraseña y marque **Auto Confirm User**. Ese correo no existe y nunca recibe mensajes.
    **Table Editor → usuarios:** al crear el usuario aparece su fila; escriba su nombre completo en `nombre` y elija su `rol` (ver tabla abajo). Un usuario nuevo queda en `sin_rol` y no puede hacer nada hasta que se le asigne uno.
@@ -21,6 +21,8 @@ Registro digital de la Orden de Trabajo (FO-OPE-001), la Orden de Suministro (FO
 | `abastecimiento` | OS | No |
 | `sst` | ATS y Permiso | No |
 | `sin_rol` | Ninguno | No |
+
+En **Table Editor → usuarios**, la columna `rol` es una lista desplegable con todos los roles. `admin` no aparece en `rol_formatos` porque no lo necesita: puede todo.
 
 Qué formato llena cada rol está en la tabla `rol_formatos` (Table Editor) y se puede cambiar sin tocar el código. La base de datos aplica los roles, así que esconder un botón no es lo único que los protege: cada rol solo ve lo que necesita para llenar sus formatos, y solo `admin` ve los datos del dashboard.
 

@@ -23,7 +23,7 @@ on conflict do nothing;
 -- security definer: leen usuarios/rol_formatos sin depender de las políticas de esas tablas
 create or replace function public.mi_rol() returns text
 language sql stable security definer set search_path = public as $$
-  select coalesce((select rol from usuarios where id = auth.uid()), 'sin_rol');
+  select coalesce((select rol::text from usuarios where id = auth.uid()), 'sin_rol');  -- ::text: rol puede ser lista (4_lista_roles.sql)
 $$;
 create or replace function public.es_admin() returns boolean
 language sql stable security definer set search_path = public as $$

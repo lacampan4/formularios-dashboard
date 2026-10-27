@@ -26,6 +26,12 @@ const SIN_ROL = "22222222-2222-2222-2222-222222222222", PROD = "33333333-3333-33
 await db.exec(`insert into auth.users values ('${U}', 'fredy.verdugo@usuarios.lacampana.co', '{"nombre": "Fredy Verdugo"}'),
   ('${SIN_ROL}', 'lina.h@usuarios.lacampana.co', '{}'), ('${PROD}', 'cesar.r@usuarios.lacampana.co', '{}');`);
 await db.exec(readFileSync(`${dir}/3_roles.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/4_lista_roles.sql`, "utf8"));
+// Ambos se pueden volver a ejecutar sin romper nada
+await db.exec(readFileSync(`${dir}/3_roles.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/4_lista_roles.sql`, "utf8"));
+assert.equal((await db.query("select udt_name from information_schema.columns where table_name = 'usuarios' and column_name = 'rol'")).rows[0].udt_name, "rol_usuario");
+await assert.rejects(db.query("update usuarios set rol = 'jefe'"), /invalid input value for enum/);
 // El rol lo asigna el administrador en Table Editor > usuarios
 await db.exec(`update usuarios set rol = 'admin' where id = '${U}'; update usuarios set rol = 'produccion' where id = '${PROD}';`);
 
