@@ -58,11 +58,17 @@ function iniciarSesion(alEntrar) {
     const { error } = await db.auth.signInWithPassword({ email: correoDeUsuario(f.get("usuario")), password: f.get("password") });
     msg($("authMsg"), error ? (error.message === "Invalid login credentials" ? "Usuario o contraseña incorrectos" : error.message) : "", error && "error");
   };
-  $("btnSalir").onclick = () => db.auth.signOut();
+  // scope local: borra la sesión de este dispositivo aunque no haya conexión; luego siempre al login
+  $("btnSalir").onclick = async () => {
+    $("btnSalir").disabled = true;
+    await db.auth.signOut({ scope: "local" }).catch(() => {});
+    location.replace("registro.html");
+  };
 
   let iniciado = false;
   db.auth.onAuthStateChange((evento, sesion) => {
-    if (evento === "SIGNED_OUT") return location.reload(); // el siguiente usuario parte de cero, con su propio rol
+    // Sesión cerrada (aquí, en otra pestaña o vencida): al login; el siguiente usuario parte de cero, con su propio rol
+    if (evento === "SIGNED_OUT") return location.replace("registro.html");
     $("vistaAuth").classList.toggle("hidden", !!sesion);
     $("vistaApp").classList.toggle("hidden", !sesion);
     $("userBox").classList.toggle("hidden", !sesion);
