@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard de operaciones | La Campana</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="logo" href="registro.html" aria-label="La Campana Servicios de Acero">
+        <span class="logo-icon"></span><span class="logo-text"><small>la</small>campana<em>servicios de acero</em></span>
+      </a>
+      <nav class="menu"><a href="registro.html">Registro</a><a href="dashboard.html" aria-current="page">Dashboard</a></nav>
+      <div class="user-box hidden" id="userBox"><span id="userName"></span><button class="btn btn-white" id="btnSalir">Salir</button></div>
+    </div>
+  </header>
+
+  <main id="vistaAuth" class="auth"></main>
+
+  <main id="vistaApp" class="container hidden">
+    <form class="card filtros" id="filtros">
+      <label class="campo"><span>Desde</span><input type="date" name="desde" required></label>
+      <label class="campo"><span>Hasta</span><input type="date" name="hasta" required></label>
+      <label class="campo"><span>Formato</span><select name="formato"><option value="">OT y OS</option><option>OT</option><option>OS</option></select></label>
+      <label class="campo"><span>Prioridad</span><select name="prioridad" id="fPrioridad"></select></label>
+      <label class="campo"><span>Estado</span><select name="estado"><option value="">Todos</option><option>Abierta</option><option>Cerrada</option></select></label>
+      <button class="btn btn-red">Aplicar</button>
+      <button type="button" class="btn btn-sec" id="btnSemana">Cerradas esta semana</button>
+    </form>
+
+    <section class="kpis" id="kpis" aria-label="Indicadores"></section>
+
+    <section class="graficas">
+      <div class="card"><h2>Órdenes por prioridad</h2><div class="lienzo"><canvas id="gPrioridad" role="img"></canvas></div><p class="sr-only" id="gPrioridad-txt"></p></div>
+      <div class="card"><h2>Órdenes emitidas por día</h2><div class="lienzo"><canvas id="gDia" role="img"></canvas></div><p class="sr-only" id="gDia-txt"></p></div>
+      <div class="card"><h2>Top 10 códigos de falla (OT)</h2><div class="lienzo"><canvas id="gCodigos" role="img"></canvas></div><p class="sr-only" id="gCodigos-txt"></p></div>
+      <div class="card"><h2>OT por máquina (top 10)</h2><div class="lienzo"><canvas id="gMaquinas" role="img"></canvas></div><p class="sr-only" id="gMaquinas-txt"></p></div>
+      <div class="card"><h2>OS por área solicitante</h2><div class="lienzo"><canvas id="gAreas" role="img"></canvas></div><p class="sr-only" id="gAreas-txt"></p></div>
+      <div class="card"><h2>Horas promedio de emisión a cierre</h2><div class="lienzo"><canvas id="gCierre" role="img"></canvas></div><p class="sr-only" id="gCierre-txt"></p></div>
+    </section>
+
+    <section class="card">
+      <h2>Órdenes</h2>
+      <div class="table-wrap">
+        <table class="tabla" id="tabla">
+          <thead><tr><th>No.</th><th>Fecha</th><th>Prioridad</th><th>Máquina / Área</th><th>Estado</th><th>Firmas</th><th><span class="sr-only">Acción</span></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="dlgFirmas">
+    <form method="dialog" id="formFirmas">
+      <h2 id="firmasTitulo" style="margin:0"></h2>
+      <label class="campo"><span>Autorizado por</span><input name="autorizado_por" list="dl-personas"></label>
+      <label class="campo"><span>Entregado por</span><input name="entregado_por" list="dl-personas"></label>
+      <label class="campo"><span>Recibido por</span><input name="recibido_por" list="dl-personas"></label>
+      <p class="msg" id="firmasMsg" role="status"></p>
+      <div class="acciones" style="margin-top:0">
+        <button type="button" class="btn btn-sec" id="firmasCancelar">Cancelar</button>
+        <button class="btn btn-red" value="guardar">Guardar firmas</button>
+      </div>
+    </form>
+  </dialog>
+
+  <datalist id="dl-personas"></datalist>
+  <div class="toast hidden" id="toast" role="status"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="config.js"></script>
+  <script src="comun.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>
