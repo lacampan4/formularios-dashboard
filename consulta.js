@@ -54,14 +54,20 @@ const cabecera = (tipo, codigo, numero) => `<div class="page-head">
 const registro = (o) => [dato("Registrado el", fecha(o.creado_en)), dato("Registrado por", nombres.get(o.creado_por) ?? "—")];
 const firmas = (o) => datos(dato("Autorizado por", o.autorizado_por), dato("Entregado por", o.entregado_por), dato("Recibido por", o.recibido_por));
 
-// ATS y Permiso de la OT: los marca solo el responsable mientras está abierta; el admin los ve; los demás no
+// Desde la bandeja (consulta.html?bandeja#OT/5) el responsable trabaja la OT; desde Consulta el detalle es solo para ver
+const desdeBandeja = new URLSearchParams(location.search).has("bandeja");
+const trabaja = (o) => desdeBandeja && o.responsable === yo && o.estado === "Abierta";
+
+// ATS y Permiso de la OT: los marca solo el responsable; el admin los ve; los demás no
 let yo = null, esAdmin = false;
 const requisitos = (o) => {
   const titulo = "Análisis del responsable";
-  if (o.responsable === yo && o.estado === "Abierta") return bloque(3, "escudo", titulo, `<div class="checks" id="requisitos" data-ot="${o.id}">
+  if (trabaja(o)) return bloque(3, "escudo", titulo, `<div class="checks" id="requisitos" data-ot="${o.id}">
       <label class="check"><input type="checkbox" name="ats" ${o.requiere_ats ? "checked" : ""}> Requiere Análisis de Trabajo Seguro (ATS)</label>
       <label class="check"><input type="checkbox" name="permiso" ${o.requiere_permiso ? "checked" : ""}> Requiere Permiso de trabajo de alto riesgo</label>
-    </div><p class="nota">Márquelos según su análisis. No son obligatorios para cerrar la orden.</p>`);
+    </div><p class="nota">Márquelos según su análisis. No son obligatorios para cerrar la orden.</p>
+    <button type="button" class="btn btn-red btn-ico" id="btnGuardarRequisitos" ${o.requiere_ats || o.requiere_permiso ? "" : "hidden"}>
+      <span class="ico" data-icono="guardar"></span>Guardar</button>`);
   if (o.responsable === yo || esAdmin) return bloque(3, "escudo", titulo, datos(
     dato("Requiere ATS", siNo(o.requiere_ats)), dato("Requiere permiso de alto riesgo", siNo(o.requiere_permiso))));
   return "";
@@ -82,10 +88,10 @@ const VISTA = {
       datoHtml("Permisos de trabajo", enlaces("PT", o.permisos_trabajo, (x) => x.numero)))) +
     // OT anteriores a la bandeja: se siguen viendo sus firmas
     (o.autorizado_por || o.entregado_por || o.recibido_por ? bloque(5, "firma", "Firmas (formato anterior)", firmas(o)) : "") +
-    (o.estado === "Abierta" ? `<div class="acciones no-imprimir"><span></span><a class="btn btn-red btn-ico" href="registro.html?ot=${o.id}">
+    (trabaja(o) ? `<div class="acciones no-imprimir"><span></span><a class="btn btn-red btn-ico" href="registro.html?ot=${o.id}">
       <span class="ico" data-icono="mas"></span>Generar orden de suministro</a></div>` : ""),
 
-  OS:(o) => cabecera("OS", "FO-OPE-002 · Versión 01", o.numero) +
+  OS: (o) => cabecera("OS", "FO-OPE-002 · Versión 01", o.numero) +
     bloque(1, "info", "Información general", datos(
       dato("Área solicitante", o.area_solicitante), datoHtml("Prioridad", chip(o.prioridad)), datoHtml("Estado", estado(o.estado)),
       dato("Registrado el", fecha(o.creado_en)), dato("Solicitante", nombres.get(o.creado_por)), dato("Responsable", nombres.get(o.responsable)),
@@ -197,13 +203,19 @@ async function pintarFotos(id) {
     `<a href="${esc(u.signedUrl)}" target="_blank" rel="noopener"><img src="${esc(u.signedUrl)}" alt="Foto ${i + 1}"></a>`).join("")
     : `<p class="nota">Sin fotos.</p>`;
 }
-$("detalle").onchange = async (e) => {
-  const caja = e.target.closest("#requisitos");
-  if (!caja) return;
-  const [ats, permiso] = [caja.querySelector("[name=ats]"), caja.querySelector("[name=permiso]")];
-  const { error } = await db.rpc("marcar_requisitos_ot", { ot: Number(caja.dataset.ot), ats: ats.checked, permiso: permiso.checked });
-  if (error) { e.target.checked = !e.target.checked; return aviso(error.message, true); }
-  aviso("Guardado");
+// "Guardar" aparece solo con alguna casilla marcada; sin ninguna, la OT queda como estaba
+const casillas = () => [...$("requisitos").querySelectorAll("input")];
+$("detalle").onchange = (e) => {
+  if (e.target.closest("#requisitos")) $("btnGuardarRequisitos").hidden = !casillas().some((c) => c.checked);
+};
+$("detalle").onclick = async (e) => {
+  const b = e.target.closest("#btnGuardarRequisitos");
+  if (!b) return;
+  const [ats, permiso] = casillas().map((c) => c.checked);
+  b.disabled = true;
+  const { error } = await db.rpc("marcar_requisitos_ot", { ot: Number($("requisitos").dataset.ot), ats, permiso });
+  b.disabled = false;
+  aviso(error ? error.message : "Guardado", !!error);
 };
 $("btnImprimir").onclick = () => window.print();
 window.addEventListener("hashchange", mostrar);
@@ -212,8 +224,8 @@ window.addEventListener("hashchange", mostrar);
 iniciarSesion(async (perfil) => {
   const admin = esAdmin = perfil.rol === "admin";
   yo = (await db.auth.getSession()).data.session.user.id;
-  if (!admin) {
-    if (!location.hash) return location.replace("bandeja.html");
+  if (!admin && !location.hash) return location.replace("bandeja.html");
+  if (!admin || desdeBandeja) {
     const volver = document.querySelector('#vistaDetalle a[href="#"]');
     volver.href = "bandeja.html"; volver.lastChild.textContent = "Volver a la bandeja";
   }
