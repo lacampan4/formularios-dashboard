@@ -61,6 +61,7 @@ async function cargarPerfil(id) {
 // Muestra el login o la app; llama a alEntrar(perfil) la primera vez que hay sesión.
 function iniciarSesion(alEntrar) {
   $("vistaAuth").innerHTML = `
+    <img src="logo-color.webp" alt="La Campana Servicios de Acero" class="logo-login" width="2000" height="552">
     <form class="card" id="formLogin">
       <h1>Operaciones</h1>
       <p class="nota">Ingrese con el usuario que le asignó la Dirección de Operaciones.</p>

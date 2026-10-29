@@ -131,7 +131,10 @@ fieldset { border: none; margin: 0; padding: 0; min-width: 0; }
 .lienzo { position: relative; height: 280px; }
 
 /* ================= LOGIN / DIÁLOGO / TOAST ================= */
-.auth { min-height: calc(100vh - 70px); display: grid; place-items: center; padding: 24px 16px; }
+.auth { min-height: 100vh; display: grid; place-items: center; align-content: center; gap: 28px; padding: 24px 16px; }
+/* En el login no va la barra roja ni el menú: solo el logo a color */
+body:has(#vistaAuth:not(.hidden)) .topbar { display: none; }
+.logo-login { width: 100%; max-width: 480px; height: auto; display: block; }
 .auth .card { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 14px; }
 .auth h1 { margin: 0; font-size: 26px; }
 .msg { margin: 0; font-size: 14px; min-height: 20px; }
