@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bandeja de entrada | La Campana</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="logo" href="registro.html" aria-label="La Campana Servicios de Acero">
+        <img src="logo.webp" alt="La Campana Servicios de Acero" width="2000" height="552">
+      </a>
+      <nav class="menu"><a href="registro.html">Registro</a><a href="bandeja.html" aria-current="page">Bandeja</a><a href="consulta.html" data-solo-admin hidden>Consulta</a><a href="dashboard.html" data-solo-admin hidden>Dashboard</a></nav>
+      <div class="user-box hidden" id="userBox"><span id="userName"></span><button class="btn btn-white" id="btnSalir">Salir</button></div>
+    </div>
+  </header>
+
+  <main id="vistaAuth" class="auth"></main>
+
+  <main id="vistaApp" class="container hidden">
+    <div class="page-head">
+      <span class="ico ico-lg" data-icono="lista"></span>
+      <div><h2>Bandeja de entrada</h2><p>Órdenes de trabajo y de suministro en las que usted es el responsable. Ciérrelas cuando termine; la OS pide una foto como prueba.</p></div>
+    </div>
+
+    <form class="card filtros" id="filtros">
+      <label class="campo"><span>Estado</span><select name="estado"><option>Abierta</option><option>Cerrada</option><option value="">Todas</option></select></label>
+    </form>
+
+    <section class="card">
+      <div class="table-wrap">
+        <table class="tabla" id="tabla">
+          <thead><tr><th>No.</th><th>Fecha</th><th>Prioridad</th><th>Máquina / Área</th><th>Solicitante</th><th>Detalle</th><th>Estado</th><th><span class="sr-only">Acción</span></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="nota" id="conteo"></p>
+    </section>
+  </main>
+
+  <div class="toast hidden" id="toast" role="status"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <script src="comun.js"></script>
+  <script src="bandeja.js"></script>
+</body>
+</html>

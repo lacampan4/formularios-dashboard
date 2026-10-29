@@ -22,6 +22,13 @@ const FRENTES = [
 ];
 const PERSONAS = ["Ivan Ibáñez", ...FRENTES.map((f) => f.lider)];
 
+// Lista de máquinas de la OT; al final del desplegable va "OTRO", que pide escribirla
+const MAQUINAS = [
+  "CABALLETE", "CANAL PECHO PALOMA", "CTL BRONX", "CTL SESCO", "CUBIERTA ARQUITECTONICA", "CUBIERTA TRAPEZOIDAL",
+  "ENTREPISO", "FORMACERO", "LÍNEA TUBERÍA GG80", "MAQUINAS PEQUENAS", "PERLIN EN C", "PLATINA",
+  "SLITTER LOOPCO", "SLITTER YODER", "TUBERIA BRITISH",
+];
+
 const PRIORIDADES = { Rojo: "Urgente", Amarillo: "Programable", Verde: "Preventivo" };
 const MEDIDAS = ["und", "kg", "m", "L"];
 const TIPOS_PERMISO = { alturas: "Trabajo en alturas", caliente: "Trabajo en caliente", energias: "Energías peligrosas (bloqueo y etiquetado)", electrico: "Trabajo riesgo eléctrico" };

@@ -6,7 +6,6 @@ const P_COLOR = { Rojo: "#e2231a", Amarillo: "#ffc600", Verde: "#00a651" };
 const P_BORDE = { Rojo: "#e2231a", Amarillo: "#b37f00", Verde: "#00a651" }; // el amarillo necesita borde sobre blanco
 const NIVELES = Object.keys(PRIORIDADES);
 const diaLocal = (d) => d.toLocaleDateString("en-CA"); // AAAA-MM-DD en hora local
-let ordenes = [];
 let campoFecha = "creado_en"; // "Cerradas esta semana" filtra por fecha de cierre
 
 Chart.defaults.font.family = "Poppins, Arial, sans-serif";
@@ -44,7 +43,6 @@ const mayores = (mapa, n) => [...mapa].sort((a, b) => b[1] - a[1]).slice(0, n);
 
 // ---------------- Filtros ----------------
 $("fPrioridad").innerHTML = opciones(NIVELES, "Todas");
-$("dl-personas").innerHTML = opciones(PERSONAS);
 const f = $("filtros");
 f.hasta.value = diaLocal(new Date());
 f.desde.value = diaLocal(new Date(Date.now() - 29 * 864e5));
@@ -68,8 +66,7 @@ async function cargar() {
   if (f.estado.value) q = q.eq("estado", f.estado.value);
   const [r, rf] = await Promise.all([q, f.formato.value === "OS" ? { data: [] } : qf]);
   if (r.error || rf.error) return aviso("No se pudieron cargar los datos: " + (r.error || rf.error).message, true);
-  ordenes = r.data;
-  pintar(ordenes, rf.data);
+  pintar(r.data, rf.data);
 }
 
 function pintar(lista, fallas) {
@@ -77,14 +74,12 @@ function pintar(lista, fallas) {
   const abiertas = lista.filter((o) => o.estado === "Abierta");
   const rojas = lista.filter((o) => o.prioridad === "Rojo").length;
   const pctRojo = lista.length ? Math.round((rojas / lista.length) * 100) : 0;
-  const sst = abiertas.filter((o) => o.riesgo_personas).length;
 
   // Regla de oro 4: si todo es urgente, nada es urgente (alarma > 30 % en Rojo)
   $("kpis").innerHTML = [
     ["Órdenes en el periodo", lista.length, `${ot.length} OT · ${os.length} OS`],
-    ["Abiertas (sin las 3 firmas)", abiertas.length, `${abiertas.filter((o) => o.formato === "OT").length} OT · ${abiertas.filter((o) => o.formato === "OS").length} OS`],
+    ["Abiertas", abiertas.length, `${abiertas.filter((o) => o.formato === "OT").length} OT · ${abiertas.filter((o) => o.formato === "OS").length} OS`],
     ["En Rojo", `${pctRojo} %`, `${rojas} órdenes${pctRojo > 30 ? " · demasiadas urgencias" : ""}`, pctRojo > 30],
-    ["Riesgo para personas abiertas", sst, "Avisar a SST (Lina Hernández)", sst > 0],
   ].map(([t, v, s, alarma]) => `<div class="kpi"><small>${esc(t)}</small><b class="${alarma ? "alarma" : ""}">${esc(v)}</b><small>${esc(s)}</small></div>`).join("");
 
   const porP = contar(lista, (o) => o.prioridad);
@@ -113,42 +108,15 @@ function pintar(lista, fallas) {
   grafica("gCierre", "bar", NIVELES.map((p) => `${p} · ${PRIORIDADES[p]}`), horas,
     { colores: NIVELES.map((p) => P_COLOR[p]), bordes: NIVELES.map((p) => P_BORDE[p]) });
 
-  const firmas = (o) => [o.autorizado_por, o.entregado_por, o.recibido_por].filter(Boolean).length;
-  $("tabla").tBodies[0].innerHTML = lista.length ? lista.map((o, i) => `<tr>
-      <td class="mono"><a href="consulta.html#${o.formato}/${o.id}">${esc(o.numero)}</a>${o.riesgo_personas ? " ⚠" : ""}</td>
+  $("tabla").tBodies[0].innerHTML = lista.length ? lista.map((o) => `<tr>
+      <td class="mono"><a href="consulta.html#${o.formato}/${o.id}">${esc(o.formato)} ${esc(o.numero)}</a></td>
       <td>${fecha(o.creado_en)}</td>
       <td>${chip(o.prioridad)}</td>
       <td>${esc(o.detalle)}</td>
       <td><span class="chip ${esc(o.estado)}">${esc(o.estado)}</span></td>
-      <td>${firmas(o)}/3</td>
-      <td>${o.estado === "Abierta" ? `<button class="btn btn-sec" data-firmar="${i}">Firmar</button>` : ""}</td>
-    </tr>`).join("") : `<tr><td class="vacio" colspan="7">No hay órdenes con estos filtros</td></tr>`;
+    </tr>`).join("") : `<tr><td class="vacio" colspan="5">No hay órdenes con estos filtros</td></tr>`;
   etiquetar($("tabla"));
 }
-
-// ---------------- Firmas (regla 8) ----------------
-let actual = null;
-$("tabla").onclick = (e) => {
-  const i = e.target.dataset.firmar;
-  if (i == null) return;
-  actual = ordenes[i];
-  $("firmasTitulo").textContent = `Firmas ${actual.numero}`;
-  for (const k of ["autorizado_por", "entregado_por", "recibido_por"]) $("formFirmas")[k].value = actual[k] ?? "";
-  msg($("firmasMsg"), "");
-  $("dlgFirmas").showModal();
-};
-$("firmasCancelar").onclick = () => $("dlgFirmas").close();
-$("formFirmas").onsubmit = async (e) => {
-  e.preventDefault();
-  const fd = new FormData(e.target);
-  const cambios = Object.fromEntries(["autorizado_por", "entregado_por", "recibido_por"].map((k) => [k, fd.get(k).trim() || null]));
-  const tabla = actual.formato === "OT" ? "ordenes_trabajo" : "ordenes_suministro";
-  const { error } = await db.from(tabla).update(cambios).eq("id", actual.id);
-  if (error) return msg($("firmasMsg"), error.message, "error"); // p. ej. alto riesgo sin ATS/Permiso
-  $("dlgFirmas").close();
-  aviso(`${actual.numero} actualizada`);
-  cargar();
-};
 
 // Solo el rol admin ve el dashboard; las vistas v_ordenes y v_fallas tampoco devuelven nada a otros roles
 iniciarSesion((perfil) => {

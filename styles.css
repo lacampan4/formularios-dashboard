@@ -19,12 +19,8 @@ body { margin: 0; font: 15px/1.5 "Poppins", Arial, sans-serif; background: var(-
 /* ================= ENCABEZADO (logo de mesa-ayuda) ================= */
 .topbar { background: var(--rojo); color: #fff; position: sticky; top: 0; z-index: 20; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
 .topbar-inner { max-width: 1200px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 28px; flex-wrap: wrap; }
-.logo { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; }
-.logo-icon { width: 34px; height: 40px; border: 6px solid #fff; border-bottom: none; border-radius: 20px 20px 0 0; position: relative; }
-.logo-icon::after { content: ""; position: absolute; width: 9px; height: 9px; background: #fff; border-radius: 50%; left: 6px; bottom: -4px; }
-.logo-text { font-size: 32px; font-weight: 500; line-height: .9; letter-spacing: -1px; position: relative; padding-top: 12px; }
-.logo-text small { position: absolute; top: -2px; left: 0; font-size: 15px; }
-.logo-text em { display: block; font-style: normal; font-size: 10px; letter-spacing: 0; text-align: right; }
+.logo { display: flex; align-items: center; }
+.logo img { height: 48px; width: auto; display: block; } /* logo blanco con fondo transparente (logo.webp) */
 .menu { display: flex; gap: 26px; flex: 1; }
 .menu a { color: #fff; font-weight: 600; text-decoration: none; font-size: 16px; padding: 6px 0 3px; border-bottom: 2px solid transparent; }
 .menu a[aria-current="page"], .menu a:hover { border-color: #fff; }
@@ -44,6 +40,8 @@ body { margin: 0; font: 15px/1.5 "Poppins", Arial, sans-serif; background: var(-
 .btn-red .ico { color: #fff; }
 .btn-sec .ico { color: var(--gris-600); }
 [data-agregar] { margin-top: 12px; }
+.nuevo-codigo { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+[hidden] { display: none !important; } /* sin esto, .campo y otras clases con display muestran lo que tiene hidden */
 /* Barra final: limpiar a la izquierda, guardar a la derecha */
 .acciones { display: flex; gap: 12px; flex-wrap: wrap; justify-content: space-between; align-items: center;
   background: #fff; border-radius: var(--r-lg); box-shadow: var(--sombra); padding: 14px 16px; margin-top: 4px; }
@@ -167,8 +165,9 @@ a.btn { display: inline-flex; align-items: center; text-decoration: none; }
 @media (max-width: 700px) {
   .topbar { position: static; }
   .topbar-inner { gap: 8px 16px; }
-  .logo-text { font-size: 26px; }
-  .menu { order: 3; flex-basis: 100%; }
+  .logo img { height: 38px; }
+  .menu { order: 3; flex-basis: 100%; gap: 16px; flex-wrap: wrap; }
+  .menu a { font-size: 15px; }
   .user-box { margin-left: auto; }
   .container { padding: 16px 12px; }
   .card { padding: 16px; }
@@ -187,3 +186,8 @@ a.btn { display: inline-flex; align-items: center; text-decoration: none; }
   .tabla td::before { content: attr(data-label); font-size: 12px; font-weight: 600; color: var(--gris-600); text-transform: uppercase; }
   .tabla td.vacio::before { content: none; }
 }
+
+/* Bandeja: fotos de cierre de la OS */
+.fotos { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.fotos img { width: 64px; height: 64px; object-fit: cover; border-radius: 6px; border: 1px solid var(--gris-200); }
+label.btn.cargando { opacity: .6; pointer-events: none; }

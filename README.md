@@ -4,7 +4,7 @@ Registro digital de la Orden de Trabajo (FO-OPE-001), la Orden de Suministro (FO
 
 ## Puesta en marcha
 
-1. **Supabase → SQL Editor:** ejecute en orden `sql/1_esquema.sql`, `sql/2_semillas.sql`, `sql/3_roles.sql` y `sql/4_lista_roles.sql`.
+1. **Supabase → SQL Editor:** ejecute en orden `sql/1_esquema.sql`, `sql/2_semillas.sql`, `sql/3_roles.sql`, `sql/4_lista_roles.sql`, `sql/5_bandeja.sql`, `sql/6_consecutivos.sql` y `sql/7_os_fotos.sql`. Si vuelve a ejecutar uno, ejecute también todos los que siguen, porque cada uno ajusta reglas del anterior.
 2. **Supabase → Authentication → Sign In / Providers:** desactive **"Allow new users to sign up"**. Si queda activo, cualquiera podría crearse una cuenta.
    **Authentication → Users → Add user → Create new user:** se entra con **usuario y contraseña**, sin correo real. Para el usuario `juan.perez` escriba como Email `juan.perez@usuarios.lacampana.co` (el dominio de `DOMINIO_USUARIOS` en `config.js`), ponga la contraseña y marque **Auto Confirm User**. Ese correo no existe y nunca recibe mensajes.
    **Table Editor → usuarios:** al crear el usuario aparece su fila; escriba su nombre completo en `nombre` y elija su `rol` (ver tabla abajo). Un usuario nuevo queda en `sin_rol` y no puede hacer nada hasta que se le asigne uno.
@@ -15,7 +15,7 @@ Registro digital de la Orden de Trabajo (FO-OPE-001), la Orden de Suministro (FO
 
 | Rol | Formularios que llena | Dashboard |
 |---|---|---|
-| `admin` (Dirección de Operaciones) | Todos, completa las firmas y usa la Consulta | Sí |
+| `admin` (Dirección de Operaciones) | Todos, crea códigos de falla nuevos y usa la Consulta | Sí |
 | `produccion` | OT y OS | No |
 | `mantenimiento` | OT, OS, ATS y Permiso | No |
 | `abastecimiento` | OS | No |
@@ -37,7 +37,8 @@ Qué formato llena cada rol está en la tabla `rol_formatos` (Table Editor) y se
 | Archivo | Qué hace |
 |---|---|
 | `registro.html` / `registro.js` | Los cuatro formatos en pestañas |
-| `consulta.html` / `consulta.js` | Lista de formatos guardados y detalle completo de cada uno, con impresión (solo admin). Enlace directo: `consulta.html#OT/5`, `#OS/3`, `#ATS/2`, `#PT/4` |
+| `bandeja.html` / `bandeja.js` | Bandeja de entrada: las OT y OS en las que el usuario es responsable; desde ahí adjunta las fotos de la OS y las cierra |
+| `consulta.html` / `consulta.js` | Lista de formatos guardados y detalle completo de cada uno, con impresión (solo admin). Enlace directo (por id interno): `consulta.html#OT/5`, `#OS/3`, `#ATS/2`, `#PT/4` |
 | `dashboard.html` / `dashboard.js` | Indicadores, gráficas, tabla de órdenes y firmas |
 | `comun.js` | Cliente Supabase, login y utilidades compartidas |
 | `config.js` | Llaves y catálogos de la guía (frentes, líderes, EPP, medidas) |
@@ -47,10 +48,11 @@ Qué formato llena cada rol está en la tabla `rol_formatos` (Table Editor) y se
 ## Reglas que aplica la base de datos
 
 - La máquina es obligatoria en la OT y en cada ítem de la OS. La fecha y la hora las pone el servidor.
-- Una orden pasa a **Cerrada** solo con las tres firmas: Autorizado, Entregado y Recibido.
-- Una OT de alto riesgo no se puede marcar como entregada sin un ATS y un Permiso vinculados.
-- Riesgo para personas obliga a prioridad Rojo.
-- Nadie puede borrar órdenes. Después de creadas solo `admin` puede completar las firmas.
+- La OT no lleva firmas: el solicitante es quien la registra y se escoge un **responsable**. La OT llega a la bandeja del responsable y solo él la pasa a **Cerrada**.
+- El reporte de falla admite hasta 500 caracteres. Quien llena OT puede crear códigos de falla nuevos, que quedan en la lista para todos.
+- La OS tampoco lleva firmas: llega a la bandeja del responsable, que adjunta una o más fotos como prueba (se comprimen en el teléfono antes de subirlas; Supabase rechaza archivos de más de 1 MB o que no sean JPEG). Sin foto no se puede cerrar. Las fotos no se pueden cambiar ni borrar.
+- Cada formato (OT, OS, ATS, Permiso) recibe al guardar un número consecutivo propio de 5 dígitos (00001, 00002…), sin saltos.
+- Nadie puede borrar órdenes.
 - Sin sesión no se ve ni se registra nada.
 
 ## Prueba del esquema

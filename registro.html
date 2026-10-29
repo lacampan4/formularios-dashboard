@@ -12,9 +12,9 @@
   <header class="topbar">
     <div class="topbar-inner">
       <a class="logo" href="registro.html" aria-label="La Campana Servicios de Acero">
-        <span class="logo-icon"></span><span class="logo-text"><small>la</small>campana<em>servicios de acero</em></span>
+        <img src="logo.webp" alt="La Campana Servicios de Acero" width="2000" height="552">
       </a>
-      <nav class="menu"><a href="registro.html" aria-current="page">Registro</a><a href="consulta.html" data-solo-admin hidden>Consulta</a><a href="dashboard.html" data-solo-admin hidden>Dashboard</a></nav>
+      <nav class="menu"><a href="registro.html" aria-current="page">Registro</a><a href="bandeja.html">Bandeja</a><a href="consulta.html" data-solo-admin hidden>Consulta</a><a href="dashboard.html" data-solo-admin hidden>Dashboard</a></nav>
       <div class="user-box hidden" id="userBox"><span id="userName"></span><button class="btn btn-white" id="btnSalir">Salir</button></div>
     </div>
   </header>
@@ -40,9 +40,9 @@
       <section class="card bloque">
         <h3 class="seccion"><span class="ico" data-icono="info"></span>1. Información general</h3>
         <div class="grid">
-          <label class="campo"><span class="req">Máquina</span><input name="maquina" list="dl-maquinas" required placeholder="Nombre o código de la máquina"></label>
+          <label class="campo"><span class="req">Máquina</span><select name="maquina" id="otMaquina" required></select></label>
+          <label class="campo" id="lblMaquinaOtro" hidden><span class="req">¿Cuál máquina?</span><input name="maquina_otro" id="otMaquinaOtro" placeholder="Nombre o código de la máquina"></label>
           <div class="campo"><span>Fecha y hora</span><p class="nota">Se registra automáticamente al guardar.</p></div>
-          <label class="campo"><span>Hora real del evento (si se pidió de palabra)</span><input type="datetime-local" name="hora_evento"></label>
         </div>
         <fieldset class="campo" style="margin-top:16px">
           <legend class="req">Prioridad</legend>
@@ -53,34 +53,27 @@
           </div>
           <p class="nota">Rojo es solo para emergencias: máquina parada, riesgo para personas o un pedido que se cae hoy.</p>
         </fieldset>
-        <div class="checks" style="margin-top:6px">
-          <label class="check"><input type="checkbox" name="riesgo_personas" id="otRiesgo"> Hay riesgo para personas</label>
-          <label class="check"><input type="checkbox" name="alto_riesgo" id="otAltoRiesgo"> Tarea de alto riesgo (alturas, caliente o energías peligrosas)</label>
-        </div>
-        <p class="alerta hidden" id="otAvisoSST">Avise de inmediato a SST (Lina Hernández). La orden queda en prioridad Rojo.</p>
-        <p class="alerta hidden" id="otAvisoATS">No se empieza sin ATS y Permiso de Trabajo firmados. La OT no podrá marcarse como entregada sin ellos.</p>
       </section>
 
       <section class="card bloque">
         <h3 class="seccion"><span class="ico" data-icono="llave"></span>2. Código y reporte de falla</h3>
         <div class="table-wrap">
           <table class="tabla" data-fila="ot">
-            <thead><tr><th class="req">Código</th><th class="req">Reporte de falla</th><th><span class="sr-only">Quitar</span></th></tr></thead>
+            <thead><tr><th class="req">Código y reporte de falla</th><th><span class="sr-only">Quitar</span></th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
         <button type="button" class="btn btn-sec btn-ico" data-agregar><span class="ico" data-icono="mas"></span>Agregar fila</button>
-        <p class="nota">Si ningún código aplica use 83 – Otros y explique en el reporte.</p>
+        <p class="nota">Si ningún código aplica use 83 – Otros y explique en el reporte. El reporte admite hasta 500 caracteres.</p>
       </section>
 
       <section class="card bloque">
-        <h3 class="seccion"><span class="ico" data-icono="firma"></span>3. Firmas</h3>
+        <h3 class="seccion"><span class="ico" data-icono="firma"></span>3. Solicitante y responsable</h3>
         <div class="grid">
-          <label class="campo"><span>Autorizado por</span><input name="autorizado_por" list="dl-personas" placeholder="Nombre completo"></label>
-          <label class="campo"><span>Entregado por</span><input name="entregado_por" list="dl-personas" placeholder="Nombre completo"></label>
-          <label class="campo"><span>Recibido por</span><input name="recibido_por" list="dl-personas" placeholder="Nombre completo"></label>
+          <label class="campo"><span>Solicitante</span><input class="solicitante" readonly></label>
+          <label class="campo"><span class="req">Responsable</span><select name="responsable" class="sel-responsable" required></select></label>
         </div>
-        <p class="nota">Las que falten las completa la Dirección de Operaciones desde el Dashboard. La orden se cierra cuando tiene las tres.</p>
+        <p class="nota">La orden llega a la bandeja del responsable, que la cierra cuando termina el trabajo.</p>
       </section>
 
       <div class="acciones">
@@ -128,12 +121,12 @@
       </section>
 
       <section class="card bloque">
-        <h3 class="seccion"><span class="ico" data-icono="firma"></span>3. Firmas</h3>
+        <h3 class="seccion"><span class="ico" data-icono="firma"></span>3. Solicitante y responsable</h3>
         <div class="grid">
-          <label class="campo"><span>Autorizado por</span><input name="autorizado_por" list="dl-personas" placeholder="Nombre completo"></label>
-          <label class="campo"><span>Entregado por (almacén o compras)</span><input name="entregado_por" list="dl-personas" placeholder="Nombre completo"></label>
-          <label class="campo"><span>Recibido por</span><input name="recibido_por" list="dl-personas" placeholder="Nombre completo"></label>
+          <label class="campo"><span>Solicitante</span><input class="solicitante" readonly></label>
+          <label class="campo"><span class="req">Responsable</span><select name="responsable" class="sel-responsable" required></select></label>
         </div>
+        <p class="nota">La orden llega a la bandeja del responsable, que adjunta una foto como prueba y la cierra.</p>
       </section>
 
       <div class="acciones">
@@ -148,6 +141,7 @@
       <div class="page-head">
         <span class="ico ico-lg" data-icono="escudo"></span>
         <div><h2>Análisis de Trabajo Seguro</h2><p>FR-SST-011 · Versión 1 · Diligencie todas las casillas antes de iniciar la tarea.</p></div>
+        <div class="no-orden"><b>No. ATS</b><span>Se asigna al guardar</span></div>
       </div>
 
       <section class="card bloque">
@@ -204,7 +198,6 @@
         <h3 class="seccion"><span class="ico" data-icono="firma"></span>5. Fechas y responsables</h3>
         <div class="grid">
           <label class="campo"><span class="req">Fecha de apertura</span><input type="date" name="fecha_apertura" required></label>
-          <label class="campo"><span>Fecha de cierre</span><input type="date" name="fecha_cierre"></label>
           <label class="campo"><span class="req">Trabajador encargado de la tarea</span><input name="firma_encargado" required placeholder="Nombre completo"></label>
           <label class="campo"><span class="req">Jefe inmediato (firma)</span><input name="firma_jefe" list="dl-personas" required placeholder="Nombre completo"></label>
           <label class="campo"><span id="lblCoord">Coordinador de trabajo en alturas (si aplica)</span><input name="firma_coord_alturas" id="atsCoord" placeholder="Nombre completo"></label>
@@ -224,6 +217,7 @@
       <div class="page-head">
         <span class="ico ico-lg" data-icono="escudo"></span>
         <div><h2>Permiso de Trabajo Tareas de Alto Riesgo</h2><p>FR-SST-039 · Versión 1 · Área de Mantenimiento</p></div>
+        <div class="no-orden"><b>No. PERMISO</b><span>Se asigna al guardar</span></div>
       </div>
 
       <section class="card bloque">
@@ -303,8 +297,9 @@
 
   <!-- Filas de las tablas -->
   <template id="fila-ot"><tr>
-    <td><select data-k="codigo_falla" data-tipo="num" class="sel-codigo" required></select></td>
-    <td><textarea data-k="reporte" rows="2" required placeholder="Qué pasó o qué trabajo se necesita"></textarea></td>
+    <td><select data-k="codigo_falla" data-tipo="num" class="sel-codigo" required></select>
+      <div class="nuevo-codigo" hidden><input maxlength="100" placeholder="Descripción del nuevo código" aria-label="Descripción del nuevo código"><button type="button" class="btn btn-sec" data-nuevo-codigo>Agregar código</button></div>
+      <label class="campo" style="margin-top:10px"><span class="req">Reporte de falla</span><textarea data-k="reporte" rows="4" required maxlength="500" placeholder="Qué pasó o qué trabajo se necesita (máx. 500 caracteres)"></textarea></label></td>
     <td class="quitar"><button type="button" class="btn-link" data-quitar aria-label="Quitar fila">✕</button></td>
   </tr></template>
   <template id="fila-os"><tr>

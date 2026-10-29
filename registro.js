@@ -38,6 +38,7 @@ function reiniciar(form) {
   form.querySelectorAll(".alerta").forEach((a) => a.classList.add("hidden"));
   if (form.fecha_apertura) form.fecha_apertura.value = hoy();
   $("bloqueElectrico").hidden = true;
+  $("otMaquina").onchange();
 }
 
 // Guarda con el botón bloqueado; los errores de la base de datos se muestran tal cual.
@@ -72,6 +73,7 @@ document.addEventListener("click", (e) => {
 
 // ---------------- Catálogos fijos ----------------
 $("dl-personas").innerHTML = opciones(PERSONAS);
+$("otMaquina").innerHTML = opciones([...MAQUINAS, "OTRO"], "Seleccione");
 $("osArea").innerHTML = opciones(FRENTES.map((f) => ({ v: f.area, t: `${f.area} (${f.frente})` })), "Seleccione");
 $("tiposPermiso").innerHTML = Object.entries(TIPOS_PERMISO).map(([v, t]) => `<label class="check"><input type="checkbox" name="tipos" value="${v}"> ${esc(t)}</label>`).join("");
 const SINO = opciones([{ v: "true", t: "Sí" }, { v: "false", t: "No" }], "—");
@@ -80,15 +82,34 @@ $("fila-os").content.querySelector(".sel-medida").innerHTML = opciones(MEDIDAS, 
 $("fila-trab").content.querySelectorAll(".sel-sino").forEach((s) => s.innerHTML = SINO);
 
 // ---------------- Reglas en pantalla ----------------
-// Regla 9 + prioridad: riesgo para personas = Rojo y aviso a SST
-$("otRiesgo").onchange = (e) => {
-  $("otAvisoSST").classList.toggle("hidden", !e.target.checked);
-  if (e.target.checked) $("formOT").querySelector('[name=prioridad][value=Rojo]').checked = true;
+// Máquina OTRO: pide escribirla
+$("otMaquina").onchange = () => {
+  const otro = $("otMaquina").value === "OTRO";
+  $("lblMaquinaOtro").hidden = !otro;
+  $("otMaquinaOtro").required = otro;
 };
-$("formOT").querySelectorAll("[name=prioridad]").forEach((r) => r.addEventListener("change", () => {
-  if (r.value !== "Rojo") { $("otRiesgo").checked = false; $("otAvisoSST").classList.add("hidden"); }
-}));
-$("otAltoRiesgo").onchange = (e) => $("otAvisoATS").classList.toggle("hidden", !e.target.checked);
+// "+ Nuevo código" (solo admin) abre en esa fila el campo para escribirlo; mientras esté elegido no se puede guardar
+$("formOT").addEventListener("change", (e) => {
+  const s = e.target.closest(".sel-codigo");
+  if (!s) return;
+  const nuevo = s.value === "nuevo";
+  s.nextElementSibling.hidden = !nuevo;
+  s.setCustomValidity(nuevo ? "Agregue el nuevo código o elija uno de la lista" : "");
+  if (nuevo) s.nextElementSibling.querySelector("input").focus();
+});
+$("formOT").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-nuevo-codigo]");
+  if (!b) return;
+  const input = b.previousElementSibling, s = b.parentElement.previousElementSibling;
+  if (!input.value.trim()) return input.focus();
+  b.disabled = true;
+  const { data: codigo, error } = await db.rpc("agregar_codigo", { descripcion: input.value });
+  b.disabled = false;
+  if (error) return aviso(error.message, true);
+  await cargarCodigos();
+  s.value = codigo; input.value = ""; s.dispatchEvent(new Event("change", { bubbles: true }));
+  aviso(`Código ${String(codigo).padStart(2, "0")} agregado a la lista`);
+});
 // En alturas firma el coordinador
 $("atsAlturas").onchange = (e) => { $("atsCoord").required = e.target.checked; $("lblCoord").classList.toggle("req", e.target.checked); };
 // Riesgo eléctrico: marcar energizado/desenergizado
@@ -101,20 +122,21 @@ $("tiposPermiso").onchange = () => {
 // ---------------- Guardar ----------------
 $("formOT").onsubmit = (e) => { e.preventDefault(); guardar(e.target, async () => {
   const orden = datos(e.target);
-  if (orden.hora_evento) orden.hora_evento = new Date(orden.hora_evento).toISOString();
+  if (orden.maquina === "OTRO") orden.maquina = orden.maquina_otro;
   const numero = ok(await db.rpc("crear_ot", { orden, lineas: filas(e.target.querySelector(".tabla")) }));
-  return `${numero} guardada`;
+  return `OT ${numero} guardada`;
 }); };
 
 $("formOS").onsubmit = (e) => { e.preventDefault(); guardar(e.target, async () => {
   const numero = ok(await db.rpc("crear_os", { orden: datos(e.target), items: filas(e.target.querySelector(".tabla")) }));
-  return `${numero} guardada`;
+  return `OS ${numero} guardada`;
 }); };
 
 $("formATS").onsubmit = (e) => { e.preventDefault(); guardar(e.target, async () => {
   const [trab, pasos] = e.target.querySelectorAll(".tabla");
   const id = ok(await db.rpc("crear_ats", { datos: datos(e.target), trabajadores: filas(trab), pasos: filas(pasos) }));
-  return `ATS #${id} guardado`;
+  const { numero } = ok(await db.from("ats").select("numero").eq("id", id).single());
+  return `ATS ${numero} guardado`;
 }); };
 
 $("formPermiso").onsubmit = (e) => {
@@ -125,8 +147,8 @@ $("formPermiso").onsubmit = (e) => {
     const d = datos(e.target);
     d.epp = Object.fromEntries([...e.target.querySelectorAll("[data-epp]")].map((s) => [s.dataset.epp, valor(s)]));
     if (!d.tipos.includes("electrico")) { d.metodo_electrico = null; d.nivel_tension = null; }
-    const { id } = ok(await db.from("permisos_trabajo").insert(d).select("id").single());
-    return `Permiso #${id} guardado`;
+    const { numero } = ok(await db.from("permisos_trabajo").insert(d).select("numero").single());
+    return `Permiso ${numero} guardado`;
   });
 };
 $("tiposPermiso").addEventListener("change", () => $("formPermiso").querySelector("[name=tipos]").setCustomValidity(""));
@@ -135,13 +157,24 @@ $("tiposPermiso").addEventListener("change", () => $("formPermiso").querySelecto
 async function cargarListas() {
   const [ots, atss] = await Promise.all([
     db.from("ordenes_trabajo").select("id, numero, maquina, estado, alto_riesgo").order("id", { ascending: false }).limit(300),
-    db.from("ats").select("id, fecha_apertura, ordenes_trabajo!ats_ot_id_fkey(numero)") /* !fk: permisos_trabajo también une ATS y OT */.order("id", { ascending: false }).limit(300),
+    db.from("ats").select("id, numero, fecha_apertura, ordenes_trabajo!ats_ot_id_fkey(numero)") /* !fk: permisos_trabajo también une ATS y OT */.order("id", { ascending: false }).limit(300),
   ]);
   if (ots.error || atss.error) return aviso("No se pudieron cargar las órdenes: " + (ots.error || atss.error).message, true);
-  const lista = ots.data.map((o) => ({ v: o.id, t: `${o.numero} · ${o.maquina}${o.alto_riesgo ? " · alto riesgo" : ""} (${o.estado})` }));
+  const lista = ots.data.map((o) => ({ v: o.id, t: `OT ${o.numero} · ${o.maquina}${o.alto_riesgo ? " · alto riesgo" : ""} (${o.estado})` }));
   document.querySelectorAll(".sel-ot").forEach((s) => { const v = s.value; s.innerHTML = opciones(lista, "Seleccione"); s.value = v; });
-  $("selATS").innerHTML = opciones(atss.data.map((a) => ({ v: a.id, t: `ATS #${a.id} · ${a.ordenes_trabajo?.numero ?? ""} · ${a.fecha_apertura}` })), "Ninguno");
-  $("dl-maquinas").innerHTML = opciones([...new Set(ots.data.map((o) => o.maquina))]);
+  $("selATS").innerHTML = opciones(atss.data.map((a) => ({ v: a.id, t: `ATS ${a.numero} · OT ${a.ordenes_trabajo?.numero ?? ""} · ${a.fecha_apertura}` })), "Ninguno");
+  $("dl-maquinas").innerHTML = opciones([...new Set([...MAQUINAS, ...ots.data.map((o) => o.maquina)])]);
+}
+
+// En la plantilla de fila y en las filas ya puestas, sin perder lo elegido
+let esAdmin = false; // la base de datos también lo exige en agregar_codigo()
+async function cargarCodigos() {
+  const { data, error } = await db.from("codigos_falla").select("codigo, descripcion").order("codigo");
+  if (error) return aviso("No se pudieron cargar los códigos de falla: " + error.message, true);
+  const html = opciones(data.map((c) => ({ v: c.codigo, t: `${String(c.codigo).padStart(2, "0")} – ${c.descripcion}` })), "Seleccione") +
+    (esAdmin ? `<option value="nuevo">+ Nuevo código</option>` : "");
+  $("fila-ot").content.querySelector(".sel-codigo").innerHTML = html;
+  $("formOT").querySelectorAll(".sel-codigo").forEach((s) => { const v = s.value; s.innerHTML = html; s.value = v; });
 }
 
 async function alEntrar(perfil) {
@@ -156,10 +189,13 @@ async function alEntrar(perfil) {
   }
   $("tab" + permitidos[0]).click();
 
-  const { data, error } = await db.from("codigos_falla").select("codigo, descripcion").order("codigo");
-  if (error) return aviso("No se pudieron cargar los códigos de falla: " + error.message, true);
-  $("fila-ot").content.querySelector(".sel-codigo").innerHTML =
-    opciones(data.map((c) => ({ v: c.codigo, t: `${String(c.codigo).padStart(2, "0")} – ${c.descripcion}` })), "Seleccione");
+  // Solicitante = quien tiene la sesión (la base de datos guarda creado_por); defaultValue sobrevive a form.reset()
+  document.querySelectorAll(".solicitante").forEach((i) => i.defaultValue = perfil.nombre);
+  esAdmin = perfil.rol === "admin";
+  const [{ data: usuarios, error }] = await Promise.all([db.rpc("usuarios_activos"), cargarCodigos()]);
+  if (error) aviso("No se pudo cargar la lista de responsables: " + error.message, true);
+  const responsables = opciones((usuarios ?? []).map((u) => ({ v: u.id, t: u.nombre })), "Seleccione");
+  document.querySelectorAll(".sel-responsable").forEach((s) => s.innerHTML = responsables);
   FORMS.forEach((f) => reiniciar($("form" + f)));
   cargarListas();
 }

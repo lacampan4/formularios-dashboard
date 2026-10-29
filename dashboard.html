@@ -12,9 +12,9 @@
   <header class="topbar">
     <div class="topbar-inner">
       <a class="logo" href="registro.html" aria-label="La Campana Servicios de Acero">
-        <span class="logo-icon"></span><span class="logo-text"><small>la</small>campana<em>servicios de acero</em></span>
+        <img src="logo.webp" alt="La Campana Servicios de Acero" width="2000" height="552">
       </a>
-      <nav class="menu"><a href="registro.html">Registro</a><a href="consulta.html" data-solo-admin hidden>Consulta</a><a href="dashboard.html" data-solo-admin aria-current="page" hidden>Dashboard</a></nav>
+      <nav class="menu"><a href="registro.html">Registro</a><a href="bandeja.html">Bandeja</a><a href="consulta.html" data-solo-admin hidden>Consulta</a><a href="dashboard.html" data-solo-admin aria-current="page" hidden>Dashboard</a></nav>
       <div class="user-box hidden" id="userBox"><span id="userName"></span><button class="btn btn-white" id="btnSalir">Salir</button></div>
     </div>
   </header>
@@ -47,28 +47,13 @@
       <h2>Órdenes</h2>
       <div class="table-wrap">
         <table class="tabla" id="tabla">
-          <thead><tr><th>No.</th><th>Fecha</th><th>Prioridad</th><th>Máquina / Área</th><th>Estado</th><th>Firmas</th><th><span class="sr-only">Acción</span></th></tr></thead>
+          <thead><tr><th>No.</th><th>Fecha</th><th>Prioridad</th><th>Máquina / Área</th><th>Estado</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
     </section>
   </main>
 
-  <dialog id="dlgFirmas">
-    <form method="dialog" id="formFirmas">
-      <h2 id="firmasTitulo" style="margin:0"></h2>
-      <label class="campo"><span>Autorizado por</span><input name="autorizado_por" list="dl-personas"></label>
-      <label class="campo"><span>Entregado por</span><input name="entregado_por" list="dl-personas"></label>
-      <label class="campo"><span>Recibido por</span><input name="recibido_por" list="dl-personas"></label>
-      <p class="msg" id="firmasMsg" role="status"></p>
-      <div class="acciones" style="margin-top:0">
-        <button type="button" class="btn btn-sec" id="firmasCancelar">Cancelar</button>
-        <button class="btn btn-red" value="guardar">Guardar firmas</button>
-      </div>
-    </form>
-  </dialog>
-
-  <datalist id="dl-personas"></datalist>
   <div class="toast hidden" id="toast" role="status"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>

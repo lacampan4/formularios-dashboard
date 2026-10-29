@@ -2,14 +2,13 @@
 //  CONSULTA: lista de formatos guardados y detalle completo de cada uno (solo admin)
 //  Enlaces directos: consulta.html#OT/5, #OS/3, #ATS/2, #PT/4
 // =====================================================================
-const pad = (n) => String(n).padStart(4, "0");
 // Las relaciones se nombran (!fk) porque permisos_trabajo une OT y ATS y Supabase las vería ambiguas
 const DEF = {
   OT: {
     nombre: "Orden de Trabajo", tabla: "ordenes_trabajo", conEstado: true,
     lista: "id, numero, creado_en, prioridad, estado, maquina",
     fila: (o) => ({ numero: o.numero, prioridad: o.prioridad, detalle: o.maquina, estado: o.estado }),
-    detalle: "*, ot_lineas(codigo_falla, reporte, codigos_falla(descripcion)), ordenes_suministro!ordenes_suministro_ot_id_fkey(id, numero), ats!ats_ot_id_fkey(id), permisos_trabajo!permisos_trabajo_ot_id_fkey(id)",
+    detalle: "*, ot_lineas(codigo_falla, reporte, codigos_falla(descripcion)), ordenes_suministro!ordenes_suministro_ot_id_fkey(id, numero), ats!ats_ot_id_fkey(id, numero), permisos_trabajo!permisos_trabajo_ot_id_fkey(id, numero)",
   },
   OS: {
     nombre: "Orden de Suministro", tabla: "ordenes_suministro", conEstado: true,
@@ -19,15 +18,15 @@ const DEF = {
   },
   ATS: {
     nombre: "Análisis de Trabajo Seguro", tabla: "ats",
-    lista: "id, creado_en, descripcion_labor, ordenes_trabajo!ats_ot_id_fkey(numero)",
-    fila: (o) => ({ numero: "ATS-" + pad(o.id), detalle: `${o.ordenes_trabajo?.numero ?? ""} · ${o.descripcion_labor}` }),
-    detalle: "*, ats_trabajadores(*), ats_pasos(*), ordenes_trabajo!ats_ot_id_fkey(id, numero), permisos_trabajo!permisos_trabajo_ats_id_fkey(id)",
+    lista: "id, numero, creado_en, descripcion_labor, ordenes_trabajo!ats_ot_id_fkey(numero)",
+    fila: (o) => ({ numero: o.numero, detalle: `${o.ordenes_trabajo ? `OT ${o.ordenes_trabajo.numero} · ` : ""}${o.descripcion_labor}` }),
+    detalle: "*, ats_trabajadores(*), ats_pasos(*), ordenes_trabajo!ats_ot_id_fkey(id, numero), permisos_trabajo!permisos_trabajo_ats_id_fkey(id, numero)",
   },
   PT: {
     nombre: "Permiso de Trabajo Tareas de Alto Riesgo", tabla: "permisos_trabajo",
-    lista: "id, creado_en, tarea, ordenes_trabajo!permisos_trabajo_ot_id_fkey(numero)",
-    fila: (o) => ({ numero: "PT-" + pad(o.id), detalle: `${o.ordenes_trabajo?.numero ?? ""} · ${o.tarea}` }),
-    detalle: "*, ordenes_trabajo!permisos_trabajo_ot_id_fkey(id, numero), ats!permisos_trabajo_ats_id_fkey(id)",
+    lista: "id, numero, creado_en, tarea, ordenes_trabajo!permisos_trabajo_ot_id_fkey(numero)",
+    fila: (o) => ({ numero: o.numero, detalle: `${o.ordenes_trabajo ? `OT ${o.ordenes_trabajo.numero} · ` : ""}${o.tarea}` }),
+    detalle: "*, ordenes_trabajo!permisos_trabajo_ot_id_fkey(id, numero), ats!permisos_trabajo_ats_id_fkey(id, numero)",
   },
 };
 let nombres = new Map(); // id de usuario -> nombre, para "Registrado por"
@@ -59,31 +58,35 @@ const VISTA = {
   OT: (o) => cabecera("OT", "FO-OPE-001 · Versión 01", o.numero) +
     bloque(1, "info", "Información general", datos(
       dato("Máquina", o.maquina), datoHtml("Prioridad", chip(o.prioridad)), datoHtml("Estado", estado(o.estado)),
-      ...registro(o), dato("Hora real del evento", o.hora_evento && fecha(o.hora_evento)),
-      dato("Riesgo para personas", siNo(o.riesgo_personas)), dato("Tarea de alto riesgo", siNo(o.alto_riesgo)), dato("Cerrada el", o.cerrada_en && fecha(o.cerrada_en)))) +
+      dato("Registrado el", fecha(o.creado_en)), dato("Solicitante", nombres.get(o.creado_por)), dato("Responsable", nombres.get(o.responsable)),
+      dato("Cerrada el", o.cerrada_en && fecha(o.cerrada_en)))) +
     bloque(2, "llave", "Código y reporte de falla", tabla(["Código", "Descripción", "Reporte de falla"],
       o.ot_lineas.map((l) => [String(l.codigo_falla).padStart(2, "0"), l.codigos_falla?.descripcion, l.reporte]))) +
-    bloque(3, "firma", "Firmas", firmas(o)) +
-    bloque(4, "lista", "Documentos relacionados", datos(
+    bloque(3, "lista", "Documentos relacionados", datos(
       datoHtml("Órdenes de suministro", enlaces("OS", o.ordenes_suministro, (x) => x.numero)),
-      datoHtml("ATS", enlaces("ATS", o.ats, (x) => "ATS-" + pad(x.id))),
-      datoHtml("Permisos de trabajo", enlaces("PT", o.permisos_trabajo, (x) => "PT-" + pad(x.id))))),
+      datoHtml("ATS", enlaces("ATS", o.ats, (x) => x.numero)),
+      datoHtml("Permisos de trabajo", enlaces("PT", o.permisos_trabajo, (x) => x.numero)))) +
+    // OT anteriores a la bandeja: se siguen viendo sus firmas
+    (o.autorizado_por || o.entregado_por || o.recibido_por ? bloque(4, "firma", "Firmas (formato anterior)", firmas(o)) : ""),
 
   OS: (o) => cabecera("OS", "FO-OPE-002 · Versión 01", o.numero) +
     bloque(1, "info", "Información general", datos(
       dato("Área solicitante", o.area_solicitante), datoHtml("Prioridad", chip(o.prioridad)), datoHtml("Estado", estado(o.estado)),
-      ...registro(o), datoHtml("OT relacionada", o.ordenes_trabajo ? enlace("OT", o.ordenes_trabajo.id, o.ordenes_trabajo.numero) : "—"),
+      dato("Registrado el", fecha(o.creado_en)), dato("Solicitante", nombres.get(o.creado_por)), dato("Responsable", nombres.get(o.responsable)),
+      datoHtml("OT relacionada", o.ordenes_trabajo ? enlace("OT", o.ordenes_trabajo.id, o.ordenes_trabajo.numero) : "—"),
       dato("Cerrada el", o.cerrada_en && fecha(o.cerrada_en)))) +
     bloque(2, "caja", "Ítems solicitados", tabla(["Máquina", "Referencia", "Marca", "Código", "Cantidad", "Medida", "Descripción", "Función"],
       o.os_items.map((i) => [i.maquina, i.referencia, i.marca, i.codigo, i.cantidad, i.medida, i.descripcion, i.funcion]))) +
-    bloque(3, "firma", "Firmas", firmas(o)),
+    bloque(3, "check", "Fotos de cierre", `<div class="fotos" id="fotosOS"><p class="nota">Cargando…</p></div>`) +
+    // OS anteriores a la bandeja: se siguen viendo sus firmas
+    (o.autorizado_por || o.entregado_por || o.recibido_por ? bloque(4, "firma", "Firmas (formato anterior)", firmas(o)) : ""),
 
-  ATS: (o) => cabecera("ATS", "FR-SST-011 · Versión 1", "ATS-" + pad(o.id)) +
+  ATS: (o) => cabecera("ATS", "FR-SST-011 · Versión 1", o.numero) +
     bloque(1, "info", "Información general", datos(
       datoHtml("Orden de trabajo", o.ordenes_trabajo ? enlace("OT", o.ordenes_trabajo.id, o.ordenes_trabajo.numero) : "—"),
       dato("Sede", o.sede), dato("Área de ubicación", o.area), dato("Jefe inmediato", o.jefe_inmediato), dato("Responsables", o.responsables),
       dato("Permisos adicionales", [o.alturas && "Alturas", o.caliente && "Caliente", o.energias && "Energías peligrosas"].filter(Boolean).join(", ")),
-      ...registro(o), datoHtml("Permisos de trabajo", enlaces("PT", o.permisos_trabajo, (x) => "PT-" + pad(x.id))))) +
+      ...registro(o), datoHtml("Permisos de trabajo", enlaces("PT", o.permisos_trabajo, (x) => x.numero)))) +
     bloque(2, "personas", "Trabajadores autorizados", tabla(["Nombre", "Cargo", "Óptimo estado de salud", "Medicamentos que causan sueño", "Afiliación SGSS", "Certificado"],
       o.ats_trabajadores.map((t) => [t.nombre, t.cargo, siNo(t.salud_ok), siNo(t.medicamentos_sueno), siNo(t.afiliacion_ss), siNo(t.certificado)]))) +
     bloque(3, "caja", "Descripción de la labor", `<div class="grid grid-2">${texto("Descripción de la labor", o.descripcion_labor)}${texto("Equipos, herramientas y sustancias", o.equipos)}</div>`) +
@@ -93,10 +96,10 @@ const VISTA = {
       dato("Fecha de apertura", o.fecha_apertura), dato("Fecha de cierre", o.fecha_cierre), dato("Trabajador encargado", o.firma_encargado),
       dato("Jefe inmediato", o.firma_jefe), dato("Coordinador de alturas", o.firma_coord_alturas), dato("SST", o.firma_sst))),
 
-  PT: (o) => cabecera("PT", "FR-SST-039 · Versión 1 · Área de Mantenimiento", "PT-" + pad(o.id)) +
+  PT: (o) => cabecera("PT", "FR-SST-039 · Versión 1 · Área de Mantenimiento", o.numero) +
     bloque(1, "info", "Datos básicos del permiso", datos(
       datoHtml("Orden de trabajo", o.ordenes_trabajo ? enlace("OT", o.ordenes_trabajo.id, o.ordenes_trabajo.numero) : "—"),
-      datoHtml("ATS relacionado", o.ats ? enlace("ATS", o.ats.id, "ATS-" + pad(o.ats.id)) : "—"),
+      datoHtml("ATS relacionado", o.ats ? enlace("ATS", o.ats.id, o.ats.numero) : "—"),
       dato("Área / proceso", o.area_proceso), dato("Ubicación", o.ubicacion), dato("Sede", o.sede), dato("Fecha de ejecución", o.fecha_ejecucion),
       dato("Hora de inicio", o.hora_inicio?.slice(0, 5)), dato("Hora de finalización", o.hora_fin?.slice(0, 5)), dato("Vigencia", o.vigencia),
       dato("Trabajador encargado", o.trabajador_encargado), dato("Ayudante de seguridad", o.ayudante_seguridad), ...registro(o))) +
@@ -164,8 +167,19 @@ async function mostrar() {
   if (!data) return $("detalle").innerHTML = `<div class="card"><p>No se encontró ese formato.</p></div>`;
   $("detalle").innerHTML = VISTA[tipo](data);
   pintarIconos($("detalle"));
-  document.title = `${$("detalle").querySelector(".no-orden .mono").textContent} | La Campana`;
+  if (tipo === "OS") pintarFotos(id);
+  document.title = `${tipo === "PT" ? "Permiso" : tipo} ${$("detalle").querySelector(".no-orden .mono").textContent} | La Campana`;
   window.scrollTo(0, 0);
+}
+// Fotos que adjuntó el responsable al cerrar la OS (bucket privado: enlaces firmados de 1 hora)
+async function pintarFotos(id) {
+  const pedido = location.hash;
+  const { data } = await db.storage.from("fotos-os").list(id);
+  const { data: urls } = data?.length ? await db.storage.from("fotos-os").createSignedUrls(data.map((x) => `${id}/${x.name}`), 3600) : { data: [] };
+  if (location.hash !== pedido) return; // ya se abrió otro formato
+  $("fotosOS").innerHTML = urls?.length ? urls.filter((u) => u.signedUrl).map((u, i) =>
+    `<a href="${esc(u.signedUrl)}" target="_blank" rel="noopener"><img src="${esc(u.signedUrl)}" alt="Foto ${i + 1}"></a>`).join("")
+    : `<p class="nota">Sin fotos.</p>`;
 }
 $("btnImprimir").onclick = () => window.print();
 window.addEventListener("hashchange", mostrar);
