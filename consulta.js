@@ -67,9 +67,11 @@ const VISTA = {
       datoHtml("ATS", enlaces("ATS", o.ats, (x) => x.numero)),
       datoHtml("Permisos de trabajo", enlaces("PT", o.permisos_trabajo, (x) => x.numero)))) +
     // OT anteriores a la bandeja: se siguen viendo sus firmas
-    (o.autorizado_por || o.entregado_por || o.recibido_por ? bloque(4, "firma", "Firmas (formato anterior)", firmas(o)) : ""),
+    (o.autorizado_por || o.entregado_por || o.recibido_por ? bloque(4, "firma", "Firmas (formato anterior)", firmas(o)) : "") +
+    (o.estado === "Abierta" ? `<div class="acciones no-imprimir"><span></span><a class="btn btn-red btn-ico" href="registro.html?ot=${o.id}">
+      <span class="ico" data-icono="mas"></span>Generar orden de suministro</a></div>` : ""),
 
-  OS: (o) => cabecera("OS", "FO-OPE-002 · Versión 01", o.numero) +
+  OS:(o) => cabecera("OS", "FO-OPE-002 · Versión 01", o.numero) +
     bloque(1, "info", "Información general", datos(
       dato("Área solicitante", o.area_solicitante), datoHtml("Prioridad", chip(o.prioridad)), datoHtml("Estado", estado(o.estado)),
       dato("Registrado el", fecha(o.creado_en)), dato("Solicitante", nombres.get(o.creado_por)), dato("Responsable", nombres.get(o.responsable)),
@@ -184,15 +186,16 @@ async function pintarFotos(id) {
 $("btnImprimir").onclick = () => window.print();
 window.addEventListener("hashchange", mostrar);
 
+// La lista es solo para admin. Los demás llegan desde su bandeja a ver el detalle de lo que les asignaron (RLS limita qué ven).
 iniciarSesion(async (perfil) => {
-  if (perfil.rol !== "admin") {
-    $("vistaApp").innerHTML = `<div class="card"><h2>Acceso restringido</h2>
-      <p class="nota">La consulta de formatos es solo para la Dirección de Operaciones.</p>
-      <p><a class="btn btn-red" href="registro.html">Ir al registro</a></p></div>`;
-    return;
+  const admin = perfil.rol === "admin";
+  if (!admin) {
+    if (!location.hash) return location.replace("bandeja.html");
+    const volver = document.querySelector('#vistaDetalle a[href="#"]');
+    volver.href = "bandeja.html"; volver.lastChild.textContent = "Volver a la bandeja";
   }
-  const { data } = await db.from("usuarios").select("id, nombre");
+  const { data } = admin ? await db.from("usuarios").select("id, nombre") : await db.rpc("usuarios_activos");
   nombres = new Map((data ?? []).map((u) => [u.id, u.nombre]));
-  cargarLista();
+  if (admin) cargarLista();
   mostrar();
 });

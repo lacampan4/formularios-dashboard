@@ -197,7 +197,10 @@ async function alEntrar(perfil) {
   const responsables = opciones((usuarios ?? []).map((u) => ({ v: u.id, t: u.nombre })), "Seleccione");
   document.querySelectorAll(".sel-responsable").forEach((s) => s.innerHTML = responsables);
   FORMS.forEach((f) => reiniciar($("form" + f)));
-  cargarListas();
+  await cargarListas();
+  // registro.html?ot=5 viene de "Generar orden de suministro" en el detalle de la OT: abre la OS enlazada a esa OT
+  const ot = new URLSearchParams(location.search).get("ot");
+  if (ot && !$("tabOS").hidden) { $("tabOS").click(); $("formOS").ot_id.value = ot; }
 }
 
 iniciarSesion(alEntrar);

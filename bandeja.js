@@ -56,14 +56,14 @@ async function cargar() {
   const fotos = await Promise.all(lista.map((o) => o.tipo === "OS" ? fotosDe(o.id) : []));
 
   $("tabla").tBodies[0].innerHTML = lista.length ? lista.map((o, i) => `<tr>
-      <td class="mono">${o.tipo} ${esc(o.numero)}</td>
+      <td class="mono"><a href="consulta.html#${o.tipo}/${o.id}">${o.tipo} ${esc(o.numero)}</a></td>
       <td>${fecha(o.creado_en)}</td>
       <td>${chip(o.prioridad)}</td>
       <td>${esc(o.donde)}</td>
       <td>${esc(nombres.get(o.creado_por) ?? "—")}</td>
       <td>${o.detalle}</td>
       <td><span class="chip ${esc(o.estado)}">${esc(o.estado)}</span></td>
-      <td>${accion(o, fotos[i])}</td>
+      <td><a class="btn btn-sec" href="consulta.html#${o.tipo}/${o.id}" style="margin-bottom:8px">Abrir</a>${accion(o, fotos[i])}</td>
     </tr>`).join("") : `<tr><td class="vacio" colspan="8">No tiene órdenes ${f.estado.value ? (f.estado.value === "Abierta" ? "abiertas" : "cerradas") : ""}</td></tr>`;
   etiquetar($("tabla"));
   $("conteo").textContent = `${lista.length} orden${lista.length === 1 ? "" : "es"}`;
