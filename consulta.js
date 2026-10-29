@@ -54,6 +54,19 @@ const cabecera = (tipo, codigo, numero) => `<div class="page-head">
 const registro = (o) => [dato("Registrado el", fecha(o.creado_en)), dato("Registrado por", nombres.get(o.creado_por) ?? "—")];
 const firmas = (o) => datos(dato("Autorizado por", o.autorizado_por), dato("Entregado por", o.entregado_por), dato("Recibido por", o.recibido_por));
 
+// ATS y Permiso de la OT: los marca solo el responsable mientras está abierta; el admin los ve; los demás no
+let yo = null, esAdmin = false;
+const requisitos = (o) => {
+  const titulo = "Análisis del responsable";
+  if (o.responsable === yo && o.estado === "Abierta") return bloque(3, "escudo", titulo, `<div class="checks" id="requisitos" data-ot="${o.id}">
+      <label class="check"><input type="checkbox" name="ats" ${o.requiere_ats ? "checked" : ""}> Requiere Análisis de Trabajo Seguro (ATS)</label>
+      <label class="check"><input type="checkbox" name="permiso" ${o.requiere_permiso ? "checked" : ""}> Requiere Permiso de trabajo de alto riesgo</label>
+    </div><p class="nota">Márquelos según su análisis. No son obligatorios para cerrar la orden.</p>`);
+  if (o.responsable === yo || esAdmin) return bloque(3, "escudo", titulo, datos(
+    dato("Requiere ATS", siNo(o.requiere_ats)), dato("Requiere permiso de alto riesgo", siNo(o.requiere_permiso))));
+  return "";
+};
+
 const VISTA = {
   OT: (o) => cabecera("OT", "FO-OPE-001 · Versión 01", o.numero) +
     bloque(1, "info", "Información general", datos(
@@ -62,12 +75,13 @@ const VISTA = {
       dato("Cerrada el", o.cerrada_en && fecha(o.cerrada_en)))) +
     bloque(2, "llave", "Código y reporte de falla", tabla(["Código", "Descripción", "Reporte de falla"],
       o.ot_lineas.map((l) => [String(l.codigo_falla).padStart(2, "0"), l.codigos_falla?.descripcion, l.reporte]))) +
-    bloque(3, "lista", "Documentos relacionados", datos(
+    requisitos(o) +
+    bloque(4, "lista", "Documentos relacionados", datos(
       datoHtml("Órdenes de suministro", enlaces("OS", o.ordenes_suministro, (x) => x.numero)),
       datoHtml("ATS", enlaces("ATS", o.ats, (x) => x.numero)),
       datoHtml("Permisos de trabajo", enlaces("PT", o.permisos_trabajo, (x) => x.numero)))) +
     // OT anteriores a la bandeja: se siguen viendo sus firmas
-    (o.autorizado_por || o.entregado_por || o.recibido_por ? bloque(4, "firma", "Firmas (formato anterior)", firmas(o)) : "") +
+    (o.autorizado_por || o.entregado_por || o.recibido_por ? bloque(5, "firma", "Firmas (formato anterior)", firmas(o)) : "") +
     (o.estado === "Abierta" ? `<div class="acciones no-imprimir"><span></span><a class="btn btn-red btn-ico" href="registro.html?ot=${o.id}">
       <span class="ico" data-icono="mas"></span>Generar orden de suministro</a></div>` : ""),
 
@@ -183,12 +197,21 @@ async function pintarFotos(id) {
     `<a href="${esc(u.signedUrl)}" target="_blank" rel="noopener"><img src="${esc(u.signedUrl)}" alt="Foto ${i + 1}"></a>`).join("")
     : `<p class="nota">Sin fotos.</p>`;
 }
+$("detalle").onchange = async (e) => {
+  const caja = e.target.closest("#requisitos");
+  if (!caja) return;
+  const [ats, permiso] = [caja.querySelector("[name=ats]"), caja.querySelector("[name=permiso]")];
+  const { error } = await db.rpc("marcar_requisitos_ot", { ot: Number(caja.dataset.ot), ats: ats.checked, permiso: permiso.checked });
+  if (error) { e.target.checked = !e.target.checked; return aviso(error.message, true); }
+  aviso("Guardado");
+};
 $("btnImprimir").onclick = () => window.print();
 window.addEventListener("hashchange", mostrar);
 
 // La lista es solo para admin. Los demás llegan desde su bandeja a ver el detalle de lo que les asignaron (RLS limita qué ven).
 iniciarSesion(async (perfil) => {
-  const admin = perfil.rol === "admin";
+  const admin = esAdmin = perfil.rol === "admin";
+  yo = (await db.auth.getSession()).data.session.user.id;
   if (!admin) {
     if (!location.hash) return location.replace("bandeja.html");
     const volver = document.querySelector('#vistaDetalle a[href="#"]');

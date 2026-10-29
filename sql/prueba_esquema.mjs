@@ -43,6 +43,7 @@ await db.exec(`insert into ordenes_trabajo (maquina, prioridad, responsable) val
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");
 await db.exec(readFileSync(`${dir}/6_consecutivos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/7_os_fotos.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/8_ot_requisitos.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "00001");
 // Todos se pueden volver a ejecutar sin romper nada
 await db.exec(readFileSync(`${dir}/3_roles.sql`, "utf8"));
@@ -50,6 +51,7 @@ await db.exec(readFileSync(`${dir}/4_lista_roles.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/5_bandeja.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/6_consecutivos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/7_os_fotos.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/8_ot_requisitos.sql`, "utf8"));
 assert.equal((await db.query("select udt_name from information_schema.columns where table_name = 'usuarios' and column_name = 'rol'")).rows[0].udt_name, "rol_usuario");
 await assert.rejects(db.query("update usuarios set rol = 'jefe'"), /invalid input value for enum/);
 // El rol lo asigna el administrador en Table Editor > usuarios
@@ -178,8 +180,14 @@ const n3 = await ot({ maquina: "Platina", prioridad: "Verde", responsable: PROD 
 await comoUsuario(PROD);
 assert.equal(await val("select count(*)::int from ordenes_trabajo where responsable = auth.uid()"), 1);
 assert.equal(await val("select count(*)::int from ot_lineas"), 1);
+// El responsable marca si requiere ATS / Permiso; no obliga a nada para cerrar
+await falla(`select marcar_requisitos_ot(${id2}, true, true)`, [], /Solo el responsable/);
+await db.query("select marcar_requisitos_ot($1, true, false)", [await idDe(n3)]);
+assert.deepEqual((await db.query("select requiere_ats, requiere_permiso from ordenes_trabajo where responsable = auth.uid()")).rows[0],
+  { requiere_ats: true, requiere_permiso: false });
 await db.query("select cerrar_ot($1)", [await idDe(n3)]);
 assert.equal(await val("select estado from ordenes_trabajo where responsable = auth.uid()"), "Cerrada");
+await falla("select marcar_requisitos_ot($1, false, false)", [await idDe(n3)], /debe estar abierta/);
 
 // Bandeja OS: el responsable ve la OS ajena y sus ítems, sube la foto y la cierra; otro no puede subirle fotos
 await comoUsuario();
