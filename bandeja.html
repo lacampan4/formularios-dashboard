@@ -42,6 +42,12 @@
     </section>
   </main>
 
+  <!-- Detalle de la orden en ventana flotante: carga consulta.html sin su barra (modo ?flotante) -->
+  <dialog id="dlgDetalle" class="dlg-detalle" aria-label="Detalle de la orden">
+    <div class="dlg-barra"><button type="button" class="btn btn-sec btn-ico" id="cerrarDetalle"><span class="ico" data-icono="volver"></span>Cerrar</button></div>
+    <iframe id="marcoDetalle" title="Detalle de la orden"></iframe>
+  </dialog>
+
   <div class="toast hidden" id="toast" role="status"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>

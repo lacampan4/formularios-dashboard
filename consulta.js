@@ -56,6 +56,8 @@ const firmas = (o) => datos(dato("Autorizado por", o.autorizado_por), dato("Entr
 
 // Desde la bandeja (consulta.html?bandeja#OT/5) el responsable trabaja la OT; desde Consulta el detalle es solo para ver
 const desdeBandeja = new URLSearchParams(location.search).has("bandeja");
+// Dentro de la ventana flotante de la bandeja: sin barra roja ni botones de Consulta (styles.css)
+document.body.classList.toggle("flotante", new URLSearchParams(location.search).has("flotante"));
 const trabaja = (o) => desdeBandeja && o.responsable === yo && o.estado === "Abierta";
 
 // ATS y Permiso de la OT: los marca solo el responsable; el admin los ve; los demás no
@@ -88,7 +90,7 @@ const VISTA = {
       datoHtml("Permisos de trabajo", enlaces("PT", o.permisos_trabajo, (x) => x.numero)))) +
     // OT anteriores a la bandeja: se siguen viendo sus firmas
     (o.autorizado_por || o.entregado_por || o.recibido_por ? bloque(5, "firma", "Firmas (formato anterior)", firmas(o)) : "") +
-    (trabaja(o) ? `<div class="acciones no-imprimir"><span></span><a class="btn btn-red btn-ico" href="registro.html?ot=${o.id}">
+    (trabaja(o) ? `<div class="acciones no-imprimir"><span></span><a class="btn btn-red btn-ico" href="registro.html?ot=${o.id}" target="_top">
       <span class="ico" data-icono="mas"></span>Generar orden de suministro</a></div>` : ""),
 
   OS: (o) => cabecera("OS", "FO-OPE-002 · Versión 01", o.numero) +

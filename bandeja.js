@@ -86,7 +86,16 @@ $("tabla").onchange = async (e) => {
   cargar();
 };
 
+// "Abrir" muestra el detalle en una ventana flotante, sin salir de la bandeja
+$("cerrarDetalle").onclick = () => $("dlgDetalle").close();
+$("dlgDetalle").onclose = () => { $("marcoDetalle").src = "about:blank"; cargar(); }; // pudo guardar ATS/Permiso
 $("tabla").onclick = async (e) => {
+  const a = e.target.closest('a[href^="consulta.html?bandeja"]');
+  if (a) {
+    e.preventDefault();
+    $("marcoDetalle").src = a.getAttribute("href").replace("?bandeja", "?bandeja&flotante");
+    return $("dlgDetalle").showModal();
+  }
   const b = e.target.closest("[data-cerrar]");
   if (!b || !confirm(`¿Cerrar la ${b.dataset.numero}? Ya no se podrá reabrir.`)) return;
   b.disabled = true;
