@@ -209,9 +209,9 @@ async function alEntrar(perfil) {
   document.querySelectorAll(".sel-responsable").forEach((s) => s.innerHTML = responsables);
   FORMS.forEach((f) => reiniciar($("form" + f)));
   await cargarListas();
-  // registro.html?ot=5 viene de "Generar orden de suministro" en el detalle de la OT: abre la OS enlazada a esa OT
-  const ot = new URLSearchParams(location.search).get("ot");
-  if (ot && !$("tabOS").hidden) { $("tabOS").click(); $("formOS").ot_id.value = ot; }
+  // registro.html?ot=5[&formato=ATS|Permiso] viene de los botones "Generar…" del detalle de la OT: abre ese formato (OS si no dice) enlazado a esa OT
+  const p = new URLSearchParams(location.search), ot = p.get("ot"), f = p.get("formato") ?? "OS";
+  if (ot && FORMS.includes(f) && !$("tab" + f).hidden) { $("tab" + f).click(); $("form" + f).ot_id.value = ot; }
 }
 
 iniciarSesion(alEntrar);

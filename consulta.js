@@ -62,14 +62,20 @@ const trabaja = (o) => desdeBandeja && o.responsable === yo && o.estado === "Abi
 
 // ATS y Permiso de la OT: los marca solo el responsable; el admin los ve; los demás no
 let yo = null, esAdmin = false;
+// Botones para llenar lo que quedó guardado como requerido; abren Registro con la OT ya escogida (fuera de la ventana flotante)
+const generar = (id, ats, permiso) =>
+  (ats ? `<a class="btn btn-sec btn-ico" target="_top" href="registro.html?ot=${id}&formato=ATS"><span class="ico" data-icono="mas"></span>Generar ATS</a>` : "") +
+  (permiso ? `<a class="btn btn-sec btn-ico" target="_top" href="registro.html?ot=${id}&formato=Permiso"><span class="ico" data-icono="mas"></span>Generar permiso de trabajo</a>` : "");
 const requisitos = (o) => {
   const titulo = "Análisis del responsable";
   if (trabaja(o)) return bloque(3, "escudo", titulo, `<div class="checks" id="requisitos" data-ot="${o.id}">
       <label class="check"><input type="checkbox" name="ats" ${o.requiere_ats ? "checked" : ""}> Requiere Análisis de Trabajo Seguro (ATS)</label>
       <label class="check"><input type="checkbox" name="permiso" ${o.requiere_permiso ? "checked" : ""}> Requiere Permiso de trabajo de alto riesgo</label>
     </div><p class="nota">Márquelos según su análisis. No son obligatorios para cerrar la orden.</p>
-    <button type="button" class="btn btn-red btn-ico" id="btnGuardarRequisitos" ${o.requiere_ats || o.requiere_permiso ? "" : "hidden"}>
-      <span class="ico" data-icono="guardar"></span>Guardar</button>`);
+    <div class="acciones-fila">
+      <button type="button" class="btn btn-red btn-ico" id="btnGuardarRequisitos" hidden><span class="ico" data-icono="guardar"></span>Guardar</button>
+      <span id="generarFormatos">${generar(o.id, o.requiere_ats, o.requiere_permiso)}</span>
+    </div>`);
   if (o.responsable === yo || esAdmin) return bloque(3, "escudo", titulo, datos(
     dato("Requiere ATS", siNo(o.requiere_ats)), dato("Requiere permiso de alto riesgo", siNo(o.requiere_permiso))));
   return "";
@@ -214,10 +220,16 @@ $("detalle").onclick = async (e) => {
   const b = e.target.closest("#btnGuardarRequisitos");
   if (!b) return;
   const [ats, permiso] = casillas().map((c) => c.checked);
+  const ot = Number($("requisitos").dataset.ot);
   b.disabled = true;
-  const { error } = await db.rpc("marcar_requisitos_ot", { ot: Number($("requisitos").dataset.ot), ats, permiso });
+  const { error } = await db.rpc("marcar_requisitos_ot", { ot, ats, permiso });
   b.disabled = false;
-  aviso(error ? error.message : "Guardado", !!error);
+  if (error) return aviso(error.message, true);
+  // Guardado: se oculta hasta el próximo cambio de casillas y aparecen los botones para generar lo marcado
+  b.hidden = true;
+  $("generarFormatos").innerHTML = generar(ot, ats, permiso);
+  pintarIconos($("generarFormatos"));
+  aviso("Guardado");
 };
 $("btnImprimir").onclick = () => window.print();
 window.addEventListener("hashchange", mostrar);
