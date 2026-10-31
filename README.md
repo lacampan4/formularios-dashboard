@@ -4,7 +4,7 @@ Registro digital de la Orden de Trabajo (FO-OPE-001), la Orden de Suministro (FO
 
 ## Puesta en marcha
 
-1. **Supabase → SQL Editor:** ejecute en orden `sql/1_esquema.sql`, `sql/2_semillas.sql`, `sql/3_roles.sql`, `sql/4_lista_roles.sql`, `sql/5_bandeja.sql`, `sql/6_consecutivos.sql`, `sql/7_os_fotos.sql`, `sql/8_ot_requisitos.sql` y `sql/9_guia_octubre.sql`. Si vuelve a ejecutar uno, ejecute también todos los que siguen, porque cada uno ajusta reglas del anterior.
+1. **Supabase → SQL Editor:** ejecute en orden `sql/1_esquema.sql`, `sql/2_semillas.sql`, `sql/3_roles.sql`, `sql/4_lista_roles.sql`, `sql/5_bandeja.sql`, `sql/6_consecutivos.sql`, `sql/7_os_fotos.sql`, `sql/8_ot_requisitos.sql`, `sql/9_guia_octubre.sql` y `sql/10_permisos_funciones.sql`. Si vuelve a ejecutar uno, ejecute también todos los que siguen, porque cada uno ajusta reglas del anterior.
 2. **Supabase → Authentication → Sign In / Providers:** desactive **"Allow new users to sign up"**. Si queda activo, cualquiera podría crearse una cuenta.
    **Authentication → Users → Add user → Create new user:** se entra con **usuario y contraseña**, sin correo real. Para el usuario `juan.perez` escriba como Email `juan.perez@usuarios.lacampana.co` (el dominio de `DOMINIO_USUARIOS` en `config.js`), ponga la contraseña y marque **Auto Confirm User**. Ese correo no existe y nunca recibe mensajes.
    **Table Editor → usuarios:** al crear el usuario aparece su fila; escriba su nombre completo en `nombre` y elija su `rol` (ver tabla abajo). Un usuario nuevo queda en `sin_rol` y no puede hacer nada hasta que se le asigne uno.

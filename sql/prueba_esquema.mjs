@@ -46,6 +46,7 @@ await db.exec(readFileSync(`${dir}/7_os_fotos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/8_ot_requisitos.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "00001");
 await db.exec(readFileSync(`${dir}/9_guia_octubre.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/10_permisos_funciones.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
 await db.exec(readFileSync(`${dir}/3_roles.sql`, "utf8"));
@@ -55,6 +56,7 @@ await db.exec(readFileSync(`${dir}/6_consecutivos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/7_os_fotos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/8_ot_requisitos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/9_guia_octubre.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/10_permisos_funciones.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
 assert.equal((await db.query("select udt_name from information_schema.columns where table_name = 'usuarios' and column_name = 'rol'")).rows[0].udt_name, "rol_usuario");
 await assert.rejects(db.query("update usuarios set rol = 'jefe'"), /invalid input value for enum/);
@@ -82,6 +84,9 @@ await comoUsuario();
 assert.equal(await val(`select nombre from usuarios where id = '${U}'`), "Fredy Verdugo");
 assert.equal(await val("select count(*)::int from usuarios"), 3);                           // admin ve todos los perfiles
 await falla("insert into usuarios values (gen_random_uuid(), 'x', 'x')", [], /permission denied/);
+// Las funciones de trigger no se llaman directo (10_permisos_funciones.sql); los triggers igual se disparan más abajo
+await falla("select asignar_numero()", [], /permission denied/);
+await falla("select validar_alto_riesgo()", [], /permission denied/);
 await falla("update usuarios set nombre = 'otro'", [], /permission denied/);
 
 const ot = (orden, lineas) => val("select crear_ot($1, $2)", [{ responsable: U, ...orden }, lineas]);
