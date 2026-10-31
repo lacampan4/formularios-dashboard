@@ -176,10 +176,12 @@ async function cargarCodigos() {
   codigos = data;
   pintarCodigos();
 }
-// Solo los códigos generales y los de la línea de la máquina elegida (guía, anexo de códigos)
+// Con una máquina de la lista: solo los códigos generales y los de su línea (guía, anexo de códigos).
+// Sin máquina u OTRO no se sabe la línea: se muestran todos.
 function pintarCodigos() {
-  const linea = LINEA_DE_MAQUINA[$("otMaquina").value];
-  const html = opciones(codigos.filter((c) => !c.lineas?.length || c.lineas.includes(linea))
+  const maquina = $("otMaquina").value, linea = LINEA_DE_MAQUINA[maquina];
+  const filtrar = maquina && maquina !== "OTRO";
+  const html = opciones(codigos.filter((c) => !filtrar || !c.lineas?.length || c.lineas.includes(linea))
     .map((c) => ({ v: c.codigo, t: `${String(c.codigo).padStart(2, "0")} – ${c.descripcion}` })), "Seleccione") +
     (esAdmin ? `<option value="nuevo">+ Nuevo código</option>` : "");
   $("fila-ot").content.querySelector(".sel-codigo").innerHTML = html;
