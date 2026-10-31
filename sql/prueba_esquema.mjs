@@ -45,6 +45,8 @@ await db.exec(readFileSync(`${dir}/6_consecutivos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/7_os_fotos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/8_ot_requisitos.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "00001");
+await db.exec(readFileSync(`${dir}/9_guia_octubre.sql`, "utf8"));
+assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
 await db.exec(readFileSync(`${dir}/3_roles.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/4_lista_roles.sql`, "utf8"));
@@ -52,6 +54,8 @@ await db.exec(readFileSync(`${dir}/5_bandeja.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/6_consecutivos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/7_os_fotos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/8_ot_requisitos.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/9_guia_octubre.sql`, "utf8"));
+assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
 assert.equal((await db.query("select udt_name from information_schema.columns where table_name = 'usuarios' and column_name = 'rol'")).rows[0].udt_name, "rol_usuario");
 await assert.rejects(db.query("update usuarios set rol = 'jefe'"), /invalid input value for enum/);
 // El rol lo asigna el administrador en Table Editor > usuarios
@@ -66,7 +70,9 @@ const falla = async (sql, p, texto) => {
 };
 
 await db.exec("begin");
-assert.equal(await val("select count(*)::int from codigos_falla"), 87);
+assert.equal(await val("select count(*)::int from codigos_falla"), 116);                                   // 1–117 sin el 77 (guía de octubre)
+assert.equal(await val("select lineas::text from codigos_falla where codigo = 117"), "{Entrepiso}");
+assert.equal(await val("select lineas from codigos_falla where codigo = 5"), null);              // general
 assert.equal(await val("select count(*)::int from codigos_falla where codigo = 77"), 0);
 
 assert.equal(await val("select nombre from usuarios where usuario = 'lina.h'"), "lina.h");   // sin nombre: usa el usuario
@@ -81,7 +87,7 @@ await falla("update usuarios set nombre = 'otro'", [], /permission denied/);
 const ot = (orden, lineas) => val("select crear_ot($1, $2)", [{ responsable: U, ...orden }, lineas]);
 const linea = [{ codigo_falla: 5, reporte: "Se reventó una manguera" }];
 
-assert.equal(await ot({ maquina: "Formadora 1", prioridad: "Rojo" }, linea), "00002");
+assert.equal(await ot({ maquina: "Formadora 1", prioridad: "Rojo" }, linea), "OT-0002");
 assert.equal(await val("select estado from ordenes_trabajo where id = 2"), "Abierta");
 assert.equal(await val("select creado_por::text from ordenes_trabajo where id = 2"), U);
 await falla("select crear_ot($1, $2)", [{ maquina: "F1", prioridad: "Rojo", responsable: U }, []], /al menos un código/);
@@ -90,7 +96,7 @@ await falla("select crear_ot($1, $2)", [{ maquina: "F1", prioridad: "Rojo" }, li
 await falla("select crear_ot($1, $2)", [{ maquina: "F1", prioridad: "Rojo", responsable: U }, [{ codigo_falla: 77, reporte: "x" }]]);
 await falla("select crear_ot($1, $2)", [{ maquina: "F1", prioridad: "Rojo", responsable: U }, [{ codigo_falla: 83, reporte: "" }]]);
 await falla("select crear_ot($1, $2)", [{ maquina: "F1", prioridad: "Rojo", responsable: U }, [{ codigo_falla: 83, reporte: "x".repeat(501) }]], /reporte_500/);
-assert.equal(await ot({ maquina: "F1", prioridad: "Rojo" }, [{ codigo_falla: 83, reporte: "x".repeat(500) }]), "00003");  // los intentos rechazados no gastan número
+assert.equal(await ot({ maquina: "F1", prioridad: "Rojo" }, [{ codigo_falla: 83, reporte: "x".repeat(500) }]), "OT-0003");  // los intentos rechazados no gastan número
 
 // Códigos nuevos: siguiente número libre; la misma descripción no se repite
 const maxCodigo = await val("select max(codigo) from codigos_falla");
@@ -109,7 +115,7 @@ await falla("select cerrar_ot(2)", [], /debe estar abierta/);
 
 // ATS y Permiso
 const n2 = await ot({ maquina: "Slitter", prioridad: "Amarillo" }, linea);
-assert.equal(n2, "00004");
+assert.equal(n2, "OT-0004");
 const idDe = (n) => val("select id from ordenes_trabajo where numero = $1", [n]);
 const id2 = await idDe(n2);
 const ats = { ot_id: id2, descripcion_labor: "Cambio de motor en altura", alturas: true, firma_encargado: "Fredy", firma_jefe: "Ivan" };
@@ -117,12 +123,12 @@ const trab = [{ nombre: "Fredy", salud_ok: true, medicamentos_sueno: false, afil
 const pasos = [{ paso: "Montar andamio", controles: "Arnés y línea de vida" }];
 await falla("select crear_ats($1, $2, $3)", [ats, trab, pasos], /check/);                                  // alturas sin coordinador
 const atsId = await val("select crear_ats($1, $2, $3)", [{ ...ats, firma_coord_alturas: "Lina" }, trab, pasos]);
-assert.equal(await val("select numero from ats where id = $1", [atsId]), "00001");   // cada formato cuenta aparte
+assert.equal(await val("select numero from ats where id = $1", [atsId]), "ATS-0001");   // cada formato cuenta aparte
 const permiso = `insert into permisos_trabajo (ot_id, ats_id, area_proceso, fecha_ejecucion, trabajador_encargado, tarea, tipos, metodo_electrico, firma_ejecutor, firma_emisor) values (${id2}, $1, 'Mantenimiento', current_date, 'Fredy', 'Cambio motor', $2, $3, 'Fredy', 'Ivan')`;
 await falla(permiso, [atsId, ["alturas", "electrico"], null], /check/);                                    // eléctrico sin método
 await falla(permiso, [atsId, ["otro"], null], /check/);
 await db.query(permiso, [atsId, ["alturas", "electrico"], "Desenergizado"]);
-assert.equal(await val("select numero from permisos_trabajo"), "00001");
+assert.equal(await val("select numero from permisos_trabajo"), "PT-0001");
 
 // OS
 const os = (orden, items) => val("select crear_os($1, $2)", [{ responsable: U, ...orden }, items]);
@@ -132,7 +138,7 @@ await falla("select crear_os($1, $2)", [{ area_solicitante: "Formadoras", priori
 await falla("select crear_os($1, $2)", [{ area_solicitante: "Formadoras", prioridad: "Rojo", responsable: U }, [{ ...item, maquina: "" }]]);
 await falla("select crear_os($1, $2)", [{ area_solicitante: "Formadoras", prioridad: "Rojo" }, [item]], /os_con_responsable/);
 const n4 = await os({ area_solicitante: "Formadoras", prioridad: "Rojo", ot_id: 2 }, [item]);
-assert.equal(n4, "00001");
+assert.equal(n4, "OS-0001");
 const os1 = await val("select id from ordenes_suministro where numero = $1", [n4]);
 assert.equal(await val("select estado from ordenes_suministro where id = $1", [os1]), "Abierta");
 
@@ -156,8 +162,8 @@ assert.equal(await val("select count(*)::int from v_fallas where codigo_falla = 
 
 // Producción: llena OT y OS; no ATS ni Permiso; no ve el dashboard, no firma ni cambia su rol
 await comoUsuario(PROD);
-assert.match(await ot({ maquina: "Tubería 3", prioridad: "Verde" }, linea), /^\d{5}$/);
-assert.match(await os({ area_solicitante: "Tuberías", prioridad: "Verde" }, [item]), /^\d{5}$/);
+assert.match(await ot({ maquina: "Tubería 3", prioridad: "Verde" }, linea), /^OT-\d{4}$/);
+assert.match(await os({ area_solicitante: "Tuberías", prioridad: "Verde" }, [item]), /^OS-\d{4}$/);
 await falla("select crear_ats($1, $2, $3)", [{ ...ats, firma_coord_alturas: "Lina" }, trab, pasos], /row-level security/);
 await falla(permiso, [null, ["alturas"], null], /row-level security/);
 assert.equal(await val("select count(*)::int from v_ordenes"), 0);
@@ -216,5 +222,13 @@ await falla("select agregar_codigo('x')", [], /Solo la Dirección/);
 await db.exec("reset role; set app.uid = ''; set role anon;");
 await falla("select * from v_ordenes", [], /permission denied/);
 await falla("select crear_ot($1, $2)", [{ maquina: "F1", prioridad: "Rojo" }, linea], /permission denied/);
+await db.exec("rollback");
+
+// Desde la 10.000 el número no se corta; un código de la guía ya usado con otra descripción detiene el script 9
+await db.exec("reset role; begin; update consecutivos set ultimo = 9999 where formato = 'OT'");
+await db.exec(`insert into ordenes_trabajo (maquina, prioridad, responsable) values ('X', 'Verde', '${U}')`);
+assert.equal(await val("select numero from ordenes_trabajo order by id desc limit 1"), "OT-10000");
+await db.exec("update codigos_falla set descripcion = 'Creado en la app' where codigo = 89");
+await assert.rejects(db.exec(readFileSync(`${dir}/9_guia_octubre.sql`, "utf8")), /89 \(Creado en la app\)/);
 await db.exec("rollback");
 console.log("OK: todas las pruebas del esquema pasaron");

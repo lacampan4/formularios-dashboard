@@ -19,13 +19,13 @@ const DEF = {
   ATS: {
     nombre: "Análisis de Trabajo Seguro", tabla: "ats",
     lista: "id, numero, creado_en, descripcion_labor, ordenes_trabajo!ats_ot_id_fkey(numero)",
-    fila: (o) => ({ numero: o.numero, detalle: `${o.ordenes_trabajo ? `OT ${o.ordenes_trabajo.numero} · ` : ""}${o.descripcion_labor}` }),
+    fila: (o) => ({ numero: o.numero, detalle: `${o.ordenes_trabajo ? `${o.ordenes_trabajo.numero} · ` : ""}${o.descripcion_labor}` }),
     detalle: "*, ats_trabajadores(*), ats_pasos(*), ordenes_trabajo!ats_ot_id_fkey(id, numero), permisos_trabajo!permisos_trabajo_ats_id_fkey(id, numero)",
   },
   PT: {
     nombre: "Permiso de Trabajo Tareas de Alto Riesgo", tabla: "permisos_trabajo",
     lista: "id, numero, creado_en, tarea, ordenes_trabajo!permisos_trabajo_ot_id_fkey(numero)",
-    fila: (o) => ({ numero: o.numero, detalle: `${o.ordenes_trabajo ? `OT ${o.ordenes_trabajo.numero} · ` : ""}${o.tarea}` }),
+    fila: (o) => ({ numero: o.numero, detalle: `${o.ordenes_trabajo ? `${o.ordenes_trabajo.numero} · ` : ""}${o.tarea}` }),
     detalle: "*, ordenes_trabajo!permisos_trabajo_ot_id_fkey(id, numero), ats!permisos_trabajo_ats_id_fkey(id, numero)",
   },
 };
@@ -190,7 +190,7 @@ async function mostrar() {
   $("detalle").innerHTML = VISTA[tipo](data);
   pintarIconos($("detalle"));
   if (tipo === "OS") pintarFotos(id);
-  document.title = `${tipo === "PT" ? "Permiso" : tipo} ${$("detalle").querySelector(".no-orden .mono").textContent} | La Campana`;
+  document.title = `${$("detalle").querySelector(".no-orden .mono").textContent} | La Campana`;
   window.scrollTo(0, 0);
 }
 // Fotos que adjuntó el responsable al cerrar la OS (bucket privado: enlaces firmados de 1 hora)

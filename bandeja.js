@@ -32,9 +32,9 @@ async function fotosDe(id) {
 
 function accion(o, fotos) {
   const verFotos = fotos.length ? `<div class="fotos">${fotos.map((u, i) =>
-    `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="Foto ${i + 1} de la OS ${esc(o.numero)}"></a>`).join("")}</div>` : "";
+    `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="Foto ${i + 1} de la ${esc(o.numero)}"></a>`).join("")}</div>` : "";
   if (o.estado !== "Abierta") return verFotos;
-  const cerrar = (attrs = "") => `<button class="btn btn-red" data-cerrar="${o.id}" data-tipo="${o.tipo.toLowerCase()}" data-numero="${o.tipo} ${esc(o.numero)}" ${attrs}>Cerrar orden</button>`;
+  const cerrar = (attrs = "") => `<button class="btn btn-red" data-cerrar="${o.id}" data-tipo="${o.tipo.toLowerCase()}" data-numero="${esc(o.numero)}" ${attrs}>Cerrar orden</button>`;
   if (o.tipo === "OT") return cerrar();
   return verFotos +
     `<label class="btn btn-sec">${fotos.length ? "Agregar otra foto" : "Tomar o adjuntar foto"}<input type="file" accept="image/*" multiple hidden data-foto="${o.id}"></label>` +
@@ -56,7 +56,7 @@ async function cargar() {
   const fotos = await Promise.all(lista.map((o) => o.tipo === "OS" ? fotosDe(o.id) : []));
 
   $("tabla").tBodies[0].innerHTML = lista.length ? lista.map((o, i) => `<tr>
-      <td class="mono"><a href="consulta.html?bandeja#${o.tipo}/${o.id}">${o.tipo} ${esc(o.numero)}</a></td>
+      <td class="mono"><a href="consulta.html?bandeja#${o.tipo}/${o.id}">${esc(o.numero)}</a></td>
       <td>${fecha(o.creado_en)}</td>
       <td>${chip(o.prioridad)}</td>
       <td>${esc(o.donde)}</td>

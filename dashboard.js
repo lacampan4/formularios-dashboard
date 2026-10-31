@@ -109,7 +109,7 @@ function pintar(lista, fallas) {
     { colores: NIVELES.map((p) => P_COLOR[p]), bordes: NIVELES.map((p) => P_BORDE[p]) });
 
   $("tabla").tBodies[0].innerHTML = lista.length ? lista.map((o) => `<tr>
-      <td class="mono"><a href="consulta.html#${o.formato}/${o.id}">${esc(o.formato)} ${esc(o.numero)}</a></td>
+      <td class="mono"><a href="consulta.html#${o.formato}/${o.id}">${esc(o.numero)}</a></td>
       <td>${fecha(o.creado_en)}</td>
       <td>${chip(o.prioridad)}</td>
       <td>${esc(o.detalle)}</td>

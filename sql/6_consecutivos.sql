@@ -11,14 +11,22 @@ create table if not exists public.consecutivos (
 alter table public.consecutivos enable row level security;  -- sin políticas: solo lo toca asignar_numero()
 revoke all on public.consecutivos from anon, authenticated;
 
--- OT y OS: el número era una columna calculada del id; pasa a ser una columna normal
-alter table public.ordenes_trabajo    alter column numero drop expression if exists;
-alter table public.ordenes_suministro alter column numero drop expression if exists;
+-- OT y OS: el número era una columna calculada del id; pasa a ser una columna normal.
+-- Solo la primera vez: al volver a ejecutar, los números ya asignados (o los OT-0001 de 9_guia_octubre.sql) no se tocan.
+do $$
+declare t text;
+begin
+  foreach t in array array['ordenes_trabajo', 'ordenes_suministro'] loop
+    if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = t
+               and column_name = 'numero' and is_generated = 'ALWAYS') then
+      execute format('alter table public.%I alter column numero drop expression', t);
+      execute format('update public.%I set numero = lpad(id::text, 5, ''0'')', t);
+    end if;
+  end loop;
+end $$;
 alter table public.ats              add column if not exists numero text;
 alter table public.permisos_trabajo add column if not exists numero text;
 
-update public.ordenes_trabajo    set numero = lpad(id::text, 5, '0') where numero is null or numero like 'OT-%';
-update public.ordenes_suministro set numero = lpad(id::text, 5, '0') where numero is null or numero like 'OS-%';
 update public.ats                set numero = lpad(id::text, 5, '0') where numero is null;
 update public.permisos_trabajo   set numero = lpad(id::text, 5, '0') where numero is null;
 

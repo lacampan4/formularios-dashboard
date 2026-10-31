@@ -87,6 +87,7 @@ $("otMaquina").onchange = () => {
   const otro = $("otMaquina").value === "OTRO";
   $("lblMaquinaOtro").hidden = !otro;
   $("otMaquinaOtro").required = otro;
+  pintarCodigos();
 };
 // "+ Nuevo código" (solo admin) abre en esa fila el campo para escribirlo; mientras esté elegido no se puede guardar
 $("formOT").addEventListener("change", (e) => {
@@ -124,19 +125,19 @@ $("formOT").onsubmit = (e) => { e.preventDefault(); guardar(e.target, async () =
   const orden = datos(e.target);
   if (orden.maquina === "OTRO") orden.maquina = orden.maquina_otro;
   const numero = ok(await db.rpc("crear_ot", { orden, lineas: filas(e.target.querySelector(".tabla")) }));
-  return `OT ${numero} guardada`;
+  return `${numero} guardada`;
 }); };
 
 $("formOS").onsubmit = (e) => { e.preventDefault(); guardar(e.target, async () => {
   const numero = ok(await db.rpc("crear_os", { orden: datos(e.target), items: filas(e.target.querySelector(".tabla")) }));
-  return `OS ${numero} guardada`;
+  return `${numero} guardada`;
 }); };
 
 $("formATS").onsubmit = (e) => { e.preventDefault(); guardar(e.target, async () => {
   const [trab, pasos] = e.target.querySelectorAll(".tabla");
   const id = ok(await db.rpc("crear_ats", { datos: datos(e.target), trabajadores: filas(trab), pasos: filas(pasos) }));
   const { numero } = ok(await db.from("ats").select("numero").eq("id", id).single());
-  return `ATS ${numero} guardado`;
+  return `${numero} guardado`;
 }); };
 
 $("formPermiso").onsubmit = (e) => {
@@ -148,7 +149,7 @@ $("formPermiso").onsubmit = (e) => {
     d.epp = Object.fromEntries([...e.target.querySelectorAll("[data-epp]")].map((s) => [s.dataset.epp, valor(s)]));
     if (!d.tipos.includes("electrico")) { d.metodo_electrico = null; d.nivel_tension = null; }
     const { numero } = ok(await db.from("permisos_trabajo").insert(d).select("numero").single());
-    return `Permiso ${numero} guardado`;
+    return `${numero} guardado`;
   });
 };
 $("tiposPermiso").addEventListener("change", () => $("formPermiso").querySelector("[name=tipos]").setCustomValidity(""));
@@ -160,18 +161,26 @@ async function cargarListas() {
     db.from("ats").select("id, numero, fecha_apertura, ordenes_trabajo!ats_ot_id_fkey(numero)") /* !fk: permisos_trabajo también une ATS y OT */.order("id", { ascending: false }).limit(300),
   ]);
   if (ots.error || atss.error) return aviso("No se pudieron cargar las órdenes: " + (ots.error || atss.error).message, true);
-  const lista = ots.data.map((o) => ({ v: o.id, t: `OT ${o.numero} · ${o.maquina}${o.alto_riesgo ? " · alto riesgo" : ""} (${o.estado})` }));
+  const lista = ots.data.map((o) => ({ v: o.id, t: `${o.numero} · ${o.maquina}${o.alto_riesgo ? " · alto riesgo" : ""} (${o.estado})` }));
   document.querySelectorAll(".sel-ot").forEach((s) => { const v = s.value; s.innerHTML = opciones(lista, "Seleccione"); s.value = v; });
-  $("selATS").innerHTML = opciones(atss.data.map((a) => ({ v: a.id, t: `ATS ${a.numero} · OT ${a.ordenes_trabajo?.numero ?? ""} · ${a.fecha_apertura}` })), "Ninguno");
+  $("selATS").innerHTML = opciones(atss.data.map((a) => ({ v: a.id, t: `${a.numero} · ${a.ordenes_trabajo?.numero ?? ""} · ${a.fecha_apertura}` })), "Ninguno");
   $("dl-maquinas").innerHTML = opciones([...new Set([...MAQUINAS, ...ots.data.map((o) => o.maquina)])]);
 }
 
 // En la plantilla de fila y en las filas ya puestas, sin perder lo elegido
 let esAdmin = false; // la base de datos también lo exige en agregar_codigo()
+let codigos = [];
 async function cargarCodigos() {
-  const { data, error } = await db.from("codigos_falla").select("codigo, descripcion").order("codigo");
+  const { data, error } = await db.from("codigos_falla").select("codigo, descripcion, lineas").order("codigo");
   if (error) return aviso("No se pudieron cargar los códigos de falla: " + error.message, true);
-  const html = opciones(data.map((c) => ({ v: c.codigo, t: `${String(c.codigo).padStart(2, "0")} – ${c.descripcion}` })), "Seleccione") +
+  codigos = data;
+  pintarCodigos();
+}
+// Solo los códigos generales y los de la línea de la máquina elegida (guía, anexo de códigos)
+function pintarCodigos() {
+  const linea = LINEA_DE_MAQUINA[$("otMaquina").value];
+  const html = opciones(codigos.filter((c) => !c.lineas?.length || c.lineas.includes(linea))
+    .map((c) => ({ v: c.codigo, t: `${String(c.codigo).padStart(2, "0")} – ${c.descripcion}` })), "Seleccione") +
     (esAdmin ? `<option value="nuevo">+ Nuevo código</option>` : "");
   $("fila-ot").content.querySelector(".sel-codigo").innerHTML = html;
   $("formOT").querySelectorAll(".sel-codigo").forEach((s) => { const v = s.value; s.innerHTML = html; s.value = v; });

@@ -28,6 +28,11 @@ const MAQUINAS = [
   "ENTREPISO", "FORMACERO", "LÍNEA TUBERÍA GG80", "MAQUINAS PEQUENAS", "PERLIN EN C", "PLATINA",
   "SLITTER LOOPCO", "SLITTER YODER", "TUBERIA BRITISH",
 ];
+// Línea de cada máquina, para mostrar en la OT solo los códigos de falla que le aplican (codigos_falla.lineas)
+const LINEA_DE_MAQUINA = {
+  "CTL BRONX": "CTL", "CTL SESCO": "CTL", "SLITTER LOOPCO": "Slitter", "SLITTER YODER": "Slitter",
+  "CUBIERTA ARQUITECTONICA": "Cubiertas", "CUBIERTA TRAPEZOIDAL": "Cubiertas", "PERLIN EN C": "Perlin en C", "ENTREPISO": "Entrepiso",
+};
 
 const PRIORIDADES = { Rojo: "Urgente", Amarillo: "Programable", Verde: "Preventivo" };
 const MEDIDAS = ["und", "kg", "m", "L"];
