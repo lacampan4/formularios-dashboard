@@ -32,8 +32,13 @@ function agregarFila(tabla) {
   tabla.tBodies[0].append($("fila-" + tabla.dataset.fila).content.cloneNode(true));
   etiquetar(tabla);
 }
-// Total de la orden, en vivo: suma de los costos totales que escribió la persona
+// Costo total de cada ítem = cantidad × costo unitario, y total de la orden, en vivo.
+// La base lo vuelve a calcular al guardar (sql/13_os_total_sin_fotos.sql); esto es solo para verlo.
 function totalesOS() {
+  for (const tr of $("formOS").querySelector(".tabla").tBodies[0].rows) {
+    const [cant, unit] = ["cantidad", "costo_unitario"].map((k) => valor(tr.querySelector(`[data-k=${k}]`)));
+    tr.querySelector("[data-k=costo_total]").value = cant != null && unit != null ? Math.round(cant * unit * 100) / 100 : "";
+  }
   const totales = [...$("formOS").querySelectorAll(".tabla [data-k=costo_total]")].map(valor).filter((v) => v != null);
   $("osTotal").textContent = totales.length ? pesos(totales.reduce((s, v) => s + v, 0)) : "—";
 }

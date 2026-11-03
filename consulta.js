@@ -93,10 +93,14 @@ const filaEntrega = (o, i) => {
       : i.entregado_por && puede && o.creado_por === yo ? botonFirma(i, "recibe", "Firmar recibido") : "Pendiente",
     i.entregado ? { html: '<span class="chulo">✓ Entregado</span>' } : "Pendiente"];
 };
-// El responsable adjunta fotos y cierra desde el detalle; "Cerrar" se habilita con todo firmado y una foto (pintarFotos)
-const cierreOS = (o) => trabaja(o) ? `<div class="acciones no-imprimir" id="cierreOS" data-os="${o.id}" data-numero="${esc(o.numero)}"
-    data-faltan="${o.os_items.filter((i) => !i.entregado).length}"><p class="nota" id="notaCierre"></p>
-    <button type="button" class="btn btn-red" id="btnCerrarOS" disabled>Cerrar orden</button></div>` : "";
+// El responsable cierra desde el detalle; "Cerrar" se habilita con todos los ítems firmados (sql/13_os_total_sin_fotos.sql)
+const cierreOS = (o) => {
+  if (!trabaja(o)) return "";
+  const faltan = o.os_items.filter((i) => !i.entregado).length;
+  return `<div class="acciones no-imprimir" id="cierreOS" data-os="${o.id}" data-numero="${esc(o.numero)}">
+    <p class="nota">${faltan ? `Faltan ${faltan} ítem${faltan === 1 ? "" : "s"} con las dos firmas (entrega y recibido).` : ""}</p>
+    <button type="button" class="btn btn-red" id="btnCerrarOS" ${faltan ? "disabled" : ""}>Cerrar orden</button></div>`;
+};
 
 // Suma de los costos totales de los ítems que tienen costo; "—" si ninguno lo tiene
 const totalOS = (items) => {
@@ -134,10 +138,8 @@ const VISTA = {
     // Firmas por ítem (sql/12_os_firmas_items.sql): cada quien con su usuario y la hora en que firmó
     bloque(3, "firma", "Entregas por ítem", tabla(["Ítem", "Entregó", "Recibió", "Estado"],
       [...o.os_items].sort((a, b) => a.id - b.id).map((i) => filaEntrega(o, i)))) +
-    bloque(4, "check", "Fotos de cierre", `<div class="fotos" id="fotosOS"><p class="nota">Cargando…</p></div>` +
-      (trabaja(o) ? `<label class="btn btn-sec no-imprimir">Tomar o adjuntar foto<input type="file" accept="image/*" multiple hidden id="fotoOS" data-os="${o.id}"></label>` : "")) +
     // OS anteriores a la bandeja: se siguen viendo sus firmas
-    (o.autorizado_por || o.entregado_por || o.recibido_por ? bloque(5, "firma", "Firmas (formato anterior)", firmas(o)) : "") +
+    (o.autorizado_por || o.entregado_por || o.recibido_por ? bloque(4, "firma", "Firmas (formato anterior)", firmas(o)) : "") +
     cierreOS(o),
 
   ATS: (o) => cabecera("ATS", "FR-SST-011 · Versión 1", o.numero) +
@@ -226,56 +228,16 @@ async function mostrar() {
   if (!data) return $("detalle").innerHTML = `<div class="card"><p>No se encontró ese formato.</p></div>`;
   $("detalle").innerHTML = VISTA[tipo](data);
   pintarIconos($("detalle"));
-  if (tipo === "OS") pintarFotos(id);
   document.title = `${$("detalle").querySelector(".no-orden .mono").textContent} | La Campana`;
   if (!recargando) window.scrollTo(0, 0);
 }
-// Tras firmar o subir fotos se vuelve a pintar el detalle sin saltar al inicio
+// Tras firmar o cerrar se vuelve a pintar el detalle sin saltar al inicio
 let recargando = false;
 const recargar = async () => { recargando = true; try { await mostrar(); } finally { recargando = false; } };
-// Fotos que adjuntó el responsable al cerrar la OS (bucket privado: enlaces firmados de 1 hora)
-async function pintarFotos(id) {
-  const pedido = location.hash;
-  const { data } = await db.storage.from("fotos-os").list(id);
-  const { data: urls } = data?.length ? await db.storage.from("fotos-os").createSignedUrls(data.map((x) => `${id}/${x.name}`), 3600) : { data: [] };
-  if (location.hash !== pedido) return; // ya se abrió otro formato
-  $("fotosOS").innerHTML = urls?.length ? urls.filter((u) => u.signedUrl).map((u, i) =>
-    `<a href="${esc(u.signedUrl)}" target="_blank" rel="noopener"><img src="${esc(u.signedUrl)}" alt="Foto ${i + 1}"></a>`).join("")
-    : `<p class="nota">Sin fotos.</p>`;
-  const c = $("cierreOS");
-  if (!c) return;
-  const faltan = Number(c.dataset.faltan);
-  $("btnCerrarOS").disabled = !!faltan || !urls?.length;
-  $("notaCierre").textContent = faltan ? `Faltan ${faltan} ítem${faltan === 1 ? "" : "s"} con las dos firmas (entrega y recibido).`
-    : urls?.length ? "" : "Adjunte al menos una foto para poder cerrarla.";
-}
-// Reduce la foto a 1280 px por lado y JPEG al 70 %: de 4–8 MB pasa a unos 150–300 KB (Supabase rechaza más de 1 MB)
-async function comprimir(archivo) {
-  const img = await createImageBitmap(archivo, { imageOrientation: "from-image" });
-  const k = Math.min(1, 1280 / Math.max(img.width, img.height));
-  const c = document.createElement("canvas");
-  c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
-  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-  return new Promise((listo) => c.toBlob(listo, "image/jpeg", 0.7));
-}
 // "Guardar" aparece solo con alguna casilla marcada; sin ninguna, la OT queda como estaba
 const casillas = () => [...$("requisitos").querySelectorAll("input")];
-$("detalle").onchange = async (e) => {
+$("detalle").onchange = (e) => {
   if (e.target.closest("#requisitos")) $("btnGuardarRequisitos").hidden = !casillas().some((c) => c.checked);
-  const input = e.target.closest("#fotoOS");
-  if (!input?.files.length) return;
-  const etiqueta = input.parentElement;
-  etiqueta.classList.add("cargando"); etiqueta.firstChild.textContent = "Subiendo…";
-  try {
-    for (const archivo of input.files) {
-      const { error } = await db.storage.from("fotos-os").upload(`${input.dataset.os}/${crypto.randomUUID()}.jpg`, await comprimir(archivo), { contentType: "image/jpeg" });
-      if (error) throw error;
-    }
-    aviso(input.files.length === 1 ? "Foto adjuntada" : `${input.files.length} fotos adjuntadas`);
-  } catch (err) {
-    aviso("No se pudo subir la foto: " + err.message, true);
-  }
-  recargar();
 };
 $("detalle").onclick = async (e) => {
   // Firma del ítem: queda con el usuario de la sesión y la hora del servidor

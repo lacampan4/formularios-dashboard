@@ -1,6 +1,6 @@
 // =====================================================================
 //  BANDEJA: OT y OS en las que el usuario es responsable y OS que él pidió.
-//  La OT se cierra aquí (cerrar_ot, sql/5_bandeja.sql); la OS se firma, lleva fotos y se cierra en "Abrir" (consulta.js)
+//  La OT se cierra aquí (cerrar_ot, sql/5_bandeja.sql); la OS se firma y se cierra en "Abrir" (consulta.js)
 // =====================================================================
 let yo = null;
 let nombres = new Map(); // id de usuario -> nombre, para el solicitante
@@ -9,7 +9,7 @@ f.onchange = () => cargar();
 f.onsubmit = (e) => e.preventDefault();
 
 const falla = (l) => `<div><b>${esc(String(l.codigo_falla).padStart(2, "0"))} – ${esc(l.codigos_falla?.descripcion)}</b><br>${esc(l.reporte)}</div>`;
-// Resumen del ítem en la fila; las firmas, fotos y el cierre de la OS se hacen en "Abrir" (consulta.js)
+// Resumen del ítem en la fila; las firmas y el cierre de la OS se hacen en "Abrir" (consulta.js)
 const item = (i) => `<div class="item-os${i.entregado ? " listo" : ""}"><b>${i.entregado ? '<span class="chulo" aria-label="Entregado">✓</span> ' : ""}${esc(i.cantidad)} ${esc(i.medida)} · ${esc(i.descripcion)}</b><br>${esc(i.maquina)}
   <div class="firmas-item">${i.entregado ? "Entregado y recibido" : i.entregado_por ? "Entregado, falta firmar el recibido" : "Entrega pendiente"}</div></div>`;
 const progreso = (items) => `<p class="nota">${items.filter((i) => i.entregado).length} de ${items.length} ítem${items.length === 1 ? "" : "s"} entregado${items.length === 1 ? "" : "s"}</p>`;
@@ -48,7 +48,7 @@ async function cargar() {
 
 // "Abrir" muestra el detalle en una ventana flotante, sin salir de la bandeja
 $("cerrarDetalle").onclick = () => $("dlgDetalle").close();
-$("dlgDetalle").onclose = () => { $("marcoDetalle").src = "about:blank"; cargar(); }; // pudo firmar, subir fotos, cerrar o guardar ATS/Permiso
+$("dlgDetalle").onclose = () => { $("marcoDetalle").src = "about:blank"; cargar(); }; // pudo firmar, cerrar o guardar ATS/Permiso
 $("tabla").onclick = async (e) => {
   const a = e.target.closest('a[href^="consulta.html?bandeja"]');
   if (a) {

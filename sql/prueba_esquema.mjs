@@ -49,6 +49,7 @@ await db.exec(readFileSync(`${dir}/9_guia_octubre.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/10_permisos_funciones.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/11_os_costos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/12_os_firmas_items.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/13_os_total_sin_fotos.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
 await db.exec(readFileSync(`${dir}/3_roles.sql`, "utf8"));
@@ -61,6 +62,7 @@ await db.exec(readFileSync(`${dir}/9_guia_octubre.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/10_permisos_funciones.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/11_os_costos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/12_os_firmas_items.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/13_os_total_sin_fotos.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
 assert.equal((await db.query("select udt_name from information_schema.columns where table_name = 'usuarios' and column_name = 'rol'")).rows[0].udt_name, "rol_usuario");
 await assert.rejects(db.query("update usuarios set rol = 'jefe'"), /invalid input value for enum/);
@@ -151,15 +153,13 @@ assert.equal(n4, "OS-0001");
 const os1 = await val("select id from ordenes_suministro where numero = $1", [n4]);
 assert.equal(await val("select estado from ordenes_suministro where id = $1", [os1]), "Abierta");
 
-// La OS se cierra solo con foto; nadie la firma ni la edita; la foto no se sube a una OS cerrada
+// La OS se cierra con sus ítems firmados, sin foto (13_os_total_sin_fotos.sql); nadie la edita; no se suben fotos a una OS cerrada
 const foto = (id, archivo = "a.jpg") => db.query("insert into storage.objects (bucket_id, name) values ('fotos-os', $1)", [`${id}/${archivo}`]);
 assert.equal(await val("select file_size_limit::int from storage.buckets where id = 'fotos-os'"), 1048576);
 await falla("update ordenes_suministro set autorizado_por = 'Ivan' where id = $1", [os1], /permission denied/);
 const it1 = await val("select id from os_items where os_id = $1", [os1]);
 await db.query("select firmar_item($1, 'entrega')", [it1]);   // aquí la misma persona pide y entrega: firma las dos
 await db.query("select firmar_item($1, 'recibe')", [it1]);
-await falla("select cerrar_os($1)", [os1], /al menos una foto/);
-await foto(os1);
 await db.query("select cerrar_os($1)", [os1]);
 assert.equal(await val("select estado from ordenes_suministro where id = $1", [os1]), "Cerrada");
 assert.ok(await val("select cerrada_en from ordenes_suministro where id = $1", [os1]));
@@ -235,21 +235,17 @@ await falla("select firmar_item($1, 'otro')", [it2], /no válida/);
 const it3 = await val("select id from os_items where os_id = $1", [os3]);
 await falla("select firmar_item($1, 'recibe')", [it3], /Primero el responsable/);
 await comoUsuario(PROD);
-await falla("select cerrar_os($1)", [os2], /al menos una foto/);
-await foto(os2);
-assert.equal(await val("select count(*)::int from storage.objects"), 1);                                // ve solo las fotos de sus OS
-await db.query("select cerrar_os($1)", [os2]);
+await db.query("select cerrar_os($1)", [os2]);                                                          // sin foto
 await falla("select firmar_item($1, 'entrega')", [it2], /ya está cerrada/);
 assert.equal(await val("select estado from ordenes_suministro where id = $1", [os2]), "Cerrada");
 
-// Costos de la OS (11_os_costos.sql): unitario y total los escribe la persona; opcionales y no negativos
+// Costos de la OS: el total lo calcula la base al guardar (13), aunque llegue otro; opcionales y no negativos
 await comoUsuario();
 const os4 = await val("select id from ordenes_suministro where numero = $1", [await os({ area_solicitante: "Corte", prioridad: "Verde" },
-  [{ ...item, cantidad: 2.5, costo_unitario: 1000, costo_total: 2600 }, { ...item, descripcion: "Sin costo" }])]);  // el total no se recalcula
+  [{ ...item, cantidad: 2.5, costo_unitario: 1000, costo_total: 9 }, { ...item, descripcion: "Sin costo", costo_total: 5 }])]);
 assert.deepEqual((await db.query("select costo_unitario::float c, costo_total::float t from os_items where os_id = $1 order by id", [os4])).rows,
-  [{ c: 1000, t: 2600 }, { c: null, t: null }]);
-await falla("select crear_os($1, $2)", [{ area_solicitante: "Corte", prioridad: "Verde", responsable: U }, [{ ...item, costo_unitario: -1 }]], /costo_unitario/);
-await falla("select crear_os($1, $2)", [{ area_solicitante: "Corte", prioridad: "Verde", responsable: U }, [{ ...item, costo_total: -1 }]], /costo_total/);
+  [{ c: 1000, t: 2500 }, { c: null, t: null }]);
+await falla("select crear_os($1, $2)", [{ area_solicitante: "Corte", prioridad: "Verde", responsable: U }, [{ ...item, costo_unitario: -1 }]], /costo_(unitario|total)_check/);
 
 // Sin rol: no hace nada
 await comoUsuario(SIN_ROL);
@@ -282,6 +278,8 @@ await db.exec(`alter table os_items drop column costo_total;
 await db.exec(readFileSync(`${dir}/11_os_costos.sql`, "utf8"));
 assert.equal(await val("select is_generated from information_schema.columns where table_name = 'os_items' and column_name = 'costo_total'"), "NEVER");
 assert.equal(await val("select costo_total::float from os_items"), 20);
-await db.exec("update os_items set costo_total = 25");
+await db.exec(readFileSync(`${dir}/13_os_total_sin_fotos.sql`, "utf8"));
+await db.exec("update os_items set costo_total = 25");                                                   // los ya guardados no se recalculan
+assert.equal(await val("select costo_total::float from os_items"), 25);
 await db.exec("rollback");
 console.log("OK: todas las pruebas del esquema pasaron");
