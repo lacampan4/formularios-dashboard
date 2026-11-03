@@ -54,3 +54,6 @@ begin
 end; $$;
 revoke execute on function public.corregir_item(bigint, text, text, jsonb) from public, anon;
 grant execute on function public.corregir_item(bigint, text, text, jsonb) to authenticated;
+
+-- Que la API de Supabase (PostgREST) vea ya la tabla nueva y su relación con os_items
+notify pgrst, 'reload schema';

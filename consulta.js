@@ -247,7 +247,10 @@ async function mostrar() {
   if (!tipo) return;
   $("detalle").innerHTML = `<p class="nota">Cargando…</p>`;
   const pedido = location.hash;
-  const { data, error } = await db.from(DEF[tipo].tabla).select(DEF[tipo].detalle).eq("id", id).maybeSingle();
+  let { data, error } = await db.from(DEF[tipo].tabla).select(DEF[tipo].detalle).eq("id", id).maybeSingle();
+  // Sin sql/14_os_correcciones.sql en Supabase (PGRST200: no conoce la relación) la OS se ve igual, sin correcciones
+  if (error?.code === "PGRST200" && tipo === "OS")
+    ({ data, error } = await db.from(DEF.OS.tabla).select(DEF.OS.detalle.replace("os_items(*, os_correcciones(*))", "os_items(*)")).eq("id", id).maybeSingle());
   if (location.hash !== pedido) return; // ya se abrió otro formato mientras cargaba
   if (error) return $("detalle").innerHTML = `<p class="msg error">${esc(error.message)}</p>`;
   if (!data) return $("detalle").innerHTML = `<div class="card"><p>No se encontró ese formato.</p></div>`;
