@@ -47,6 +47,7 @@ await db.exec(readFileSync(`${dir}/8_ot_requisitos.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "00001");
 await db.exec(readFileSync(`${dir}/9_guia_octubre.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/10_permisos_funciones.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/11_os_costos.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
 await db.exec(readFileSync(`${dir}/3_roles.sql`, "utf8"));
@@ -57,6 +58,7 @@ await db.exec(readFileSync(`${dir}/7_os_fotos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/8_ot_requisitos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/9_guia_octubre.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/10_permisos_funciones.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/11_os_costos.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
 assert.equal((await db.query("select udt_name from information_schema.columns where table_name = 'usuarios' and column_name = 'rol'")).rows[0].udt_name, "rol_usuario");
 await assert.rejects(db.query("update usuarios set rol = 'jefe'"), /invalid input value for enum/);
@@ -214,6 +216,15 @@ await foto(os2);
 assert.equal(await val("select count(*)::int from storage.objects"), 1);                                // ve solo las fotos de sus OS
 await db.query("select cerrar_os($1)", [os2]);
 assert.equal(await val("select estado from ordenes_suministro where id = $1", [os2]), "Cerrada");
+
+// Costos de la OS (11_os_costos.sql): el total lo calcula la base; el costo es opcional y no negativo
+await comoUsuario();
+const os4 = await val("select id from ordenes_suministro where numero = $1", [await os({ area_solicitante: "Corte", prioridad: "Verde" },
+  [{ ...item, cantidad: 2.5, costo_unitario: 1234.567, costo_total: 1 }, { ...item, descripcion: "Sin costo" }])]);   // costo_total enviado se ignora
+assert.deepEqual((await db.query("select costo_unitario::float c, costo_total::float t from os_items where os_id = $1 order by id", [os4])).rows,
+  [{ c: 1234.567, t: 3086.42 }, { c: null, t: null }]);
+await falla("select crear_os($1, $2)", [{ area_solicitante: "Corte", prioridad: "Verde", responsable: U }, [{ ...item, costo_unitario: -1 }]], /costo_unitario/);
+await falla("update os_items set costo_total = 5 where os_id = $1", [os4]);                                // no se escribe a mano
 
 // Sin rol: no hace nada
 await comoUsuario(SIN_ROL);

@@ -64,6 +64,9 @@ body { margin: 0; font: 15px/1.5 "Poppins", Arial, sans-serif; background: var(-
 .no-orden span { font-size: 13px; color: var(--gris-600); }
 .seccion { display: flex; align-items: center; gap: 10px; margin: 0 0 18px; font-size: 17px; font-weight: 700; }
 .nota { font-size: 13px; color: var(--gris-600); margin: 6px 0 0; }
+.total-os { text-align: right; margin: 12px 0 0; font-size: 15px; }
+.total-os b { font-size: 18px; font-variant-numeric: tabular-nums; }
+.costo-total { white-space: nowrap; vertical-align: middle !important; }
 .alerta { background: var(--rojo-claro); border-left: 4px solid var(--rojo); padding: 10px 14px; border-radius: var(--r-sm); font-size: 14px; margin-top: 10px; }
 
 /* ================= CAMPOS ================= */

@@ -32,6 +32,19 @@ function agregarFila(tabla) {
   tabla.tBodies[0].append($("fila-" + tabla.dataset.fila).content.cloneNode(true));
   etiquetar(tabla);
 }
+// Costo total por ítem y de la orden, en vivo. Solo se muestra: el que se guarda lo calcula la base de datos.
+function totalesOS() {
+  let suma = 0, hay = false;
+  for (const tr of $("formOS").querySelector(".tabla").tBodies[0].rows) {
+    const cant = valor(tr.querySelector("[data-k=cantidad]")), costo = valor(tr.querySelector("[data-k=costo_unitario]"));
+    const total = cant != null && costo != null ? Math.round(cant * costo * 100) / 100 : null;
+    tr.querySelector(".costo-total").textContent = pesos(total);
+    if (total != null) { suma += total; hay = true; }
+  }
+  $("osTotal").textContent = hay ? pesos(suma) : "—";
+}
+$("formOS").addEventListener("input", totalesOS);
+
 function reiniciar(form) {
   form.reset();
   form.querySelectorAll(".tabla").forEach((t) => { t.tBodies[0].innerHTML = ""; agregarFila(t); });
@@ -39,6 +52,7 @@ function reiniciar(form) {
   if (form.fecha_apertura) form.fecha_apertura.value = hoy();
   $("bloqueElectrico").hidden = true;
   $("otMaquina").onchange();
+  totalesOS();
 }
 
 // Guarda con el botón bloqueado; los errores de la base de datos se muestran tal cual.
@@ -67,7 +81,7 @@ FORMS.forEach((f) => $("tab" + f).onclick = () => FORMS.forEach((g) => {
 document.addEventListener("click", (e) => {
   const agregar = e.target.closest("[data-agregar]"), quitar = e.target.closest("[data-quitar]"), limpiar = e.target.closest("[data-limpiar]");
   if (agregar) agregarFila(agregar.closest(".bloque").querySelector(".tabla")); // la tabla de su propia sección
-  if (quitar) { const tb = quitar.closest("tbody"); if (tb.rows.length > 1) quitar.closest("tr").remove(); }
+  if (quitar) { const tb = quitar.closest("tbody"); if (tb.rows.length > 1) quitar.closest("tr").remove(); totalesOS(); }
   if (limpiar && confirm("¿Borrar todo lo escrito en este formulario?")) { reiniciar(limpiar.form); msg(limpiar.form.querySelector(".msg"), ""); }
 });
 

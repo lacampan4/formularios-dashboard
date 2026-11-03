@@ -12,6 +12,8 @@ const $ = (id) => document.getElementById(id);
 
 const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const fecha = (f) => f ? new Date(f).toLocaleString("es-CO", { timeZone: "America/Bogota", dateStyle: "short", timeStyle: "short" }) : "—";
+const pesos = (n) => n === null || n === undefined || n === "" ? "—"
+  : new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }).format(n);
 const chip = (t) => `<span class="chip ${esc(t)}">${esc(t)}${PRIORIDADES[t] ? " · " + PRIORIDADES[t] : ""}</span>`;
 // lista: ["a", ...] o [{ v, t }, ...]
 const opciones = (lista, primero) => (primero != null ? `<option value="">${esc(primero)}</option>` : "") +

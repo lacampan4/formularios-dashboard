@@ -81,6 +81,12 @@ const requisitos = (o) => {
   return "";
 };
 
+// Suma de los costos totales de los ítems que tienen costo; "—" si ninguno lo tiene
+const totalOS = (items) => {
+  const con = items.filter((i) => i.costo_total != null);
+  return `<p class="total-os">Total de la orden: <b>${con.length ? pesos(con.reduce((s, i) => s + Number(i.costo_total), 0)) : "—"}</b></p>`;
+};
+
 const VISTA = {
   OT: (o) => cabecera("OT", "FO-OPE-001 · Versión 01", o.numero) +
     bloque(1, "info", "Información general", datos(
@@ -105,8 +111,9 @@ const VISTA = {
       dato("Registrado el", fecha(o.creado_en)), dato("Solicitante", nombres.get(o.creado_por)), dato("Responsable", nombres.get(o.responsable)),
       datoHtml("OT relacionada", o.ordenes_trabajo ? enlace("OT", o.ordenes_trabajo.id, o.ordenes_trabajo.numero) : "—"),
       dato("Cerrada el", o.cerrada_en && fecha(o.cerrada_en)))) +
-    bloque(2, "caja", "Ítems solicitados", tabla(["Máquina", "Referencia", "Marca", "Código", "Cantidad", "Medida", "Descripción", "Función"],
-      o.os_items.map((i) => [i.maquina, i.referencia, i.marca, i.codigo, i.cantidad, i.medida, i.descripcion, i.funcion]))) +
+    bloque(2, "caja", "Ítems solicitados", tabla(["Máquina", "Referencia", "Marca", "Código", "Cantidad", "Medida", "Costo unitario", "Costo total", "Descripción", "Función"],
+      o.os_items.map((i) => [i.maquina, i.referencia, i.marca, i.codigo, i.cantidad, i.medida, pesos(i.costo_unitario), pesos(i.costo_total), i.descripcion, i.funcion])) +
+      totalOS(o.os_items)) +
     bloque(3, "check", "Fotos de cierre", `<div class="fotos" id="fotosOS"><p class="nota">Cargando…</p></div>`) +
     // OS anteriores a la bandeja: se siguen viendo sus firmas
     (o.autorizado_por || o.entregado_por || o.recibido_por ? bloque(4, "firma", "Firmas (formato anterior)", firmas(o)) : ""),
