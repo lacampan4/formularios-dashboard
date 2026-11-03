@@ -114,9 +114,15 @@ const VISTA = {
     bloque(2, "caja", "Ítems solicitados", tabla(["Máquina", "Referencia", "Marca", "Código", "Cantidad", "Medida", "Costo unitario", "Costo total", "Descripción", "Función"],
       o.os_items.map((i) => [i.maquina, i.referencia, i.marca, i.codigo, i.cantidad, i.medida, pesos(i.costo_unitario), pesos(i.costo_total), i.descripcion, i.funcion])) +
       totalOS(o.os_items)) +
-    bloque(3, "check", "Fotos de cierre", `<div class="fotos" id="fotosOS"><p class="nota">Cargando…</p></div>`) +
+    // Firmas por ítem (sql/12_os_firmas_items.sql): cada quien con su usuario y la hora en que firmó
+    bloque(3, "firma", "Entregas por ítem", tabla(["Ítem", "Entregó", "Recibió", "Estado"],
+      [...o.os_items].sort((a, b) => a.id - b.id).map((i) => [`${i.cantidad} ${i.medida} · ${i.descripcion}`,
+        i.entregado_por ? `${nombres.get(i.entregado_por) ?? "—"} · ${fecha(i.entregado_en)}` : "Pendiente",
+        i.recibido_por ? `${nombres.get(i.recibido_por) ?? "—"} · ${fecha(i.recibido_en)}` : "Pendiente",
+        i.entregado ? "✓ Entregado" : "Pendiente"]))) +
+    bloque(4, "check", "Fotos de cierre", `<div class="fotos" id="fotosOS"><p class="nota">Cargando…</p></div>`) +
     // OS anteriores a la bandeja: se siguen viendo sus firmas
-    (o.autorizado_por || o.entregado_por || o.recibido_por ? bloque(4, "firma", "Firmas (formato anterior)", firmas(o)) : ""),
+    (o.autorizado_por || o.entregado_por || o.recibido_por ? bloque(5, "firma", "Firmas (formato anterior)", firmas(o)) : ""),
 
   ATS: (o) => cabecera("ATS", "FR-SST-011 · Versión 1", o.numero) +
     bloque(1, "info", "Información general", datos(

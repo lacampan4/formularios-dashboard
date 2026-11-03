@@ -48,6 +48,7 @@ assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].nume
 await db.exec(readFileSync(`${dir}/9_guia_octubre.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/10_permisos_funciones.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/11_os_costos.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/12_os_firmas_items.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
 await db.exec(readFileSync(`${dir}/3_roles.sql`, "utf8"));
@@ -59,6 +60,7 @@ await db.exec(readFileSync(`${dir}/8_ot_requisitos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/9_guia_octubre.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/10_permisos_funciones.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/11_os_costos.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/12_os_firmas_items.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
 assert.equal((await db.query("select udt_name from information_schema.columns where table_name = 'usuarios' and column_name = 'rol'")).rows[0].udt_name, "rol_usuario");
 await assert.rejects(db.query("update usuarios set rol = 'jefe'"), /invalid input value for enum/);
@@ -153,6 +155,9 @@ assert.equal(await val("select estado from ordenes_suministro where id = $1", [o
 const foto = (id, archivo = "a.jpg") => db.query("insert into storage.objects (bucket_id, name) values ('fotos-os', $1)", [`${id}/${archivo}`]);
 assert.equal(await val("select file_size_limit::int from storage.buckets where id = 'fotos-os'"), 1048576);
 await falla("update ordenes_suministro set autorizado_por = 'Ivan' where id = $1", [os1], /permission denied/);
+const it1 = await val("select id from os_items where os_id = $1", [os1]);
+await db.query("select firmar_item($1, 'entrega')", [it1]);   // aquí la misma persona pide y entrega: firma las dos
+await db.query("select firmar_item($1, 'recibe')", [it1]);
 await falla("select cerrar_os($1)", [os1], /al menos una foto/);
 await foto(os1);
 await db.query("select cerrar_os($1)", [os1]);
@@ -211,10 +216,30 @@ assert.equal(await val("select count(*)::int from os_items where os_id = $1", [o
 await db.exec("savepoint s");
 await assert.rejects(foto(os3), /row-level security/);
 await db.exec("rollback to savepoint s");
+await falla("select cerrar_os($1)", [os2], /dos firmas/);                                                // sin firmar los ítems no cierra
+// Firmas por ítem (12_os_firmas_items.sql): entrega el responsable (PROD), recibe el solicitante (U)
+const it2 = await val("select id from os_items where os_id = $1", [os2]);
+await falla("select firmar_item($1, 'recibe')", [it2], /Solo quien pidió/);                                // el responsable no firma el recibido
+await db.query("select firmar_item($1, 'entrega')", [it2]);
+await falla("select firmar_item($1, 'entrega')", [it2], /ya está firmada/);
+assert.equal(await val("select entregado_por::text from os_items where id = $1", [it2]), PROD);
+await falla("update os_items set recibido_por = $1 where id = $2", [PROD, it2], /permission denied/);       // nadie firma por otro editando
+await comoUsuario();
+await falla("select firmar_item($1, 'entrega')", [it2], /Solo el responsable/);
+assert.equal(await val("select entregado from os_items where id = $1", [it2]), false);                   // una sola firma: sin chulo
+await db.query("select firmar_item($1, 'recibe')", [it2]);
+assert.equal(await val("select entregado from os_items where id = $1", [it2]), true);                    // las dos firmas: chuleado
+assert.ok(await val("select recibido_en from os_items where id = $1", [it2]));
+await falla("select firmar_item($1, 'otro')", [it2], /no válida/);
+// Recibir antes de que entreguen no se puede
+const it3 = await val("select id from os_items where os_id = $1", [os3]);
+await falla("select firmar_item($1, 'recibe')", [it3], /Primero el responsable/);
+await comoUsuario(PROD);
 await falla("select cerrar_os($1)", [os2], /al menos una foto/);
 await foto(os2);
 assert.equal(await val("select count(*)::int from storage.objects"), 1);                                // ve solo las fotos de sus OS
 await db.query("select cerrar_os($1)", [os2]);
+await falla("select firmar_item($1, 'entrega')", [it2], /ya está cerrada/);
 assert.equal(await val("select estado from ordenes_suministro where id = $1", [os2]), "Cerrada");
 
 // Costos de la OS (11_os_costos.sql): unitario y total los escribe la persona; opcionales y no negativos

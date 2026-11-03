@@ -198,6 +198,12 @@ a.btn { display: inline-flex; align-items: center; text-decoration: none; }
 }
 
 /* Bandeja: fotos de cierre de la OS */
+/* Ítems de la OS con firmas de entrega y recibido */
+.item-os { padding: 8px 10px; border: 1px solid var(--gris-200); border-radius: 8px; margin-bottom: 6px; }
+.item-os.listo { border-color: var(--ok); background: #f1faf4; }
+.chulo { color: var(--ok); font-weight: 700; }
+.firmas-item { font-size: 12px; color: var(--gris-600); margin-top: 4px; }
+.btn-firma { min-height: 36px; padding: 6px 12px; font-size: 13px; margin-top: 4px; }
 .fotos { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .fotos img { width: 64px; height: 64px; object-fit: cover; border-radius: 6px; border: 1px solid var(--gris-200); }
 label.btn.cargando { opacity: .6; pointer-events: none; }
