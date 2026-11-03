@@ -50,6 +50,7 @@ await db.exec(readFileSync(`${dir}/10_permisos_funciones.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/11_os_costos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/12_os_firmas_items.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/13_os_total_sin_fotos.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/14_os_correcciones.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
 await db.exec(readFileSync(`${dir}/3_roles.sql`, "utf8"));
@@ -63,6 +64,7 @@ await db.exec(readFileSync(`${dir}/10_permisos_funciones.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/11_os_costos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/12_os_firmas_items.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/13_os_total_sin_fotos.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/14_os_correcciones.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
 assert.equal((await db.query("select udt_name from information_schema.columns where table_name = 'usuarios' and column_name = 'rol'")).rows[0].udt_name, "rol_usuario");
 await assert.rejects(db.query("update usuarios set rol = 'jefe'"), /invalid input value for enum/);
@@ -246,6 +248,30 @@ const os4 = await val("select id from ordenes_suministro where numero = $1", [aw
 assert.deepEqual((await db.query("select costo_unitario::float c, costo_total::float t from os_items where os_id = $1 order by id", [os4])).rows,
   [{ c: 1000, t: 2500 }, { c: null, t: null }]);
 await falla("select crear_os($1, $2)", [{ area_solicitante: "Corte", prioridad: "Verde", responsable: U }, [{ ...item, costo_unitario: -1 }]], /costo_(unitario|total)_check/);
+
+// Correcciones (14_os_correcciones.sql): solo quien pidió la OS; el ítem cambia y lo anterior queda en el historial
+const [c1, c2] = (await db.query("select id from os_items where os_id = $1 order by id", [os4])).rows.map((r) => r.id);
+const corregir = (it, tipo, detalle, cambios) => db.query("select corregir_item($1, $2, $3, $4)", [it, tipo, detalle, cambios]);
+await corregir(c1, "Mal entregado", "  Llegaron 2 y no 2,5  ", { cantidad: 2, referencia: "R-2", id: 999, entregado_por: PROD, os_id: os2 });
+assert.deepEqual((await db.query("select id, os_id, cantidad::float q, costo_total::float t, referencia, entregado_por from os_items where id = $1", [c1])).rows[0],
+  { id: c1, os_id: os4, q: 2, t: 2000, referencia: "R-2", entregado_por: null });                      // campos ajenos no se tocan
+assert.deepEqual((await db.query("select tipo, detalle, antes, despues, por::text from os_correcciones where item_id = $1", [c1])).rows[0],
+  { tipo: "Mal entregado", detalle: "Llegaron 2 y no 2,5", antes: { cantidad: 2.5, costo_total: 2500, referencia: null },
+    despues: { cantidad: 2, costo_total: 2000, referencia: "R-2" }, por: U });
+await corregir(c2, "Mal diligenciado", "Solo la nota", {});                                              // sin cambios: queda la nota
+assert.deepEqual((await db.query("select antes, despues from os_correcciones where item_id = $1", [c2])).rows[0], { antes: {}, despues: {} });
+await falla("select corregir_item($1, 'Perdido', 'x', '{}')", [c1], /tipo_check/);
+await falla("select corregir_item($1, 'Mal entregado', '  ', '{}')", [c1], /detalle_check/);
+await falla("select corregir_item($1, 'Mal entregado', 'x', $2)", [c1, { cantidad: 0 }], /cantidad_check/);
+await falla("select corregir_item($1, 'Mal entregado', 'x', $2)", [c1, { medida: "caja" }], /medida_check/);
+await falla("insert into os_correcciones (item_id, tipo, detalle) values ($1, 'Mal entregado', 'x')", [c1], /permission denied/);
+await falla("update os_correcciones set detalle = 'otra'", [], /permission denied/);
+await corregir(it2, "Mal entregado", "Era otra manguera", { descripcion: "Manguera 1/2" });               // OS cerrada: también
+await comoUsuario(PROD);
+await falla("select corregir_item($1, 'Mal entregado', 'x', '{}')", [it2], /Solo quien pidió/);         // el responsable no corrige
+assert.equal(await val("select count(*)::int from os_correcciones"), 1);                                // pero ve las de su OS
+assert.equal(await val("select descripcion from os_items where id = $1", [it2]), "Manguera 1/2");
+await comoUsuario();
 
 // Sin rol: no hace nada
 await comoUsuario(SIN_ROL);

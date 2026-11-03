@@ -14,7 +14,7 @@ const DEF = {
     nombre: "Orden de Suministro", tabla: "ordenes_suministro", conEstado: true,
     lista: "id, numero, creado_en, prioridad, estado, area_solicitante",
     fila: (o) => ({ numero: o.numero, prioridad: o.prioridad, detalle: o.area_solicitante, estado: o.estado }),
-    detalle: "*, os_items(*), ordenes_trabajo!ordenes_suministro_ot_id_fkey(id, numero)",
+    detalle: "*, os_items(*, os_correcciones(*)), ordenes_trabajo!ordenes_suministro_ot_id_fkey(id, numero)",
   },
   ATS: {
     nombre: "Análisis de Trabajo Seguro", tabla: "ats",
@@ -91,7 +91,7 @@ const filaEntrega = (o, i) => {
     i.entregado_por ? firmaItem(i.entregado_por, i.entregado_en) : puede && o.responsable === yo ? botonFirma(i, "entrega", "Firmar entrega") : "Pendiente",
     i.recibido_por ? firmaItem(i.recibido_por, i.recibido_en)
       : i.entregado_por && puede && o.creado_por === yo ? botonFirma(i, "recibe", "Firmar recibido") : "Pendiente",
-    i.entregado ? { html: '<span class="chulo">✓ Entregado</span>' } : "Pendiente"];
+    { html: (i.entregado ? '<span class="chulo">✓ Entregado</span>' : "Pendiente") + novedad(i) }];
 };
 // El responsable cierra desde el detalle; "Cerrar" se habilita con todos los ítems firmados (sql/13_os_total_sin_fotos.sql)
 const cierreOS = (o) => {
@@ -100,6 +100,28 @@ const cierreOS = (o) => {
   return `<div class="acciones no-imprimir" id="cierreOS" data-os="${o.id}" data-numero="${esc(o.numero)}">
     <p class="nota">${faltan ? `Faltan ${faltan} ítem${faltan === 1 ? "" : "s"} con las dos firmas (entrega y recibido).` : ""}</p>
     <button type="button" class="btn btn-red" id="btnCerrarOS" ${faltan ? "disabled" : ""}>Cerrar orden</button></div>`;
+};
+
+// Correcciones de ítems (sql/14_os_correcciones.sql): solo quien pidió la OS, abierta o cerrada
+const CAMPOS = { maquina: "Máquina", referencia: "Referencia", marca: "Marca", codigo: "Código", cantidad: "Cantidad", medida: "Medida",
+  costo_unitario: "Costo unitario", costo_total: "Costo total", descripcion: "Descripción", funcion: "Función" };
+let itemsOS = new Map(); // id -> ítem, para llenar el formulario de corrección
+const corrige = (o) => o.creado_por === yo;
+const valorCampo = (k, v) => v == null || v === "" ? "—" : k.startsWith("costo_") ? pesos(v) : String(v);
+const cambiosDe = (c) => Object.keys(c.despues).length
+  ? { html: Object.keys(c.despues).map((k) => `${esc(CAMPOS[k] ?? k)}: ${esc(valorCampo(k, c.antes[k]))} → <b>${esc(valorCampo(k, c.despues[k]))}</b>`).join("<br>") }
+  : "Sin cambios en los datos";
+const correcciones = (o) => {
+  const lista = o.os_items.flatMap((i) => (i.os_correcciones ?? []).map((c) => ({ ...c, item: i })))
+    .sort((a, b) => a.en.localeCompare(b.en));
+  return lista.length ? bloque(4, "llave", "Correcciones", tabla(["Fecha", "Corrigió", "Ítem", "Tipo", "Qué estaba mal y cuál fue el cambio", "Cambios"],
+    lista.map((c) => [fecha(c.en), nombres.get(c.por) ?? "—", `${c.item.cantidad} ${c.item.medida} · ${c.item.descripcion}`,
+      { html: `<span class="chip chip-novedad">${esc(c.tipo)}</span>` }, c.detalle, cambiosDe(c)]))) : "";
+};
+// Última corrección del ítem, para marcarlo en las entregas
+const novedad = (i) => {
+  const c = (i.os_correcciones ?? []).reduce((u, x) => !u || x.en > u.en ? x : u, null);
+  return c ? ` <span class="chip chip-novedad">${esc(c.tipo)} · corregido</span>` : "";
 };
 
 // Suma de los costos totales de los ítems que tienen costo; "—" si ninguno lo tiene
@@ -132,14 +154,17 @@ const VISTA = {
       dato("Registrado el", fecha(o.creado_en)), dato("Solicitante", nombres.get(o.creado_por)), dato("Responsable", nombres.get(o.responsable)),
       datoHtml("OT relacionada", o.ordenes_trabajo ? enlace("OT", o.ordenes_trabajo.id, o.ordenes_trabajo.numero) : "—"),
       dato("Cerrada el", o.cerrada_en && fecha(o.cerrada_en)))) +
-    bloque(2, "caja", "Ítems solicitados", tabla(["Máquina", "Referencia", "Marca", "Código", "Cantidad", "Medida", "Costo unitario", "Costo total", "Descripción", "Función"],
-      o.os_items.map((i) => [i.maquina, i.referencia, i.marca, i.codigo, i.cantidad, i.medida, pesos(i.costo_unitario), pesos(i.costo_total), i.descripcion, i.funcion])) +
+    bloque(2, "caja", "Ítems solicitados", tabla(["Máquina", "Referencia", "Marca", "Código", "Cantidad", "Medida", "Costo unitario", "Costo total", "Descripción", "Función",
+      ...(corrige(o) ? [""] : [])],
+      [...o.os_items].sort((a, b) => a.id - b.id).map((i) => [i.maquina, i.referencia, i.marca, i.codigo, i.cantidad, i.medida, pesos(i.costo_unitario), pesos(i.costo_total), i.descripcion, i.funcion,
+        ...(corrige(o) ? [{ html: `<button type="button" class="btn btn-sec btn-firma no-imprimir" data-corregir="${i.id}">Corregir</button>` }] : [])])) +
       totalOS(o.os_items)) +
     // Firmas por ítem (sql/12_os_firmas_items.sql): cada quien con su usuario y la hora en que firmó
     bloque(3, "firma", "Entregas por ítem", tabla(["Ítem", "Entregó", "Recibió", "Estado"],
       [...o.os_items].sort((a, b) => a.id - b.id).map((i) => filaEntrega(o, i)))) +
+    correcciones(o) +
     // OS anteriores a la bandeja: se siguen viendo sus firmas
-    (o.autorizado_por || o.entregado_por || o.recibido_por ? bloque(4, "firma", "Firmas (formato anterior)", firmas(o)) : "") +
+    (o.autorizado_por || o.entregado_por || o.recibido_por ? bloque(5, "firma", "Firmas (formato anterior)", firmas(o)) : "") +
     cierreOS(o),
 
   ATS: (o) => cabecera("ATS", "FR-SST-011 · Versión 1", o.numero) +
@@ -226,11 +251,38 @@ async function mostrar() {
   if (location.hash !== pedido) return; // ya se abrió otro formato mientras cargaba
   if (error) return $("detalle").innerHTML = `<p class="msg error">${esc(error.message)}</p>`;
   if (!data) return $("detalle").innerHTML = `<div class="card"><p>No se encontró ese formato.</p></div>`;
+  if (tipo === "OS") itemsOS = new Map(data.os_items.map((i) => [i.id, i]));
   $("detalle").innerHTML = VISTA[tipo](data);
   pintarIconos($("detalle"));
   document.title = `${$("detalle").querySelector(".no-orden .mono").textContent} | La Campana`;
   if (!recargando) window.scrollTo(0, 0);
 }
+// Formulario de corrección: llega con los datos actuales del ítem; la base guarda solo lo que cambió
+const fc = $("formCorregir");
+fc.medida.innerHTML = opciones(MEDIDAS);
+$("cancelarCorregir").onclick = () => $("dlgCorregir").close();
+function abrirCorreccion(id) {
+  const i = itemsOS.get(id);
+  fc.reset(); fc.dataset.item = id;
+  for (const k of Object.keys(CAMPOS)) if (fc[k]) fc[k].value = i[k] ?? "";
+  $("dlgCorregir").showModal();
+}
+fc.onsubmit = async (e) => {
+  e.preventDefault();
+  const cambios = Object.fromEntries(Object.keys(CAMPOS).filter((k) => fc[k]).map((k) => {
+    const v = fc[k].value.trim();
+    return [k, v === "" ? null : fc[k].type === "number" ? Number(v) : v];
+  }));
+  const boton = fc.querySelector("button[type=submit]");
+  boton.disabled = true;
+  const { error } = await db.rpc("corregir_item", { item: Number(fc.dataset.item), tipo: fc.tipo.value, detalle: fc.detalle.value, cambios });
+  boton.disabled = false;
+  if (error) return aviso(error.message, true);
+  $("dlgCorregir").close();
+  aviso("Corrección guardada");
+  recargar();
+};
+
 // Tras firmar o cerrar se vuelve a pintar el detalle sin saltar al inicio
 let recargando = false;
 const recargar = async () => { recargando = true; try { await mostrar(); } finally { recargando = false; } };
@@ -240,6 +292,8 @@ $("detalle").onchange = (e) => {
   if (e.target.closest("#requisitos")) $("btnGuardarRequisitos").hidden = !casillas().some((c) => c.checked);
 };
 $("detalle").onclick = async (e) => {
+  const co = e.target.closest("[data-corregir]");
+  if (co) return abrirCorreccion(Number(co.dataset.corregir));
   // Firma del ítem: queda con el usuario de la sesión y la hora del servidor
   const fi = e.target.closest("[data-firmar]");
   if (fi) {

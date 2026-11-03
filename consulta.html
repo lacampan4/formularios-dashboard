@@ -59,6 +59,34 @@
     </section>
   </main>
 
+  <!-- Corrección de un ítem de la OS (consulta.js · sql/14_os_correcciones.sql) -->
+  <dialog id="dlgCorregir" class="dlg-corregir" aria-labelledby="tituloCorregir">
+    <form id="formCorregir">
+      <h3 id="tituloCorregir" style="margin:0">Corregir ítem</h3>
+      <fieldset class="checks" style="border:0;padding:0;margin:0"><legend class="req" style="font-weight:600;margin-bottom:4px">¿Qué pasó?</legend>
+        <label class="check"><input type="radio" name="tipo" value="Mal diligenciado" required> Mal diligenciado</label>
+        <label class="check"><input type="radio" name="tipo" value="Mal entregado"> Mal entregado</label>
+      </fieldset>
+      <div class="grid grid-2">
+        <label class="campo"><span class="req">Máquina</span><input name="maquina" required></label>
+        <label class="campo"><span>Referencia</span><input name="referencia"></label>
+        <label class="campo"><span>Marca</span><input name="marca"></label>
+        <label class="campo"><span>Código</span><input name="codigo"></label>
+        <label class="campo"><span class="req">Cantidad</span><input name="cantidad" type="number" min="0.01" step="any" required></label>
+        <label class="campo"><span class="req">Medida</span><select name="medida" required></select></label>
+        <label class="campo"><span>Costo unitario</span><input name="costo_unitario" type="number" min="0" step="any"></label>
+        <label class="campo"><span class="req">Descripción</span><input name="descripcion" required></label>
+      </div>
+      <label class="campo"><span>Función</span><input name="funcion"></label>
+      <label class="campo"><span class="req">Qué estaba mal y cuál fue el cambio</span><textarea name="detalle" maxlength="500" required></textarea></label>
+      <p class="nota" style="margin:0">El costo total se recalcula si cambia la cantidad o el costo unitario. Los datos anteriores quedan en el historial.</p>
+      <div class="acciones-fila" style="justify-content:flex-end">
+        <button type="button" class="btn btn-sec" id="cancelarCorregir">Cancelar</button>
+        <button type="submit" class="btn btn-red">Guardar corrección</button>
+      </div>
+    </form>
+  </dialog>
+
   <div class="toast hidden" id="toast" role="status"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>

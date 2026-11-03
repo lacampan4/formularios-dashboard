@@ -149,6 +149,8 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
 .acciones-fila, #generarFormatos { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
 body.flotante .topbar, body.flotante #vistaDetalle > .acciones { display: none; }
 dialog form { display: flex; flex-direction: column; gap: 14px; }
+.dlg-corregir { width: min(640px, calc(100% - 32px)); max-height: calc(100vh - 32px); }
+.chip-novedad { background: #fff4e0; color: #8a5300; }
 .toast { position: fixed; bottom: 20px; right: 20px; background: var(--gris-900); color: #fff; padding: 14px 20px; border-radius: 8px; border-left: 4px solid var(--ok); z-index: 60; box-shadow: 0 6px 20px rgba(0,0,0,.3); }
 .toast.error { border-left-color: var(--rojo); }
 
