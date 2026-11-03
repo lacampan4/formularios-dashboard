@@ -37,7 +37,7 @@ Qué formato llena cada rol está en la tabla `rol_formatos` (Table Editor) y se
 | Archivo | Qué hace |
 |---|---|
 | `registro.html` / `registro.js` | Los cuatro formatos en pestañas |
-| `bandeja.html` / `bandeja.js` | Bandeja de entrada: las OT y OS en las que el usuario es responsable; desde ahí adjunta las fotos de la OS y las cierra |
+| `bandeja.html` / `bandeja.js` | Bandeja de entrada: las OT y OS en las que el usuario es responsable y las OS que pidió. En **Abrir** (ventana flotante con `consulta.html?bandeja`) se firma cada ítem de la OS, se adjuntan las fotos y se cierra |
 | `consulta.html` / `consulta.js` | Lista de formatos guardados y detalle completo de cada uno, con impresión (solo admin). Enlace directo (por id interno): `consulta.html#OT/5`, `#OS/3`, `#ATS/2`, `#PT/4` |
 | `dashboard.html` / `dashboard.js` | Indicadores, gráficas, tabla de órdenes y firmas |
 | `comun.js` | Cliente Supabase, login y utilidades compartidas |

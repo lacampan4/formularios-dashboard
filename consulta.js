@@ -45,7 +45,7 @@ const bloque = (n, icono, titulo, html) =>
 const datos = (...html) => `<div class="grid grid-datos">${html.join("")}</div>`;
 const tabla = (cols, filas) => filas.length
   ? `<div class="table-wrap"><table class="tabla"><thead><tr>${cols.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead>
-     <tbody>${filas.map((f) => `<tr>${f.map((x) => `<td>${vacio(x) ? "—" : esc(x)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`
+     <tbody>${filas.map((f) => `<tr>${f.map((x) => `<td>${x?.html ?? (vacio(x) ? "—" : esc(x))}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`
   : `<p class="nota">Sin registros.</p>`;
 const cabecera = (tipo, codigo, numero) => `<div class="page-head">
     <span class="ico ico-lg" data-icono="${tipo === "OT" || tipo === "OS" ? "doc" : "escudo"}"></span>
@@ -80,6 +80,23 @@ const requisitos = (o) => {
     dato("Requiere ATS", siNo(o.requiere_ats)), dato("Requiere permiso de alto riesgo", siNo(o.requiere_permiso))));
   return "";
 };
+
+// Firmas por ítem desde la bandeja (sql/12_os_firmas_items.sql): el responsable firma la entrega, el solicitante el recibido
+const firmaItem = (por, en) => `${nombres.get(por) ?? "—"} · ${fecha(en)}`;
+const botonFirma = (i, como, txt) => ({ html: `<button type="button" class="btn btn-sec btn-firma" data-firmar="${i.id}" data-como="${como}"
+  data-texto="${esc(`${i.cantidad} ${i.medida} · ${i.descripcion}`)}">${txt}</button>` });
+const filaEntrega = (o, i) => {
+  const puede = desdeBandeja && o.estado === "Abierta";
+  return [`${i.cantidad} ${i.medida} · ${i.descripcion}`,
+    i.entregado_por ? firmaItem(i.entregado_por, i.entregado_en) : puede && o.responsable === yo ? botonFirma(i, "entrega", "Firmar entrega") : "Pendiente",
+    i.recibido_por ? firmaItem(i.recibido_por, i.recibido_en)
+      : i.entregado_por && puede && o.creado_por === yo ? botonFirma(i, "recibe", "Firmar recibido") : "Pendiente",
+    i.entregado ? { html: '<span class="chulo">✓ Entregado</span>' } : "Pendiente"];
+};
+// El responsable adjunta fotos y cierra desde el detalle; "Cerrar" se habilita con todo firmado y una foto (pintarFotos)
+const cierreOS = (o) => trabaja(o) ? `<div class="acciones no-imprimir" id="cierreOS" data-os="${o.id}" data-numero="${esc(o.numero)}"
+    data-faltan="${o.os_items.filter((i) => !i.entregado).length}"><p class="nota" id="notaCierre"></p>
+    <button type="button" class="btn btn-red" id="btnCerrarOS" disabled>Cerrar orden</button></div>` : "";
 
 // Suma de los costos totales de los ítems que tienen costo; "—" si ninguno lo tiene
 const totalOS = (items) => {
@@ -116,13 +133,12 @@ const VISTA = {
       totalOS(o.os_items)) +
     // Firmas por ítem (sql/12_os_firmas_items.sql): cada quien con su usuario y la hora en que firmó
     bloque(3, "firma", "Entregas por ítem", tabla(["Ítem", "Entregó", "Recibió", "Estado"],
-      [...o.os_items].sort((a, b) => a.id - b.id).map((i) => [`${i.cantidad} ${i.medida} · ${i.descripcion}`,
-        i.entregado_por ? `${nombres.get(i.entregado_por) ?? "—"} · ${fecha(i.entregado_en)}` : "Pendiente",
-        i.recibido_por ? `${nombres.get(i.recibido_por) ?? "—"} · ${fecha(i.recibido_en)}` : "Pendiente",
-        i.entregado ? "✓ Entregado" : "Pendiente"]))) +
-    bloque(4, "check", "Fotos de cierre", `<div class="fotos" id="fotosOS"><p class="nota">Cargando…</p></div>`) +
+      [...o.os_items].sort((a, b) => a.id - b.id).map((i) => filaEntrega(o, i)))) +
+    bloque(4, "check", "Fotos de cierre", `<div class="fotos" id="fotosOS"><p class="nota">Cargando…</p></div>` +
+      (trabaja(o) ? `<label class="btn btn-sec no-imprimir">Tomar o adjuntar foto<input type="file" accept="image/*" multiple hidden id="fotoOS" data-os="${o.id}"></label>` : "")) +
     // OS anteriores a la bandeja: se siguen viendo sus firmas
-    (o.autorizado_por || o.entregado_por || o.recibido_por ? bloque(5, "firma", "Firmas (formato anterior)", firmas(o)) : ""),
+    (o.autorizado_por || o.entregado_por || o.recibido_por ? bloque(5, "firma", "Firmas (formato anterior)", firmas(o)) : "") +
+    cierreOS(o),
 
   ATS: (o) => cabecera("ATS", "FR-SST-011 · Versión 1", o.numero) +
     bloque(1, "info", "Información general", datos(
@@ -212,8 +228,11 @@ async function mostrar() {
   pintarIconos($("detalle"));
   if (tipo === "OS") pintarFotos(id);
   document.title = `${$("detalle").querySelector(".no-orden .mono").textContent} | La Campana`;
-  window.scrollTo(0, 0);
+  if (!recargando) window.scrollTo(0, 0);
 }
+// Tras firmar o subir fotos se vuelve a pintar el detalle sin saltar al inicio
+let recargando = false;
+const recargar = async () => { recargando = true; try { await mostrar(); } finally { recargando = false; } };
 // Fotos que adjuntó el responsable al cerrar la OS (bucket privado: enlaces firmados de 1 hora)
 async function pintarFotos(id) {
   const pedido = location.hash;
@@ -223,13 +242,62 @@ async function pintarFotos(id) {
   $("fotosOS").innerHTML = urls?.length ? urls.filter((u) => u.signedUrl).map((u, i) =>
     `<a href="${esc(u.signedUrl)}" target="_blank" rel="noopener"><img src="${esc(u.signedUrl)}" alt="Foto ${i + 1}"></a>`).join("")
     : `<p class="nota">Sin fotos.</p>`;
+  const c = $("cierreOS");
+  if (!c) return;
+  const faltan = Number(c.dataset.faltan);
+  $("btnCerrarOS").disabled = !!faltan || !urls?.length;
+  $("notaCierre").textContent = faltan ? `Faltan ${faltan} ítem${faltan === 1 ? "" : "s"} con las dos firmas (entrega y recibido).`
+    : urls?.length ? "" : "Adjunte al menos una foto para poder cerrarla.";
+}
+// Reduce la foto a 1280 px por lado y JPEG al 70 %: de 4–8 MB pasa a unos 150–300 KB (Supabase rechaza más de 1 MB)
+async function comprimir(archivo) {
+  const img = await createImageBitmap(archivo, { imageOrientation: "from-image" });
+  const k = Math.min(1, 1280 / Math.max(img.width, img.height));
+  const c = document.createElement("canvas");
+  c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return new Promise((listo) => c.toBlob(listo, "image/jpeg", 0.7));
 }
 // "Guardar" aparece solo con alguna casilla marcada; sin ninguna, la OT queda como estaba
 const casillas = () => [...$("requisitos").querySelectorAll("input")];
-$("detalle").onchange = (e) => {
+$("detalle").onchange = async (e) => {
   if (e.target.closest("#requisitos")) $("btnGuardarRequisitos").hidden = !casillas().some((c) => c.checked);
+  const input = e.target.closest("#fotoOS");
+  if (!input?.files.length) return;
+  const etiqueta = input.parentElement;
+  etiqueta.classList.add("cargando"); etiqueta.firstChild.textContent = "Subiendo…";
+  try {
+    for (const archivo of input.files) {
+      const { error } = await db.storage.from("fotos-os").upload(`${input.dataset.os}/${crypto.randomUUID()}.jpg`, await comprimir(archivo), { contentType: "image/jpeg" });
+      if (error) throw error;
+    }
+    aviso(input.files.length === 1 ? "Foto adjuntada" : `${input.files.length} fotos adjuntadas`);
+  } catch (err) {
+    aviso("No se pudo subir la foto: " + err.message, true);
+  }
+  recargar();
 };
 $("detalle").onclick = async (e) => {
+  // Firma del ítem: queda con el usuario de la sesión y la hora del servidor
+  const fi = e.target.closest("[data-firmar]");
+  if (fi) {
+    const que = fi.dataset.como === "entrega" ? "la entrega" : "que recibió";
+    if (!confirm(`¿Firmar ${que} de: ${fi.dataset.texto}? Quedará con su nombre y la hora actual.`)) return;
+    fi.disabled = true;
+    const { error } = await db.rpc("firmar_item", { item: Number(fi.dataset.firmar), como: fi.dataset.como });
+    if (error) { fi.disabled = false; return aviso(error.message, true); }
+    aviso(fi.dataset.como === "entrega" ? "Entrega firmada" : "Recibido firmado");
+    return recargar();
+  }
+  if (e.target.closest("#btnCerrarOS")) {
+    const c = $("cierreOS");
+    if (!confirm(`¿Cerrar la ${c.dataset.numero}? Ya no se podrá reabrir.`)) return;
+    $("btnCerrarOS").disabled = true;
+    const { error } = await db.rpc("cerrar_os", { os: Number(c.dataset.os) });
+    if (error) { $("btnCerrarOS").disabled = false; return aviso(error.message, true); }
+    aviso(`${c.dataset.numero} cerrada`);
+    return recargar();
+  }
   const b = e.target.closest("#btnGuardarRequisitos");
   if (!b) return;
   const [ats, permiso] = casillas().map((c) => c.checked);

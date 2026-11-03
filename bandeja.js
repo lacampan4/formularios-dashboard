@@ -1,8 +1,7 @@
 // =====================================================================
-//  BANDEJA: OT y OS en las que el usuario es responsable (las cierra) y OS que él pidió (firma lo que recibe)
-//  (cerrar_ot en sql/5_bandeja.sql; cerrar_os en sql/12_os_firmas_items.sql, que exige ítems firmados y una foto)
+//  BANDEJA: OT y OS en las que el usuario es responsable y OS que él pidió.
+//  La OT se cierra aquí (cerrar_ot, sql/5_bandeja.sql); la OS se firma, lleva fotos y se cierra en "Abrir" (consulta.js)
 // =====================================================================
-const BUCKET = "fotos-os";
 let yo = null;
 let nombres = new Map(); // id de usuario -> nombre, para el solicitante
 const f = $("filtros");
@@ -10,50 +9,13 @@ f.onchange = () => cargar();
 f.onsubmit = (e) => e.preventDefault();
 
 const falla = (l) => `<div><b>${esc(String(l.codigo_falla).padStart(2, "0"))} – ${esc(l.codigos_falla?.descripcion)}</b><br>${esc(l.reporte)}</div>`;
-// Ítem de la OS con sus dos firmas: entrega (responsable) y recibido (solicitante). Con las dos queda chuleado.
-const firma = (por, en) => `${esc(nombres.get(por) ?? "—")} · ${fecha(en)}`;
-const boton = (i, como, texto) => `<button class="btn btn-sec btn-firma" data-firmar="${i.id}" data-como="${como}" data-texto="${esc(`${i.cantidad} ${i.medida} · ${i.descripcion}`)}">${texto}</button>`;
-function item(o, i) {
-  const abierta = o.estado === "Abierta";
-  const entrega = i.entregado_por ? `Entregó: ${firma(i.entregado_por, i.entregado_en)}`
-    : abierta && o.responsable === yo ? boton(i, "entrega", "Firmar entrega") : "Entrega pendiente";
-  const recibe = i.recibido_por ? `Recibió: ${firma(i.recibido_por, i.recibido_en)}`
-    : !i.entregado_por ? "" : abierta && o.creado_por === yo ? boton(i, "recibe", "Firmar recibido") : "Recibido pendiente";
-  return `<div class="item-os${i.entregado ? " listo" : ""}"><b>${i.entregado ? '<span class="chulo" aria-label="Entregado">✓</span> ' : ""}${esc(i.cantidad)} ${esc(i.medida)} · ${esc(i.descripcion)}</b><br>${esc(i.maquina)}
-    <div class="firmas-item">${entrega}${recibe ? "<br>" + recibe : ""}</div></div>`;
-}
+// Resumen del ítem en la fila; las firmas, fotos y el cierre de la OS se hacen en "Abrir" (consulta.js)
+const item = (i) => `<div class="item-os${i.entregado ? " listo" : ""}"><b>${i.entregado ? '<span class="chulo" aria-label="Entregado">✓</span> ' : ""}${esc(i.cantidad)} ${esc(i.medida)} · ${esc(i.descripcion)}</b><br>${esc(i.maquina)}
+  <div class="firmas-item">${i.entregado ? "Entregado y recibido" : i.entregado_por ? "Entregado, falta firmar el recibido" : "Entrega pendiente"}</div></div>`;
 const progreso = (items) => `<p class="nota">${items.filter((i) => i.entregado).length} de ${items.length} ítem${items.length === 1 ? "" : "s"} entregado${items.length === 1 ? "" : "s"}</p>`;
-
-// Reduce la foto a 1280 px por lado y JPEG al 70 %: de 4–8 MB pasa a unos 150–300 KB
-async function comprimir(archivo) {
-  const img = await createImageBitmap(archivo, { imageOrientation: "from-image" });
-  const k = Math.min(1, 1280 / Math.max(img.width, img.height));
-  const c = document.createElement("canvas");
-  c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
-  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-  return new Promise((listo) => c.toBlob(listo, "image/jpeg", 0.7));
-}
-
-// Fotos de cada OS: carpeta = id de la OS. Enlaces firmados de 1 hora (el bucket es privado).
-async function fotosDe(id) {
-  const { data } = await db.storage.from(BUCKET).list(String(id));
-  if (!data?.length) return [];
-  const { data: urls } = await db.storage.from(BUCKET).createSignedUrls(data.map((x) => `${id}/${x.name}`), 3600);
-  return (urls ?? []).map((u) => u.signedUrl).filter(Boolean);
-}
-
-function accion(o, fotos) {
-  const verFotos = fotos.length ? `<div class="fotos">${fotos.map((u, i) =>
-    `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="Foto ${i + 1} de la ${esc(o.numero)}"></a>`).join("")}</div>` : "";
-  if (o.estado !== "Abierta" || o.responsable !== yo) return verFotos;  // el solicitante solo firma sus recibidos
-  const cerrar = (attrs = "") => `<button class="btn btn-red" data-cerrar="${o.id}" data-tipo="${o.tipo.toLowerCase()}" data-numero="${esc(o.numero)}" ${attrs}>Cerrar orden</button>`;
-  if (o.tipo === "OT") return cerrar();
-  const faltan = o.os_items.filter((i) => !i.entregado).length;
-  return verFotos +
-    `<label class="btn btn-sec">${fotos.length ? "Agregar otra foto" : "Tomar o adjuntar foto"}<input type="file" accept="image/*" multiple hidden data-foto="${o.id}"></label>` +
-    (faltan ? `${cerrar("disabled")}<p class="nota">Faltan ${faltan} ítem${faltan === 1 ? "" : "s"} con las dos firmas (entrega y recibido).</p>`
-      : fotos.length ? cerrar() : `${cerrar("disabled")}<p class="nota">Adjunte al menos una foto para poder cerrarla.</p>`);
-}
+// La OT se sigue cerrando desde la fila
+const accion = (o) => o.tipo === "OT" && o.estado === "Abierta" ?
+  `<button class="btn btn-red" data-cerrar="${o.id}" data-tipo="ot" data-numero="${esc(o.numero)}">Cerrar orden</button>` : "";
 
 async function cargar() {
   const filtro = (q) => (f.estado.value ? q.eq("estado", f.estado.value) : q).order("creado_en", { ascending: false }).limit(500);
@@ -61,18 +23,16 @@ async function cargar() {
     filtro(db.from("ordenes_trabajo").select("id, numero, creado_en, creado_por, prioridad, estado, maquina, ot_lineas(codigo_falla, reporte, codigos_falla(descripcion))").eq("responsable", yo)),
     // OS: las que debe entregar (responsable) y las que pidió (solicitante, para firmar el recibido)
     filtro(db.from("ordenes_suministro").select("id, numero, creado_en, creado_por, responsable, prioridad, estado, area_solicitante, " +
-      "os_items(id, maquina, cantidad, medida, descripcion, entregado_por, entregado_en, recibido_por, recibido_en, entregado)")
+      "os_items(id, maquina, cantidad, medida, descripcion, entregado_por, entregado)")
       .or(`responsable.eq.${yo},creado_por.eq.${yo}`).order("id", { referencedTable: "os_items" })),
   ]);
   const error = ot.error || os.error;
   if (error) return aviso("No se pudo cargar la bandeja: " + error.message, true);
   const lista = [...ot.data.map((o) => ({ ...o, tipo: "OT", donde: o.maquina, detalle: o.ot_lineas.map(falla).join("") })),
-                 ...os.data.map((o) => ({ ...o, tipo: "OS", donde: o.area_solicitante, detalle: progreso(o.os_items) + o.os_items.map((i) => item(o, i)).join("") }))]
+                 ...os.data.map((o) => ({ ...o, tipo: "OS", donde: o.area_solicitante, detalle: progreso(o.os_items) + o.os_items.map(item).join("") }))]
     .sort((a, b) => b.creado_en.localeCompare(a.creado_en));
-  // shortcut: una consulta de fotos por OS; con cientos de OS en la bandeja, guardar las rutas en una tabla
-  const fotos = await Promise.all(lista.map((o) => o.tipo === "OS" ? fotosDe(o.id) : []));
 
-  $("tabla").tBodies[0].innerHTML = lista.length ? lista.map((o, i) => `<tr>
+  $("tabla").tBodies[0].innerHTML = lista.length ? lista.map((o) => `<tr>
       <td class="mono"><a href="consulta.html?bandeja#${o.tipo}/${o.id}">${esc(o.numero)}</a></td>
       <td>${fecha(o.creado_en)}</td>
       <td>${chip(o.prioridad)}</td>
@@ -80,49 +40,21 @@ async function cargar() {
       <td>${esc(nombres.get(o.creado_por) ?? "—")}</td>
       <td>${o.detalle}</td>
       <td><span class="chip ${esc(o.estado)}">${esc(o.estado)}</span></td>
-      <td><a class="btn btn-sec" href="consulta.html?bandeja#${o.tipo}/${o.id}" style="margin-bottom:8px">Abrir</a>${accion(o, fotos[i])}</td>
+      <td><a class="btn btn-sec" href="consulta.html?bandeja#${o.tipo}/${o.id}" style="margin-bottom:8px">Abrir</a>${accion(o)}</td>
     </tr>`).join("") : `<tr><td class="vacio" colspan="8">No tiene órdenes ${f.estado.value ? (f.estado.value === "Abierta" ? "abiertas" : "cerradas") : ""}</td></tr>`;
   etiquetar($("tabla"));
   $("conteo").textContent = `${lista.length} orden${lista.length === 1 ? "" : "es"}`;
 }
 
-$("tabla").onchange = async (e) => {
-  const input = e.target.closest("[data-foto]");
-  if (!input?.files.length) return;
-  const etiqueta = input.parentElement;
-  etiqueta.classList.add("cargando"); etiqueta.firstChild.textContent = "Subiendo…";
-  try {
-    for (const archivo of input.files) {
-      const { error } = await db.storage.from(BUCKET).upload(`${input.dataset.foto}/${crypto.randomUUID()}.jpg`, await comprimir(archivo), { contentType: "image/jpeg" });
-      if (error) throw error;
-    }
-    aviso(input.files.length === 1 ? "Foto adjuntada" : `${input.files.length} fotos adjuntadas`);
-  } catch (err) {
-    aviso("No se pudo subir la foto: " + err.message, true);
-  }
-  cargar();
-};
-
 // "Abrir" muestra el detalle en una ventana flotante, sin salir de la bandeja
 $("cerrarDetalle").onclick = () => $("dlgDetalle").close();
-$("dlgDetalle").onclose = () => { $("marcoDetalle").src = "about:blank"; cargar(); }; // pudo guardar ATS/Permiso
+$("dlgDetalle").onclose = () => { $("marcoDetalle").src = "about:blank"; cargar(); }; // pudo firmar, subir fotos, cerrar o guardar ATS/Permiso
 $("tabla").onclick = async (e) => {
   const a = e.target.closest('a[href^="consulta.html?bandeja"]');
   if (a) {
     e.preventDefault();
     $("marcoDetalle").src = a.getAttribute("href").replace("?bandeja", "?bandeja&flotante");
     return $("dlgDetalle").showModal();
-  }
-  // Firma del ítem: queda con el usuario de la sesión y la hora del servidor
-  const fi = e.target.closest("[data-firmar]");
-  if (fi) {
-    const que = fi.dataset.como === "entrega" ? "la entrega" : "que recibió";
-    if (!confirm(`¿Firmar ${que} de: ${fi.dataset.texto}? Quedará con su nombre y la hora actual.`)) return;
-    fi.disabled = true;
-    const { error } = await db.rpc("firmar_item", { item: Number(fi.dataset.firmar), como: fi.dataset.como });
-    if (error) { fi.disabled = false; return aviso(error.message, true); }
-    aviso(fi.dataset.como === "entrega" ? "Entrega firmada" : "Recibido firmado");
-    return cargar();
   }
   const b = e.target.closest("[data-cerrar]");
   if (!b || !confirm(`¿Cerrar la ${b.dataset.numero}? Ya no se podrá reabrir.`)) return;
