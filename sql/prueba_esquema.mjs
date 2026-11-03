@@ -217,14 +217,14 @@ assert.equal(await val("select count(*)::int from storage.objects"), 1);        
 await db.query("select cerrar_os($1)", [os2]);
 assert.equal(await val("select estado from ordenes_suministro where id = $1", [os2]), "Cerrada");
 
-// Costos de la OS (11_os_costos.sql): el total lo calcula la base; el costo es opcional y no negativo
+// Costos de la OS (11_os_costos.sql): unitario y total los escribe la persona; opcionales y no negativos
 await comoUsuario();
 const os4 = await val("select id from ordenes_suministro where numero = $1", [await os({ area_solicitante: "Corte", prioridad: "Verde" },
-  [{ ...item, cantidad: 2.5, costo_unitario: 1234.567, costo_total: 1 }, { ...item, descripcion: "Sin costo" }])]);   // costo_total enviado se ignora
+  [{ ...item, cantidad: 2.5, costo_unitario: 1000, costo_total: 2600 }, { ...item, descripcion: "Sin costo" }])]);  // el total no se recalcula
 assert.deepEqual((await db.query("select costo_unitario::float c, costo_total::float t from os_items where os_id = $1 order by id", [os4])).rows,
-  [{ c: 1234.567, t: 3086.42 }, { c: null, t: null }]);
+  [{ c: 1000, t: 2600 }, { c: null, t: null }]);
 await falla("select crear_os($1, $2)", [{ area_solicitante: "Corte", prioridad: "Verde", responsable: U }, [{ ...item, costo_unitario: -1 }]], /costo_unitario/);
-await falla("update os_items set costo_total = 5 where os_id = $1", [os4]);                                // no se escribe a mano
+await falla("select crear_os($1, $2)", [{ area_solicitante: "Corte", prioridad: "Verde", responsable: U }, [{ ...item, costo_total: -1 }]], /costo_total/);
 
 // Sin rol: no hace nada
 await comoUsuario(SIN_ROL);
@@ -246,5 +246,17 @@ await db.exec(`insert into ordenes_trabajo (maquina, prioridad, responsable) val
 assert.equal(await val("select numero from ordenes_trabajo order by id desc limit 1"), "OT-10000");
 await db.exec("update codigos_falla set descripcion = 'Creado en la app' where codigo = 89");
 await assert.rejects(db.exec(readFileSync(`${dir}/9_guia_octubre.sql`, "utf8")), /89 \(Creado en la app\)/);
+await db.exec("rollback");
+
+// Una base con la versión anterior de 11 (costo_total calculado) pasa a editable y conserva lo que tenía
+await db.exec("reset role; begin");
+await db.exec(`alter table os_items drop column costo_total;
+  alter table os_items add column costo_total numeric generated always as (round(cantidad * costo_unitario, 2)) stored;
+  insert into ordenes_suministro (area_solicitante, prioridad, responsable) values ('Corte', 'Verde', '${U}');
+  insert into os_items (os_id, maquina, cantidad, medida, descripcion, costo_unitario) select max(id), 'M', 2, 'und', 'x', 10 from ordenes_suministro;`);
+await db.exec(readFileSync(`${dir}/11_os_costos.sql`, "utf8"));
+assert.equal(await val("select is_generated from information_schema.columns where table_name = 'os_items' and column_name = 'costo_total'"), "NEVER");
+assert.equal(await val("select costo_total::float from os_items"), 20);
+await db.exec("update os_items set costo_total = 25");
 await db.exec("rollback");
 console.log("OK: todas las pruebas del esquema pasaron");

@@ -32,16 +32,10 @@ function agregarFila(tabla) {
   tabla.tBodies[0].append($("fila-" + tabla.dataset.fila).content.cloneNode(true));
   etiquetar(tabla);
 }
-// Costo total por ítem y de la orden, en vivo. Solo se muestra: el que se guarda lo calcula la base de datos.
+// Total de la orden, en vivo: suma de los costos totales que escribió la persona
 function totalesOS() {
-  let suma = 0, hay = false;
-  for (const tr of $("formOS").querySelector(".tabla").tBodies[0].rows) {
-    const cant = valor(tr.querySelector("[data-k=cantidad]")), costo = valor(tr.querySelector("[data-k=costo_unitario]"));
-    const total = cant != null && costo != null ? Math.round(cant * costo * 100) / 100 : null;
-    tr.querySelector(".costo-total").textContent = pesos(total);
-    if (total != null) { suma += total; hay = true; }
-  }
-  $("osTotal").textContent = hay ? pesos(suma) : "—";
+  const totales = [...$("formOS").querySelectorAll(".tabla [data-k=costo_total]")].map(valor).filter((v) => v != null);
+  $("osTotal").textContent = totales.length ? pesos(totales.reduce((s, v) => s + v, 0)) : "—";
 }
 $("formOS").addEventListener("input", totalesOS);
 
