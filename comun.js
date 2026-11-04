@@ -36,6 +36,12 @@ const ICONOS = {
   volver: '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
   imprimir: '<path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
 };
+ICONOS.bandeja = '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>';
+ICONOS.buscar = '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>';
+ICONOS.grafica = '<path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>';
+// En el celular el menú va abajo, al alcance del pulgar, con ícono y nombre (styles.css)
+const ICONO_MENU = { "registro.html": "mas", "bandeja.html": "bandeja", "consulta.html": "buscar", "dashboard.html": "grafica" };
+document.querySelectorAll(".menu a").forEach((a) => a.insertAdjacentHTML("afterbegin", `<span class="ico" data-icono="${ICONO_MENU[a.getAttribute("href")]}"></span>`));
 const pintarIconos = (raiz = document) => raiz.querySelectorAll("[data-icono]").forEach((el) =>
   el.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONOS[el.dataset.icono]}</svg>`);
 pintarIconos();

@@ -45,7 +45,7 @@ const bloque = (n, icono, titulo, html) =>
 const datos = (...html) => `<div class="grid grid-datos">${html.join("")}</div>`;
 const tabla = (cols, filas) => filas.length
   ? `<div class="table-wrap"><table class="tabla"><thead><tr>${cols.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead>
-     <tbody>${filas.map((f) => `<tr>${f.map((x) => `<td>${x?.html ?? (vacio(x) ? "—" : esc(x))}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`
+     <tbody>${filas.map((f) => `<tr>${f.map((x, j) => `<td data-label="${esc(cols[j])}">${x?.html ?? (vacio(x) ? "—" : esc(x))}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`
   : `<p class="nota">Sin registros.</p>`;
 const cabecera = (tipo, codigo, numero) => `<div class="page-head">
     <span class="ico ico-lg" data-icono="${tipo === "OT" || tipo === "OS" ? "doc" : "escudo"}"></span>
@@ -289,10 +289,10 @@ fc.onsubmit = async (e) => {
 // Tras firmar o cerrar se vuelve a pintar el detalle sin saltar al inicio
 let recargando = false;
 const recargar = async () => { recargando = true; try { await mostrar(); } finally { recargando = false; } };
-// "Guardar" aparece solo con alguna casilla marcada; sin ninguna, la OT queda como estaba
+// "Guardar" aparece cuando las casillas difieren de lo guardado (defaultChecked), también al desmarcar las dos
 const casillas = () => [...$("requisitos").querySelectorAll("input")];
 $("detalle").onchange = (e) => {
-  if (e.target.closest("#requisitos")) $("btnGuardarRequisitos").hidden = !casillas().some((c) => c.checked);
+  if (e.target.closest("#requisitos")) $("btnGuardarRequisitos").hidden = casillas().every((c) => c.checked === c.defaultChecked);
 };
 $("detalle").onclick = async (e) => {
   const co = e.target.closest("[data-corregir]");
@@ -325,7 +325,8 @@ $("detalle").onclick = async (e) => {
   const { error } = await db.rpc("marcar_requisitos_ot", { ot, ats, permiso });
   b.disabled = false;
   if (error) return aviso(error.message, true);
-  // Guardado: se oculta hasta el próximo cambio de casillas y aparecen los botones para generar lo marcado
+  // Guardado: lo marcado pasa a ser lo guardado, se oculta hasta el próximo cambio y aparecen los botones para generar lo marcado
+  casillas().forEach((c) => c.defaultChecked = c.checked);
   b.hidden = true;
   $("generarFormatos").innerHTML = generar(ot, ats, permiso);
   pintarIconos($("generarFormatos"));

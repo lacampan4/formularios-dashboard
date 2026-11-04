@@ -24,6 +24,7 @@ body { margin: 0; font: 15px/1.5 "Poppins", Arial, sans-serif; background: var(-
 .menu { display: flex; gap: 26px; flex: 1; }
 .menu a { color: #fff; font-weight: 600; text-decoration: none; font-size: 16px; padding: 6px 0 3px; border-bottom: 2px solid transparent; }
 .menu a[aria-current="page"], .menu a:hover { border-color: #fff; }
+.menu .ico { display: none; } /* los íconos solo se ven en el menú de abajo del celular */
 .user-box { display: flex; align-items: center; gap: 12px; font-size: 13px; }
 
 /* ================= BOTONES ================= */
@@ -161,6 +162,8 @@ dialog form { display: flex; flex-direction: column; gap: 14px; }
 .dato > b { font-weight: 500; font-size: 15px; overflow-wrap: anywhere; }
 .dato-largo p { margin: 0; padding: 12px 14px; background: var(--gris-50); border-radius: 8px; white-space: pre-wrap; font-size: 14px; }
 .dato a, .tabla a { color: var(--rojo-osc); font-weight: 600; }
+.tabla a.btn-red { color: #fff; }
+.tabla td.mono { white-space: nowrap; }
 a.btn { display: inline-flex; align-items: center; text-decoration: none; }
 @media print {
   .topbar, .no-imprimir, .toast { display: none !important; }
@@ -175,12 +178,22 @@ a.btn { display: inline-flex; align-items: center; text-decoration: none; }
 /* ================= CELULARES ================= */
 @media (max-width: 900px) { .graficas { grid-template-columns: 1fr; } .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 700px) {
-  .topbar { position: static; }
-  .topbar-inner { gap: 8px 16px; }
-  .logo img { height: 38px; }
-  .menu { order: 3; flex-basis: 100%; gap: 16px; flex-wrap: wrap; }
-  .menu a { font-size: 15px; }
-  .user-box { margin-left: auto; }
+  /* Arriba solo el logo y el usuario; el menú queda fijo abajo, como en las apps del celular */
+  .topbar-inner { gap: 8px 16px; flex-wrap: nowrap; padding: 8px 12px; }
+  .logo img { height: 34px; }
+  .user-box { margin-left: auto; min-width: 0; }
+  .user-box span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .menu { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; gap: 0; background: #fff;
+    border-top: 1px solid var(--gris-200); box-shadow: 0 -2px 10px rgba(0,0,0,.08); padding: 4px 0 calc(4px + env(safe-area-inset-bottom)); }
+  .menu a { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; color: var(--gris-600); font-size: 12px; border: 0; padding: 6px 0; min-height: 52px; }
+  .menu a .ico { display: inline-flex; color: inherit; }
+  .menu a[aria-current="page"] { color: var(--rojo); }
+  body:has(.menu) { padding-bottom: 72px; }
+  .toast { left: 12px; right: 12px; bottom: 84px; }
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; }
+  .tab { white-space: normal; }
+  /* El detalle que abre la bandeja ocupa toda la pantalla */
+  .dlg-detalle { width: 100%; max-width: none; height: 100%; max-height: none; margin: 0; border-radius: 0; }
   .container { padding: 16px 12px; }
   .card { padding: 16px; }
   input, select, textarea { font-size: 16px; } /* evita zoom al escribir en el celular */
@@ -197,9 +210,45 @@ a.btn { display: inline-flex; align-items: center; text-decoration: none; }
   .tabla td:last-child { border-bottom: none; }
   .tabla td::before { content: attr(data-label); font-size: 12px; font-weight: 600; color: var(--gris-600); text-transform: uppercase; }
   .tabla td.vacio::before { content: none; }
+  .tabla td > .chip { align-self: flex-start; }
 }
 
-/* Bandeja: fotos de cierre de la OS */
+/* Barra de Guardar del registro: siempre a la vista mientras se llena el formato */
+.formato > .acciones { position: sticky; bottom: 12px; z-index: 10; box-shadow: 0 4px 24px rgba(0,0,0,.18); }
+
+/* Ítems de la OS en el registro: cada ítem es una tarjeta con sus campos en cuadrícula, sin barra de desplazamiento */
+.tabla-items thead { display: none; }
+.tabla-items tbody { counter-reset: item; }
+.tabla-items tr { counter-increment: item; position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 14px;
+  border: 1px solid var(--gris-200); border-radius: var(--r-md); padding: 40px 14px 14px; margin-bottom: 12px; background: var(--gris-50); }
+.tabla-items tr::before { content: "Ítem " counter(item); position: absolute; top: 10px; left: 14px; font-weight: 700; font-size: 14px; }
+.tabla-items td { display: flex; flex-direction: column; gap: 4px; padding: 0; border: 0; }
+.tabla-items td::before { content: attr(data-label); font-size: 12px; font-weight: 600; color: var(--gris-600); text-transform: none; }
+.tabla-items td:nth-child(9), .tabla-items td:nth-child(10) { grid-column: span 2; }
+.tabla-items td.quitar { position: absolute; top: 2px; right: 4px; width: auto; }
+.tabla-items td.quitar::before { content: none; }
+.tabla-items td input, .tabla-items td select { min-width: 0; }
+@media (max-width: 700px) {
+  .formato > .acciones { bottom: 76px; padding: 10px; flex-wrap: nowrap; }  /* encima del menú de abajo */
+  .grid-datos { grid-template-columns: 1fr 1fr; gap: 14px 12px; }           /* datos cortos del detalle: dos por fila */
+  #detalle .tabla tr { display: grid; grid-template-columns: 1fr 1fr; column-gap: 12px; }
+  #detalle .tabla td:has(.btn) { grid-column: 1 / -1; }
+  .formato > .acciones [data-limpiar] { flex: none; font-size: 0; gap: 0; padding: 10px 14px; } /* solo el ícono; el texto queda para lectores de pantalla */
+  .tabla-items tr { grid-template-columns: 1fr 1fr; padding: 40px 12px 12px; }
+  .tabla-items td { border: 0; padding: 0; }
+  .tabla-items td:nth-child(1), .tabla-items td:nth-child(9), .tabla-items td:nth-child(10) { grid-column: 1 / -1; }
+  /* Bandeja: tarjeta compacta, número y estado arriba, botón Abrir a lo ancho */
+  .tabla-bandeja tr { display: grid; grid-template-columns: 1fr 1fr; column-gap: 12px; }
+  .tabla-bandeja td:nth-child(6), .tabla-bandeja td:nth-child(8) { grid-column: 1 / -1; }
+  .tabla-bandeja td:nth-child(8)::before { content: none; }
+  .tabla-bandeja td:nth-child(8) .btn { width: 100%; justify-content: center; margin-bottom: 6px; }
+}
+
+/* Bandeja: lo que le toca hacer al usuario en cada orden */
+.toca { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-top: 6px; }
+.chip-toca { background: var(--rojo-claro); color: var(--rojo-osc); }
+.chip-listo { background: #e3f4ea; color: var(--ok); }
+
 /* Ítems de la OS con firmas de entrega y recibido */
 .item-os { padding: 8px 10px; border: 1px solid var(--gris-200); border-radius: 8px; margin-bottom: 6px; }
 .item-os.listo { border-color: var(--ok); background: #f1faf4; }
