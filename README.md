@@ -4,7 +4,7 @@ Registro digital de la Orden de Trabajo (FO-OPE-001), la Orden de Suministro (FO
 
 ## Puesta en marcha
 
-1. **Supabase → SQL Editor:** ejecute en orden `sql/1_esquema.sql`, `sql/2_semillas.sql`, `sql/3_roles.sql`, `sql/4_lista_roles.sql`, `sql/5_bandeja.sql`, `sql/6_consecutivos.sql`, `sql/7_os_fotos.sql`, `sql/8_ot_requisitos.sql`, `sql/9_guia_octubre.sql`, `sql/10_permisos_funciones.sql`, `sql/11_os_costos.sql`, `sql/12_os_firmas_items.sql`, `sql/13_os_total_sin_fotos.sql` y `sql/14_os_correcciones.sql`. Si vuelve a ejecutar uno, ejecute también todos los que siguen, porque cada uno ajusta reglas del anterior.
+1. **Supabase → SQL Editor:** ejecute en orden `sql/1_esquema.sql`, `sql/2_semillas.sql`, `sql/3_roles.sql`, `sql/4_lista_roles.sql`, `sql/5_bandeja.sql`, `sql/6_consecutivos.sql`, `sql/7_os_fotos.sql`, `sql/8_ot_requisitos.sql`, `sql/9_guia_octubre.sql`, `sql/10_permisos_funciones.sql`, `sql/11_os_costos.sql`, `sql/12_os_firmas_items.sql`, `sql/13_os_total_sin_fotos.sql`, `sql/14_os_correcciones.sql` y `sql/15_os_proveedor.sql`. Si vuelve a ejecutar uno, ejecute también todos los que siguen, porque cada uno ajusta reglas del anterior.
 2. **Supabase → Authentication → Sign In / Providers:** desactive **"Allow new users to sign up"**. Si queda activo, cualquiera podría crearse una cuenta.
    **Authentication → Users → Add user → Create new user:** se entra con **usuario y contraseña**, sin correo real. Para el usuario `juan.perez` escriba como Email `juan.perez@usuarios.lacampana.co` (el dominio de `DOMINIO_USUARIOS` en `config.js`), ponga la contraseña y marque **Auto Confirm User**. Ese correo no existe y nunca recibe mensajes.
    **Table Editor → usuarios:** al crear el usuario aparece su fila; escriba su nombre completo en `nombre` y elija su `rol` (ver tabla abajo). Un usuario nuevo queda en `sin_rol` y no puede hacer nada hasta que se le asigne uno.
@@ -52,7 +52,7 @@ Qué formato llena cada rol está en la tabla `rol_formatos` (Table Editor) y se
 - El reporte de falla admite hasta 500 caracteres. Quien llena OT puede crear códigos de falla nuevos, que quedan en la lista para todos.
 - Al revisar la OT, el responsable marca si requiere ATS y/o Permiso de trabajo de alto riesgo. Es su análisis: no impide cerrarla.
 - La OS llega a la bandeja del responsable. Cada ítem lo firma el responsable al entregarlo y quien pidió la OS al recibirlo, cada uno con su usuario; con las dos firmas queda chuleado. La OS se cierra solo con todos los ítems firmados. Ya no lleva fotos (las que se subieron antes quedan guardadas en el bucket `fotos-os`).
-- El costo total de cada ítem es cantidad × costo unitario: lo calcula la base de datos al guardar.
+- El costo total de cada ítem es cantidad × costo unitario: lo calcula la base de datos al guardar. Cada ítem puede llevar su proveedor (opcional).
 - Si un ítem quedó **mal diligenciado** o fue **mal entregado**, quien pidió la OS lo corrige desde el detalle (botón "Corregir"), aunque la OS esté cerrada: escribe qué estaba mal y cuál fue el cambio. El ítem queda con los datos nuevos y los anteriores en el historial "Correcciones", con quién y cuándo; no se edita ni se borra.
 - Cada formato (OT, OS, ATS, Permiso) recibe al guardar un número consecutivo propio, sin saltos, con el formato de la guía: OT-0001, OS-0001, ATS-0001, PT-0001.
 - La OT muestra solo los códigos de falla generales y los de la línea de la máquina elegida (CTL, Slitter, Cubiertas, Perlin en C, Entrepiso). La línea de cada máquina está en `LINEA_DE_MAQUINA` de `config.js`.

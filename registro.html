@@ -112,7 +112,7 @@
         <h3 class="seccion"><span class="ico" data-icono="caja"></span>2. Ítems solicitados</h3>
         <div class="table-wrap">
           <table class="tabla tabla-items" data-fila="os">
-            <thead><tr><th class="req">Máquina</th><th>Referencia</th><th>Marca</th><th>Código</th><th class="req">Cantidad</th><th class="req">Medida</th><th>Costo unitario</th><th>Costo total</th><th class="req">Descripción</th><th>Función</th><th><span class="sr-only">Quitar</span></th></tr></thead>
+            <thead><tr><th class="req">Máquina</th><th>Referencia</th><th>Marca</th><th>Código</th><th class="req">Cantidad</th><th class="req">Medida</th><th>Costo unitario</th><th>Costo total</th><th>Proveedor</th><th class="req">Descripción</th><th>Función</th><th><span class="sr-only">Quitar</span></th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -312,6 +312,7 @@
     <td><select data-k="medida" class="sel-medida" required></select></td>
     <td><input data-k="costo_unitario" data-tipo="num" type="number" min="0" step="any" placeholder="$ 0"></td>
     <td><input data-k="costo_total" data-tipo="num" type="number" readonly tabindex="-1" placeholder="Automático" title="Cantidad × costo unitario"></td>
+    <td><input data-k="proveedor" placeholder="A quién se le compra"></td>
     <td><input data-k="descripcion" required placeholder="Qué es el ítem"></td>
     <td><input data-k="funcion" placeholder="Para qué se usa"></td>
     <td class="quitar"><button type="button" class="btn-link" data-quitar aria-label="Quitar ítem">✕</button></td>

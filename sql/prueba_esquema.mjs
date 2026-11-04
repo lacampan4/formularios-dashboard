@@ -51,6 +51,7 @@ await db.exec(readFileSync(`${dir}/11_os_costos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/12_os_firmas_items.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/13_os_total_sin_fotos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/14_os_correcciones.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/15_os_proveedor.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
 await db.exec(readFileSync(`${dir}/3_roles.sql`, "utf8"));
@@ -65,6 +66,7 @@ await db.exec(readFileSync(`${dir}/11_os_costos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/12_os_firmas_items.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/13_os_total_sin_fotos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/14_os_correcciones.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/15_os_proveedor.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
 assert.equal((await db.query("select udt_name from information_schema.columns where table_name = 'usuarios' and column_name = 'rol'")).rows[0].udt_name, "rol_usuario");
 await assert.rejects(db.query("update usuarios set rol = 'jefe'"), /invalid input value for enum/);
@@ -244,9 +246,11 @@ assert.equal(await val("select estado from ordenes_suministro where id = $1", [o
 // Costos de la OS: el total lo calcula la base al guardar (13), aunque llegue otro; opcionales y no negativos
 await comoUsuario();
 const os4 = await val("select id from ordenes_suministro where numero = $1", [await os({ area_solicitante: "Corte", prioridad: "Verde" },
-  [{ ...item, cantidad: 2.5, costo_unitario: 1000, costo_total: 9 }, { ...item, descripcion: "Sin costo", costo_total: 5 }])]);
+  [{ ...item, cantidad: 2.5, costo_unitario: 1000, costo_total: 9, proveedor: " Ferretería Andina " }, { ...item, descripcion: "Sin costo", costo_total: 5, proveedor: "" }])]);
 assert.deepEqual((await db.query("select costo_unitario::float c, costo_total::float t from os_items where os_id = $1 order by id", [os4])).rows,
   [{ c: 1000, t: 2500 }, { c: null, t: null }]);
+assert.deepEqual((await db.query("select proveedor from os_items where os_id = $1 order by id", [os4])).rows.map((r) => r.proveedor),
+  ["Ferretería Andina", null]);                                                                          // proveedor (15): opcional, sin espacios
 await falla("select crear_os($1, $2)", [{ area_solicitante: "Corte", prioridad: "Verde", responsable: U }, [{ ...item, costo_unitario: -1 }]], /costo_(unitario|total)_check/);
 
 // Correcciones (14_os_correcciones.sql): solo quien pidió la OS; el ítem cambia y lo anterior queda en el historial
@@ -258,8 +262,11 @@ assert.deepEqual((await db.query("select id, os_id, cantidad::float q, costo_tot
 assert.deepEqual((await db.query("select tipo, detalle, antes, despues, por::text from os_correcciones where item_id = $1", [c1])).rows[0],
   { tipo: "Mal entregado", detalle: "Llegaron 2 y no 2,5", antes: { cantidad: 2.5, costo_total: 2500, referencia: null },
     despues: { cantidad: 2, costo_total: 2000, referencia: "R-2" }, por: U });
-await corregir(c2, "Mal diligenciado", "Solo la nota", {});                                              // sin cambios: queda la nota
-assert.deepEqual((await db.query("select antes, despues from os_correcciones where item_id = $1", [c2])).rows[0], { antes: {}, despues: {} });
+await corregir(c2, "Mal diligenciado", "Solo la nota", {});
+await corregir(c2, "Mal diligenciado", "Era otro proveedor", { proveedor: "Aceros SAS" });                // el proveedor también se corrige
+assert.deepEqual((await db.query("select antes, despues from os_correcciones where item_id = $1 order by id desc limit 1", [c2])).rows[0],
+  { antes: { proveedor: null }, despues: { proveedor: "Aceros SAS" } });                                              // sin cambios: queda la nota
+assert.deepEqual((await db.query("select antes, despues from os_correcciones where item_id = $1 order by id", [c2])).rows[0], { antes: {}, despues: {} });
 await falla("select corregir_item($1, 'Perdido', 'x', '{}')", [c1], /tipo_check/);
 await falla("select corregir_item($1, 'Mal entregado', '  ', '{}')", [c1], /detalle_check/);
 await falla("select corregir_item($1, 'Mal entregado', 'x', $2)", [c1, { cantidad: 0 }], /cantidad_check/);

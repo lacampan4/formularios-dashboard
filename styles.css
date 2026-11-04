@@ -224,7 +224,8 @@ a.btn { display: inline-flex; align-items: center; text-decoration: none; }
 .tabla-items tr::before { content: "Ítem " counter(item); position: absolute; top: 10px; left: 14px; font-weight: 700; font-size: 14px; }
 .tabla-items td { display: flex; flex-direction: column; gap: 4px; padding: 0; border: 0; }
 .tabla-items td::before { content: attr(data-label); font-size: 12px; font-weight: 600; color: var(--gris-600); text-transform: none; }
-.tabla-items td:nth-child(9), .tabla-items td:nth-child(10) { grid-column: span 2; }
+.tabla-items td:nth-child(9), .tabla-items td:nth-child(10) { grid-column: span 2; }  /* proveedor y descripción */
+.tabla-items td:nth-child(11) { grid-column: 1 / -1; }                               /* función: fila entera */
 .tabla-items td.quitar { position: absolute; top: 2px; right: 4px; width: auto; }
 .tabla-items td.quitar::before { content: none; }
 .tabla-items td input, .tabla-items td select { min-width: 0; }
@@ -236,7 +237,7 @@ a.btn { display: inline-flex; align-items: center; text-decoration: none; }
   .formato > .acciones [data-limpiar] { flex: none; font-size: 0; gap: 0; padding: 10px 14px; } /* solo el ícono; el texto queda para lectores de pantalla */
   .tabla-items tr { grid-template-columns: 1fr 1fr; padding: 40px 12px 12px; }
   .tabla-items td { border: 0; padding: 0; }
-  .tabla-items td:nth-child(1), .tabla-items td:nth-child(9), .tabla-items td:nth-child(10) { grid-column: 1 / -1; }
+  .tabla-items td:nth-child(1), .tabla-items td:nth-child(9), .tabla-items td:nth-child(10), .tabla-items td:nth-child(11) { grid-column: 1 / -1; }
   /* Bandeja: tarjeta compacta, número y estado arriba, botón Abrir a lo ancho */
   .tabla-bandeja tr { display: grid; grid-template-columns: 1fr 1fr; column-gap: 12px; }
   .tabla-bandeja td:nth-child(6), .tabla-bandeja td:nth-child(8) { grid-column: 1 / -1; }

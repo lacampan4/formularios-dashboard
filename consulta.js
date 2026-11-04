@@ -104,7 +104,7 @@ const cierreOS = (o) => {
 
 // Correcciones de ítems (sql/14_os_correcciones.sql): solo quien pidió la OS, abierta o cerrada
 const CAMPOS = { maquina: "Máquina", referencia: "Referencia", marca: "Marca", codigo: "Código", cantidad: "Cantidad", medida: "Medida",
-  costo_unitario: "Costo unitario", costo_total: "Costo total", descripcion: "Descripción", funcion: "Función" };
+  costo_unitario: "Costo unitario", costo_total: "Costo total", proveedor: "Proveedor", descripcion: "Descripción", funcion: "Función" };
 let itemsOS = new Map(); // id -> ítem, para llenar el formulario de corrección
 const corrige = (o) => o.creado_por === yo;
 const valorCampo = (k, v) => v == null || v === "" ? "—" : k.startsWith("costo_") ? pesos(v) : String(v);
@@ -154,9 +154,9 @@ const VISTA = {
       dato("Registrado el", fecha(o.creado_en)), dato("Solicitante", nombres.get(o.creado_por)), dato("Responsable", nombres.get(o.responsable)),
       datoHtml("OT relacionada", o.ordenes_trabajo ? enlace("OT", o.ordenes_trabajo.id, o.ordenes_trabajo.numero) : "—"),
       dato("Cerrada el", o.cerrada_en && fecha(o.cerrada_en)))) +
-    bloque(2, "caja", "Ítems solicitados", tabla(["Máquina", "Referencia", "Marca", "Código", "Cantidad", "Medida", "Costo unitario", "Costo total", "Descripción", "Función",
+    bloque(2, "caja", "Ítems solicitados", tabla(["Máquina", "Referencia", "Marca", "Código", "Cantidad", "Medida", "Costo unitario", "Costo total", "Proveedor", "Descripción", "Función",
       ...(corrige(o) ? [""] : [])],
-      [...o.os_items].sort((a, b) => a.id - b.id).map((i) => [i.maquina, i.referencia, i.marca, i.codigo, i.cantidad, i.medida, pesos(i.costo_unitario), pesos(i.costo_total), i.descripcion, i.funcion,
+      [...o.os_items].sort((a, b) => a.id - b.id).map((i) => [i.maquina, i.referencia, i.marca, i.codigo, i.cantidad, i.medida, pesos(i.costo_unitario), pesos(i.costo_total), i.proveedor, i.descripcion, i.funcion,
         ...(corrige(o) ? [{ html: `<button type="button" class="btn btn-sec btn-firma no-imprimir" data-corregir="${i.id}">Corregir</button>` }] : [])])) +
       totalOS(o.os_items)) +
     // Firmas por ítem (sql/12_os_firmas_items.sql): cada quien con su usuario y la hora en que firmó
