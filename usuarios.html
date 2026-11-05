@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Usuarios | La Campana</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="logo" href="registro.html" aria-label="La Campana Servicios de Acero">
+        <img src="logo.webp" alt="La Campana Servicios de Acero" width="2000" height="552">
+      </a>
+      <nav class="menu"><a href="registro.html">Registro</a><a href="bandeja.html">Bandeja</a><a href="consulta.html" data-solo-admin hidden>Consulta</a><a href="dashboard.html" data-solo-admin hidden>Dashboard</a><a href="usuarios.html" data-solo-admin aria-current="page" hidden>Usuarios</a></nav>
+      <div class="user-box hidden" id="userBox"><span id="userName"></span><button class="btn btn-white" id="btnSalir">Salir</button></div>
+    </div>
+  </header>
+
+  <main id="vistaAuth" class="auth"></main>
+
+  <main id="vistaApp" class="container hidden">
+    <div class="page-head">
+      <span class="ico ico-lg" data-icono="personas"></span>
+      <div><h2>Usuarios</h2><p>Cree las cuentas y asigne a cada persona su rol, su frente y de qué se encarga.</p></div>
+    </div>
+
+    <form class="card bloque" id="formCrear" novalidate>
+      <h3 class="seccion"><span class="ico" data-icono="mas"></span>Crear usuario</h3>
+      <div class="grid">
+        <label class="campo"><span class="req">Usuario</span><input name="usuario" required autocapitalize="none" spellcheck="false" autocomplete="off"
+          pattern="[A-Za-z0-9._\-]{3,40}" title="De 3 a 40 letras, números, punto, guion o guion bajo" placeholder="juan.perez"></label>
+        <label class="campo"><span class="req">Contraseña</span><input name="password" type="password" required minlength="8" autocomplete="new-password" placeholder="Mínimo 8 caracteres"></label>
+        <label class="campo"><span class="req">Nombre completo</span><input name="nombre" required placeholder="Nombre y apellido"></label>
+        <label class="campo"><span class="req">Rol</span><select name="rol" class="sel-rol" required></select></label>
+        <label class="campo"><span>Frente</span><select name="frente" class="sel-frente"></select></label>
+        <label class="campo"><span>Se encarga de</span><select name="encargo" class="sel-encargo"></select></label>
+      </div>
+      <p class="nota">La persona entra con este usuario y contraseña. Entréguele la contraseña en persona; la app no la guarda ni la puede mostrar después.</p>
+      <div class="acciones"><span></span><button class="btn btn-red btn-ico" id="btnCrear"><span class="ico" data-icono="guardar"></span>Crear usuario</button></div>
+      <p class="msg" role="status"></p>
+    </form>
+
+    <section class="card">
+      <h3 class="seccion"><span class="ico" data-icono="lista"></span>Usuarios registrados</h3>
+      <div class="table-wrap">
+        <table class="tabla" id="tabla">
+          <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Frente</th><th>Se encarga de</th><th><span class="sr-only">Guardar</span></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast hidden" id="toast" role="status"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <script src="comun.js"></script>
+  <script src="usuarios.js"></script>
+</body>
+</html>

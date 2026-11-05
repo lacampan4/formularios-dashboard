@@ -15,6 +15,8 @@ const fecha = (f) => f ? new Date(f).toLocaleString("es-CO", { timeZone: "Americ
 const pesos = (n) => n === null || n === undefined || n === "" ? "—"
   : new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }).format(n);
 const chip = (t) => `<span class="chip ${esc(t)}">${esc(t)}${PRIORIDADES[t] ? " · " + PRIORIDADES[t] : ""}</span>`;
+// Nombre con su frente y de qué se encarga (sql/16_usuarios_frentes.sql): "Fredy Verdugo (Mantenimiento · Mecánica de CTL's y slitters)"
+const quien = (u) => { const f = [u.frente, u.encargo].filter(Boolean).join(" · "); return f ? `${u.nombre} (${f})` : u.nombre; };
 // lista: ["a", ...] o [{ v, t }, ...]
 const opciones = (lista, primero) => (primero != null ? `<option value="">${esc(primero)}</option>` : "") +
   lista.map((x) => typeof x === "object" ? `<option value="${esc(x.v)}">${esc(x.t)}</option>` : `<option>${esc(x)}</option>`).join("");
@@ -40,7 +42,7 @@ ICONOS.bandeja = '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6
 ICONOS.buscar = '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>';
 ICONOS.grafica = '<path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>';
 // En el celular el menú va abajo, al alcance del pulgar, con ícono y nombre (styles.css)
-const ICONO_MENU = { "registro.html": "mas", "bandeja.html": "bandeja", "consulta.html": "buscar", "dashboard.html": "grafica" };
+const ICONO_MENU = { "registro.html": "mas", "bandeja.html": "bandeja", "consulta.html": "buscar", "dashboard.html": "grafica", "usuarios.html": "personas" };
 document.querySelectorAll(".menu a").forEach((a) => a.insertAdjacentHTML("afterbegin", `<span class="ico" data-icono="${ICONO_MENU[a.getAttribute("href")]}"></span>`));
 const pintarIconos = (raiz = document) => raiz.querySelectorAll("[data-icono]").forEach((el) =>
   el.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONOS[el.dataset.icono]}</svg>`);
@@ -62,7 +64,9 @@ function etiquetar(tabla) {
 
 const correoDeUsuario = (usuario) => usuario.trim().toLowerCase() + "@" + DOMINIO_USUARIOS;
 async function cargarPerfil(id) {
-  const { data } = await db.from("usuarios").select("nombre, rol").eq("id", id).maybeSingle();
+  let { data, error } = await db.from("usuarios").select("nombre, rol, frente, encargo").eq("id", id).maybeSingle();
+  // Sin sql/16_usuarios_frentes.sql todavía no hay frente: se entra igual, sin él
+  if (error) ({ data } = await db.from("usuarios").select("nombre, rol").eq("id", id).maybeSingle());
   return data ?? { nombre: "", rol: "sin_rol" };
 }
 

@@ -4,8 +4,9 @@ Registro digital de la Orden de Trabajo (FO-OPE-001), la Orden de Suministro (FO
 
 ## Puesta en marcha
 
-1. **Supabase → SQL Editor:** ejecute en orden `sql/1_esquema.sql`, `sql/2_semillas.sql`, `sql/3_roles.sql`, `sql/4_lista_roles.sql`, `sql/5_bandeja.sql`, `sql/6_consecutivos.sql`, `sql/7_os_fotos.sql`, `sql/8_ot_requisitos.sql`, `sql/9_guia_octubre.sql`, `sql/10_permisos_funciones.sql`, `sql/11_os_costos.sql`, `sql/12_os_firmas_items.sql`, `sql/13_os_total_sin_fotos.sql`, `sql/14_os_correcciones.sql` y `sql/15_os_proveedor.sql`. Si vuelve a ejecutar uno, ejecute también todos los que siguen, porque cada uno ajusta reglas del anterior.
+1. **Supabase → SQL Editor:** ejecute en orden `sql/1_esquema.sql`, `sql/2_semillas.sql`, `sql/3_roles.sql`, `sql/4_lista_roles.sql`, `sql/5_bandeja.sql`, `sql/6_consecutivos.sql`, `sql/7_os_fotos.sql`, `sql/8_ot_requisitos.sql`, `sql/9_guia_octubre.sql`, `sql/10_permisos_funciones.sql`, `sql/11_os_costos.sql`, `sql/12_os_firmas_items.sql`, `sql/13_os_total_sin_fotos.sql`, `sql/14_os_correcciones.sql`, `sql/15_os_proveedor.sql` y `sql/16_usuarios_frentes.sql`. Si vuelve a ejecutar uno, ejecute también todos los que siguen, porque cada uno ajusta reglas del anterior.
 2. **Supabase → Authentication → Sign In / Providers:** desactive **"Allow new users to sign up"**. Si queda activo, cualquiera podría crearse una cuenta.
+   Después de crear el primer admin (abajo), los demás usuarios se crean desde la app en **Usuarios** (ver "Crear usuarios desde la app").
    **Authentication → Users → Add user → Create new user:** se entra con **usuario y contraseña**, sin correo real. Para el usuario `juan.perez` escriba como Email `juan.perez@usuarios.lacampana.co` (el dominio de `DOMINIO_USUARIOS` en `config.js`), ponga la contraseña y marque **Auto Confirm User**. Ese correo no existe y nunca recibe mensajes.
    **Table Editor → usuarios:** al crear el usuario aparece su fila; escriba su nombre completo en `nombre` y elija su `rol` (ver tabla abajo). Un usuario nuevo queda en `sin_rol` y no puede hacer nada hasta que se le asigne uno.
 3. **`config.js`:** ponga `SUPABASE_URL` y `SUPABASE_ANON_KEY` (Project Settings → API).
@@ -26,6 +27,16 @@ En **Table Editor → usuarios**, la columna `rol` es una lista desplegable con 
 
 Qué formato llena cada rol está en la tabla `rol_formatos` (Table Editor) y se puede cambiar sin tocar el código. La base de datos aplica los roles, así que esconder un botón no es lo único que los protege: cada rol solo ve lo que necesita para llenar sus formatos, y solo `admin` ve los datos del dashboard.
 
+## Crear usuarios desde la app
+
+En **Usuarios** (solo admin) se crean las cuentas y se edita el nombre, el rol, el frente y de qué se encarga cada persona. Crear una cuenta exige la llave secreta de Supabase, que nunca puede ir en el navegador, así que la crea la Edge Function `crear-usuario`: revisa que quien la llama sea admin y crea el usuario ya confirmado. Se publica una sola vez:
+
+1. **Supabase → Edge Functions → Deploy a new function → Via Editor.**
+2. Nombre: `crear-usuario` (exactamente así).
+3. Borre el código de ejemplo, pegue todo `supabase/functions/crear-usuario/index.ts` y dele **Deploy function**. Deje activo **Verify JWT**.
+
+La llave secreta la pone Supabase sola dentro de la función; no hay que copiarla en ningún lado. Si cambia `DOMINIO_USUARIOS` en `config.js`, cámbielo también al inicio de esa función y vuelva a publicarla.
+
 ## Seguridad: nada de contraseñas en el código
 
 - **Nunca** ponga en el código ni suba a GitHub contraseñas, la llave secreta (`sb_secret_…` o `service_role`) ni la contraseña de la base de datos. Si alguna se sube, rótela de inmediato en Supabase: borrarla del repositorio no basta, porque queda en el historial.
@@ -37,6 +48,7 @@ Qué formato llena cada rol está en la tabla `rol_formatos` (Table Editor) y se
 | Archivo | Qué hace |
 |---|---|
 | `registro.html` / `registro.js` | Los cuatro formatos en pestañas |
+| `usuarios.html` / `usuarios.js` | Crear usuarios y editar su rol, frente y de qué se encarga (solo admin). Usa la Edge Function `supabase/functions/crear-usuario` |
 | `bandeja.html` / `bandeja.js` | Bandeja de entrada: las OT y OS en las que el usuario es responsable y las OS que pidió. En **Abrir** (ventana flotante con `consulta.html?bandeja`) se firma cada ítem de la OS y se cierra |
 | `consulta.html` / `consulta.js` | Lista de formatos guardados y detalle completo de cada uno, con impresión (solo admin). Enlace directo (por id interno): `consulta.html#OT/5`, `#OS/3`, `#ATS/2`, `#PT/4` |
 | `dashboard.html` / `dashboard.js` | Indicadores, gráficas, tabla de órdenes y firmas |

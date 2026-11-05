@@ -52,6 +52,8 @@ begin
 end; $$;
 
 -- Nombres para escoger responsable y ver el solicitante, sin exponer usuario ni rol de los demás
+-- drop: 16_usuarios_frentes.sql le agrega columnas, y create or replace no puede cambiar lo que devuelve
+drop function if exists public.usuarios_activos();
 create or replace function public.usuarios_activos()
 returns table (id uuid, nombre text) language sql stable security definer set search_path = public as $$
   select id, nombre from usuarios where rol::text <> 'sin_rol' and public.mi_rol() <> 'sin_rol' order by nombre;

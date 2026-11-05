@@ -194,9 +194,10 @@ async function cargarCodigos() {
 function pintarCodigos() {
   const maquina = $("otMaquina").value, linea = LINEA_DE_MAQUINA[maquina];
   const filtrar = maquina && maquina !== "OTRO";
-  const html = opciones(codigos.filter((c) => !filtrar || !c.lineas?.length || c.lineas.includes(linea))
-    .map((c) => ({ v: c.codigo, t: `${String(c.codigo).padStart(2, "0")} – ${c.descripcion}` })), "Seleccione") +
-    (esAdmin ? `<option value="nuevo">+ Nuevo código</option>` : "");
+  // "+ Nuevo código" de primero, para no tener que bajar hasta el final de la lista
+  const html = opciones([], "Seleccione") + (esAdmin ? `<option value="nuevo">+ Nuevo código</option>` : "") +
+    opciones(codigos.filter((c) => !filtrar || !c.lineas?.length || c.lineas.includes(linea))
+      .map((c) => ({ v: c.codigo, t: `${String(c.codigo).padStart(2, "0")} – ${c.descripcion}` })));
   $("fila-ot").content.querySelector(".sel-codigo").innerHTML = html;
   $("formOT").querySelectorAll(".sel-codigo").forEach((s) => { const v = s.value; s.innerHTML = html; s.value = v; });
 }
@@ -214,11 +215,11 @@ async function alEntrar(perfil) {
   $("tab" + permitidos[0]).click();
 
   // Solicitante = quien tiene la sesión (la base de datos guarda creado_por); defaultValue sobrevive a form.reset()
-  document.querySelectorAll(".solicitante").forEach((i) => i.defaultValue = perfil.nombre);
+  document.querySelectorAll(".solicitante").forEach((i) => i.defaultValue = quien(perfil));
   esAdmin = perfil.rol === "admin";
   const [{ data: usuarios, error }] = await Promise.all([db.rpc("usuarios_activos"), cargarCodigos()]);
   if (error) aviso("No se pudo cargar la lista de responsables: " + error.message, true);
-  const responsables = opciones((usuarios ?? []).map((u) => ({ v: u.id, t: u.nombre })), "Seleccione");
+  const responsables = opciones((usuarios ?? []).map((u) => ({ v: u.id, t: quien(u) })), "Seleccione");
   document.querySelectorAll(".sel-responsable").forEach((s) => s.innerHTML = responsables);
   FORMS.forEach((f) => reiniciar($("form" + f)));
   await cargarListas();

@@ -85,6 +85,6 @@ $("tabla").onclick = async (e) => {
 iniciarSesion(async () => {
   const [{ data: sesion }, { data: usuarios }] = await Promise.all([db.auth.getSession(), db.rpc("usuarios_activos")]);
   yo = sesion.session.user.id;
-  nombres = new Map((usuarios ?? []).map((u) => [u.id, u.nombre]));
+  nombres = new Map((usuarios ?? []).map((u) => [u.id, quien(u)]));
   cargar();
 });

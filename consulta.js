@@ -344,8 +344,8 @@ iniciarSesion(async (perfil) => {
     const volver = document.querySelector('#vistaDetalle a[href="#"]');
     volver.href = "bandeja.html"; volver.lastChild.textContent = "Volver a la bandeja";
   }
-  const { data } = admin ? await db.from("usuarios").select("id, nombre") : await db.rpc("usuarios_activos");
-  nombres = new Map((data ?? []).map((u) => [u.id, u.nombre]));
+  const { data } = admin ? await db.from("usuarios").select("id, nombre, frente, encargo") : await db.rpc("usuarios_activos");
+  nombres = new Map((data ?? []).map((u) => [u.id, quien(u)]));
   if (admin) cargarLista();
   mostrar();
 });

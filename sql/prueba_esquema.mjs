@@ -52,6 +52,7 @@ await db.exec(readFileSync(`${dir}/12_os_firmas_items.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/13_os_total_sin_fotos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/14_os_correcciones.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/15_os_proveedor.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/16_usuarios_frentes.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
 await db.exec(readFileSync(`${dir}/3_roles.sql`, "utf8"));
@@ -67,6 +68,11 @@ await db.exec(readFileSync(`${dir}/12_os_firmas_items.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/13_os_total_sin_fotos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/14_os_correcciones.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/15_os_proveedor.sql`, "utf8"));
+// Nombres sin tildes también se llenan al volver a ejecutar 16 ("Sofia Arevalo" = "Sofía Arévalo" de la guía)
+await db.exec(`update usuarios set nombre = 'Sofia Arevalo' where id = '${SIN_ROL}'`);
+await db.exec(readFileSync(`${dir}/16_usuarios_frentes.sql`, "utf8"));
+assert.equal((await db.query(`select frente from usuarios where id = '${SIN_ROL}'`)).rows[0].frente, "Abastecimiento");
+await db.exec(`update usuarios set nombre = 'lina.h', frente = null, encargo = null where id = '${SIN_ROL}'`);  // como estaba
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
 assert.equal((await db.query("select udt_name from information_schema.columns where table_name = 'usuarios' and column_name = 'rol'")).rows[0].udt_name, "rol_usuario");
 await assert.rejects(db.query("update usuarios set rol = 'jefe'"), /invalid input value for enum/);
@@ -98,6 +104,13 @@ await falla("insert into usuarios values (gen_random_uuid(), 'x', 'x')", [], /pe
 await falla("select asignar_numero()", [], /permission denied/);
 await falla("select validar_alto_riesgo()", [], /permission denied/);
 await falla("update usuarios set nombre = 'otro'", [], /permission denied/);
+// Frente y encargo (16_usuarios_frentes.sql): quien se llama como en la guía queda lleno; el admin edita a los demás
+assert.equal(await val(`select frente || ' · ' || encargo from usuarios_activos() where id = '${U}'`), "Mantenimiento · Mecánica de CTL's y slitters");
+await db.query("select actualizar_usuario($1, 'Cesar Riveros', 'produccion', 'Producción', ' Tuberías ')", [PROD]);
+assert.equal(await val(`select nombre || ' · ' || frente || ' · ' || encargo from usuarios where id = '${PROD}'`), "Cesar Riveros · Producción · Tuberías");
+await falla("select actualizar_usuario($1, 'Fredy Verdugo', 'produccion', 'Mantenimiento', '')", [U], /su propio rol/);
+await falla("select actualizar_usuario($1, 'Cesar Riveros', 'produccion', 'Bodega', '')", [PROD], /check/);
+await falla("select actualizar_usuario($1, ' ', 'produccion', 'Producción', '')", [PROD], /nombre completo/);
 
 const ot = (orden, lineas) => val("select crear_ot($1, $2)", [{ responsable: U, ...orden }, lineas]);
 const linea = [{ codigo_falla: 5, reporte: "Se reventó una manguera" }];
@@ -194,6 +207,7 @@ await falla("update usuarios set rol = 'admin'", [], /permission denied/);
 await falla("insert into ot_lineas (ot_id, codigo_falla, reporte) values (2, 5, 'x')", [], /row-level security/);
 await falla(`select cerrar_ot(${id2})`, [], /Solo el responsable/);
 assert.equal(await val("select count(*)::int from usuarios_activos()"), 2);                            // nombres con rol, sin sin_rol
+await falla("select actualizar_usuario($1, 'Yo', 'admin', 'Dirección', '')", [PROD], /Solo un administrador/);
 await falla("select agregar_codigo('Sensor de producción')", [], /Solo la Dirección/);                  // solo admin agrega códigos
 
 // Bandeja: el responsable ve los reportes de su OT y la cierra
