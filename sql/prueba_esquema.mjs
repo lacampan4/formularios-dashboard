@@ -157,10 +157,13 @@ await falla("select crear_ats($1, $2, $3)", [ats, trab, pasos], /check/);       
 const atsId = await val("select crear_ats($1, $2, $3)", [{ ...ats, firma_coord_alturas: "Lina" }, trab, pasos]);
 assert.equal(await val("select numero from ats where id = $1", [atsId]), "ATS-0001");   // cada formato cuenta aparte
 assert.equal(await val("select estado from ats where id = $1", [atsId]), "Abierta");
-await falla("insert into ats (ot_id, descripcion_labor, firma_encargado, firma_jefe, estado) values ($1, 'x', 'a', 'b', 'Cerrada')", [id2], /row-level security/);
-await db.query("select cerrar_ats($1)", [atsId]);                                                         // "Realizado"
-assert.equal(await val("select estado || (cerrada_en is not null) from ats where id = $1", [atsId]), "Cerradatrue");
-await falla("select cerrar_ats($1)", [atsId], /solo si está abierto/);
+// El ATS se cierra con su OT, a la misma hora; uno nuevo sobre una OT cerrada nace cerrado (18_ats_estado.sql)
+await db.exec("savepoint a18");
+await db.query("select cerrar_ot($1)", [id2]);
+assert.equal(await val("select a.estado || (a.cerrada_en = o.cerrada_en) from ats a join ordenes_trabajo o on o.id = a.ot_id where a.id = $1", [atsId]), "Cerradatrue");
+const atsTarde = await val("select crear_ats($1, $2, $3)", [{ ...ats, firma_coord_alturas: "Lina", estado: "Abierta" }, trab, pasos]);
+assert.equal(await val("select estado from ats where id = $1", [atsTarde]), "Cerrada");
+await db.exec("rollback to savepoint a18");
 const permiso = `insert into permisos_trabajo (ot_id, ats_id, area_proceso, fecha_ejecucion, trabajador_encargado, tarea, tipos, metodo_electrico, firma_ejecutor, firma_emisor) values (${id2}, $1, 'Mantenimiento', current_date, 'Fredy', 'Cambio motor', $2, $3, 'Fredy', 'Ivan')`;
 await falla(permiso, [atsId, ["alturas", "electrico"], null], /check/);                                    // eléctrico sin método
 await falla(permiso, [atsId, ["otro"], null], /check/);
