@@ -34,9 +34,9 @@
           pattern="[A-Za-z0-9._\-]{3,40}" title="De 3 a 40 letras, números, punto, guion o guion bajo" placeholder="juan.perez"></label>
         <label class="campo"><span class="req">Contraseña</span><input name="password" type="password" required minlength="8" autocomplete="new-password" placeholder="Mínimo 8 caracteres"></label>
         <label class="campo"><span class="req">Nombre completo</span><input name="nombre" required placeholder="Nombre y apellido"></label>
-        <label class="campo"><span class="req">Rol</span><select name="rol" class="sel-rol" required></select></label>
-        <label class="campo"><span>Frente</span><select name="frente" class="sel-frente"></select></label>
-        <label class="campo"><span>Se encarga de</span><select name="encargo" class="sel-encargo"></select></label>
+        <label class="campo"><span class="req">Rol</span><select name="rol" required></select></label>
+        <label class="campo"><span>Frente</span><select name="frente"></select><input class="campo-nuevo" hidden maxlength="60" placeholder="Escriba el frente nuevo"></label>
+        <label class="campo"><span>Se encarga de</span><select name="encargo"></select><input class="campo-nuevo" hidden maxlength="120" placeholder="Escriba el encargo nuevo"></label>
       </div>
       <p class="nota">La persona entra con este usuario y contraseña. Entréguele la contraseña en persona; la app no la guarda ni la puede mostrar después.</p>
       <div class="acciones"><span></span><button class="btn btn-red btn-ico" id="btnCrear"><span class="ico" data-icono="guardar"></span>Crear usuario</button></div>
@@ -53,6 +53,28 @@
       </div>
     </section>
   </main>
+
+  <!-- Rol nuevo: nombre y a qué formatos tiene acceso (crear_rol, sql/17_cierre_roles_maquinas.sql) -->
+  <dialog id="dlgRol" aria-labelledby="tituloRol">
+    <form id="formRol" novalidate>
+      <h2 id="tituloRol" style="margin:0">Nuevo rol</h2>
+      <label class="campo"><span class="req">Nombre del rol</span><input name="nombre" required maxlength="30" placeholder="Ej: bodega"></label>
+      <fieldset class="campo">
+        <legend class="req">Formatos que puede llenar</legend>
+        <div class="checks">
+          <label class="check"><input type="checkbox" name="formato" value="OT"> Orden de Trabajo</label>
+          <label class="check"><input type="checkbox" name="formato" value="OS"> Orden de Suministro</label>
+          <label class="check"><input type="checkbox" name="formato" value="ATS"> ATS</label>
+          <label class="check"><input type="checkbox" name="formato" value="PERMISO"> Permiso de alto riesgo</label>
+        </div>
+      </fieldset>
+      <p class="msg" role="status"></p>
+      <div class="acciones" style="margin-top:0">
+        <button type="button" class="btn btn-sec" id="cancelarRol">Cancelar</button>
+        <button class="btn btn-red">Crear rol</button>
+      </div>
+    </form>
+  </dialog>
 
   <div class="toast hidden" id="toast" role="status"></div>
 

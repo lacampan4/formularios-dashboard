@@ -86,7 +86,22 @@ document.addEventListener("click", (e) => {
 
 // ---------------- Catálogos fijos ----------------
 $("dl-personas").innerHTML = opciones(PERSONAS);
-$("otMaquina").innerHTML = opciones([...MAQUINAS, "OTRO"], "Seleccione");
+let esAdmin = false; // solo el admin ve "+ Nueva máquina" y "+ Nuevo código"; la base de datos también lo exige
+// Máquinas: tabla maquinas (sql/17_cierre_roles_maquinas.sql). Mientras no exista, la lista fija de config.js.
+let maquinas = MAQUINAS.map((nombre) => ({ nombre, linea: LINEA_DE_MAQUINA[nombre] ?? null }));
+const lineaDe = (nombre) => maquinas.find((m) => m.nombre === nombre)?.linea;
+// "+ Nueva máquina" (solo admin) de primero, como "+ Nuevo código"; OTRO al final
+function pintarMaquinas(v = $("otMaquina").value) {
+  $("otMaquina").innerHTML = opciones([], "Seleccione") + (esAdmin ? `<option value="nueva">+ Nueva máquina</option>` : "") +
+    opciones([...maquinas.map((m) => m.nombre), "OTRO"]);
+  $("otMaquina").value = v;
+}
+async function cargarMaquinas() {
+  const { data, error } = await db.from("maquinas").select("nombre, linea").order("nombre");
+  if (!error) maquinas = data;
+  pintarMaquinas();
+}
+pintarMaquinas();
 $("osArea").innerHTML = opciones(FRENTES.map((f) => ({ v: f.area, t: `${f.area} (${f.frente})` })), "Seleccione");
 $("tiposPermiso").innerHTML = Object.entries(TIPOS_PERMISO).map(([v, t]) => `<label class="check"><input type="checkbox" name="tipos" value="${v}"> ${esc(t)}</label>`).join("");
 const SINO = opciones([{ v: "true", t: "Sí" }, { v: "false", t: "No" }], "—");
@@ -95,12 +110,26 @@ $("fila-os").content.querySelector(".sel-medida").innerHTML = opciones(MEDIDAS, 
 $("fila-trab").content.querySelectorAll(".sel-sino").forEach((s) => s.innerHTML = SINO);
 
 // ---------------- Reglas en pantalla ----------------
-// Máquina OTRO: pide escribirla
+// Máquina OTRO: pide escribirla. "+ Nueva máquina": muestra el campo para agregarla; mientras esté elegida no se puede guardar
 $("otMaquina").onchange = () => {
-  const otro = $("otMaquina").value === "OTRO";
+  const v = $("otMaquina").value, otro = v === "OTRO", nueva = v === "nueva";
   $("lblMaquinaOtro").hidden = !otro;
   $("otMaquinaOtro").required = otro;
+  $("nuevaMaquina").hidden = !nueva;
+  $("otMaquina").setCustomValidity(nueva ? "Agregue la máquina nueva o elija una de la lista" : "");
+  if (nueva) $("nmNombre").focus();
   pintarCodigos();
+};
+$("btnAgregarMaquina").onclick = async () => {
+  if (!$("nmNombre").value.trim()) return $("nmNombre").focus();
+  $("btnAgregarMaquina").disabled = true;
+  const { data: nombre, error } = await db.rpc("agregar_maquina", { nombre: $("nmNombre").value, linea: $("nmLinea").value || null });
+  $("btnAgregarMaquina").disabled = false;
+  if (error) return aviso(error.message, true);
+  $("nmNombre").value = ""; $("nmLinea").value = "";
+  await cargarMaquinas();
+  $("otMaquina").value = nombre; $("otMaquina").onchange();
+  aviso(`Máquina ${nombre} agregada a la lista`);
 };
 // "+ Nuevo código" (solo admin) abre en esa fila el campo para escribirlo; mientras esté elegido no se puede guardar
 $("formOT").addEventListener("change", (e) => {
@@ -177,11 +206,11 @@ async function cargarListas() {
   const lista = ots.data.map((o) => ({ v: o.id, t: `${o.numero} · ${o.maquina}${o.alto_riesgo ? " · alto riesgo" : ""} (${o.estado})` }));
   document.querySelectorAll(".sel-ot").forEach((s) => { const v = s.value; s.innerHTML = opciones(lista, "Seleccione"); s.value = v; });
   $("selATS").innerHTML = opciones(atss.data.map((a) => ({ v: a.id, t: `${a.numero} · ${a.ordenes_trabajo?.numero ?? ""} · ${a.fecha_apertura}` })), "Ninguno");
-  $("dl-maquinas").innerHTML = opciones([...new Set([...MAQUINAS, ...ots.data.map((o) => o.maquina)])]);
+  $("dl-maquinas").innerHTML = opciones([...new Set([...maquinas.map((m) => m.nombre), ...ots.data.map((o) => o.maquina)])]);
 }
 
 // En la plantilla de fila y en las filas ya puestas, sin perder lo elegido
-let esAdmin = false; // la base de datos también lo exige en agregar_codigo()
+
 let codigos = [];
 async function cargarCodigos() {
   const { data, error } = await db.from("codigos_falla").select("codigo, descripcion, lineas").order("codigo");
@@ -192,8 +221,8 @@ async function cargarCodigos() {
 // Con una máquina de la lista: solo los códigos generales y los de su línea (guía, anexo de códigos).
 // Sin máquina u OTRO no se sabe la línea: se muestran todos.
 function pintarCodigos() {
-  const maquina = $("otMaquina").value, linea = LINEA_DE_MAQUINA[maquina];
-  const filtrar = maquina && maquina !== "OTRO";
+  const maquina = $("otMaquina").value, linea = lineaDe(maquina);
+  const filtrar = maquina && maquina !== "OTRO" && maquina !== "nueva";
   // "+ Nuevo código" de primero, para no tener que bajar hasta el final de la lista
   const html = opciones([], "Seleccione") + (esAdmin ? `<option value="nuevo">+ Nuevo código</option>` : "") +
     opciones(codigos.filter((c) => !filtrar || !c.lineas?.length || c.lineas.includes(linea))
@@ -217,7 +246,7 @@ async function alEntrar(perfil) {
   // Solicitante = quien tiene la sesión (la base de datos guarda creado_por); defaultValue sobrevive a form.reset()
   document.querySelectorAll(".solicitante").forEach((i) => i.defaultValue = quien(perfil));
   esAdmin = perfil.rol === "admin";
-  const [{ data: usuarios, error }] = await Promise.all([db.rpc("usuarios_activos"), cargarCodigos()]);
+  const [{ data: usuarios, error }] = await Promise.all([db.rpc("usuarios_activos"), cargarCodigos(), cargarMaquinas()]);
   if (error) aviso("No se pudo cargar la lista de responsables: " + error.message, true);
   const responsables = opciones((usuarios ?? []).map((u) => ({ v: u.id, t: quien(u) })), "Seleccione");
   document.querySelectorAll(".sel-responsable").forEach((s) => s.innerHTML = responsables);

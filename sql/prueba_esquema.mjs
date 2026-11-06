@@ -14,7 +14,7 @@ await db.exec(`
   create table auth.users (id uuid primary key, email text, raw_user_meta_data jsonb);
   create function auth.uid() returns uuid language sql stable as
     $$ select nullif(current_setting('app.uid', true), '')::uuid $$;
-  create role anon; create role authenticated;
+  create role anon; create role authenticated; create role service_role;
   grant usage on schema public, auth to anon, authenticated;
   grant select on auth.users to authenticated;
   grant execute on function auth.uid() to anon, authenticated;
@@ -53,6 +53,7 @@ await db.exec(readFileSync(`${dir}/13_os_total_sin_fotos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/14_os_correcciones.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/15_os_proveedor.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/16_usuarios_frentes.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/17_cierre_roles_maquinas.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
 await db.exec(readFileSync(`${dir}/3_roles.sql`, "utf8"));
@@ -71,6 +72,7 @@ await db.exec(readFileSync(`${dir}/15_os_proveedor.sql`, "utf8"));
 // Nombres sin tildes también se llenan al volver a ejecutar 16 ("Sofia Arevalo" = "Sofía Arévalo" de la guía)
 await db.exec(`update usuarios set nombre = 'Sofia Arevalo' where id = '${SIN_ROL}'`);
 await db.exec(readFileSync(`${dir}/16_usuarios_frentes.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/17_cierre_roles_maquinas.sql`, "utf8"));
 assert.equal((await db.query(`select frente from usuarios where id = '${SIN_ROL}'`)).rows[0].frente, "Abastecimiento");
 await db.exec(`update usuarios set nombre = 'lina.h', frente = null, encargo = null where id = '${SIN_ROL}'`);  // como estaba
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
@@ -109,7 +111,7 @@ assert.equal(await val(`select frente || ' · ' || encargo from usuarios_activos
 await db.query("select actualizar_usuario($1, 'Cesar Riveros', 'produccion', 'Producción', ' Tuberías ')", [PROD]);
 assert.equal(await val(`select nombre || ' · ' || frente || ' · ' || encargo from usuarios where id = '${PROD}'`), "Cesar Riveros · Producción · Tuberías");
 await falla("select actualizar_usuario($1, 'Fredy Verdugo', 'produccion', 'Mantenimiento', '')", [U], /su propio rol/);
-await falla("select actualizar_usuario($1, 'Cesar Riveros', 'produccion', 'Bodega', '')", [PROD], /check/);
+await falla("select actualizar_usuario($1, 'Cesar Riveros', 'produccion', $2, '')", [PROD, "x".repeat(61)], /usuarios_frente_largo/);  // frente libre (17), con largo máximo
 await falla("select actualizar_usuario($1, ' ', 'produccion', 'Producción', '')", [PROD], /nombre completo/);
 
 const ot = (orden, lineas) => val("select crear_ot($1, $2)", [{ responsable: U, ...orden }, lineas]);
@@ -176,8 +178,7 @@ assert.equal(await val("select file_size_limit::int from storage.buckets where i
 await falla("update ordenes_suministro set autorizado_por = 'Ivan' where id = $1", [os1], /permission denied/);
 const it1 = await val("select id from os_items where os_id = $1", [os1]);
 await db.query("select firmar_item($1, 'entrega')", [it1]);   // aquí la misma persona pide y entrega: firma las dos
-await db.query("select firmar_item($1, 'recibe')", [it1]);
-await db.query("select cerrar_os($1)", [os1]);
+await db.query("select firmar_item($1, 'recibe')", [it1]);         // último recibido: se cierra sola (17_cierre_roles_maquinas.sql)
 assert.equal(await val("select estado from ordenes_suministro where id = $1", [os1]), "Cerrada");
 assert.ok(await val("select cerrada_en from ordenes_suministro where id = $1", [os1]));
 await falla("select cerrar_os($1)", [os1], /debe estar abierta/);
@@ -248,12 +249,20 @@ assert.equal(await val("select entregado from os_items where id = $1", [it2]), f
 await db.query("select firmar_item($1, 'recibe')", [it2]);
 assert.equal(await val("select entregado from os_items where id = $1", [it2]), true);                    // las dos firmas: chuleado
 assert.ok(await val("select recibido_en from os_items where id = $1", [it2]));
-await falla("select firmar_item($1, 'otro')", [it2], /no válida/);
+assert.equal(await val("select estado from ordenes_suministro where id = $1", [os2]), "Cerrada");   // se cerró sola con el recibido
+assert.ok(await val("select cerrada_en from ordenes_suministro where id = $1", [os2]));
 // Recibir antes de que entreguen no se puede
 const it3 = await val("select id from os_items where os_id = $1", [os3]);
 await falla("select firmar_item($1, 'recibe')", [it3], /Primero el responsable/);
+await falla("select firmar_item($1, 'otro')", [it3], /no válida/);
+// Con varios ítems sigue abierta hasta el último recibido
+const osVarios = await val("select id from ordenes_suministro where numero = $1", [await os({ area_solicitante: "Corte", prioridad: "Verde" }, [item, { ...item, descripcion: "Acople" }])]);
+const [ia, ib] = (await db.query("select id from os_items where os_id = $1 order by id", [osVarios])).rows.map((r) => r.id);
+for (const como of ["entrega", "recibe"]) await db.query("select firmar_item($1, $2)", [ia, como]);
+assert.equal(await val("select estado from ordenes_suministro where id = $1", [osVarios]), "Abierta");
+for (const como of ["entrega", "recibe"]) await db.query("select firmar_item($1, $2)", [ib, como]);
+assert.equal(await val("select estado from ordenes_suministro where id = $1", [osVarios]), "Cerrada");
 await comoUsuario(PROD);
-await db.query("select cerrar_os($1)", [os2]);                                                          // sin foto
 await falla("select firmar_item($1, 'entrega')", [it2], /ya está cerrada/);
 assert.equal(await val("select estado from ordenes_suministro where id = $1", [os2]), "Cerrada");
 
@@ -329,4 +338,25 @@ await db.exec(readFileSync(`${dir}/13_os_total_sin_fotos.sql`, "utf8"));
 await db.exec("update os_items set costo_total = 25");                                                   // los ya guardados no se recalculan
 assert.equal(await val("select costo_total::float from os_items"), 25);
 await db.exec("rollback");
+
+// Roles nuevos con sus formatos, frentes libres y máquinas (17_cierre_roles_maquinas.sql)
+await comoUsuario();
+assert.equal(await val("select crear_rol($1, $2)", [" Bodega Ñ ", ["OS"]]), "bodega_n");
+assert.deepEqual((await db.query("select formatos from roles_disponibles() where rol = 'bodega_n'")).rows[0].formatos, ["OS"]);
+await assert.rejects(db.query("select crear_rol($1, $2)", ["bodega ñ", ["OS"]]), /Ya existe/);
+await assert.rejects(db.query("select crear_rol($1, $2)", ["calidad", []]), /formatos/);
+await db.query("select actualizar_usuario($1, 'Cesar Riveros', 'bodega_n', ' Logística ', 'Despachos')", [PROD]);
+assert.equal(await val(`select rol::text || ' · ' || frente from usuarios where id = '${PROD}'`), "bodega_n · Logística");
+assert.equal(await val("select count(*)::int from maquinas"), 15);
+assert.equal(await val("select agregar_maquina($1)", ["  dobladora "]), "DOBLADORA");
+assert.equal(await val("select agregar_maquina($1, $2)", ["Dobladora", "CTL"]), "DOBLADORA");     // ya existe: no se repite
+assert.equal(await val("select count(*)::int from maquinas"), 16);
+await assert.rejects(db.query("select agregar_maquina('otro')"), /ya es una opción/);
+await assert.rejects(db.query("select agregar_maquina('X', 'Bodega')"), /Línea no válida/);
+await comoUsuario(PROD);
+assert.equal(await val("select puede('OS')"), true);                                                // el rol nuevo llena lo que se le dio
+assert.equal(await val("select puede('OT')"), false);
+await assert.rejects(db.query("select crear_rol('x_rol', '{OT}')"), /Solo un administrador/);
+await assert.rejects(db.query("select agregar_maquina('Y')"), /Solo un administrador/);
+await db.exec("reset role");
 console.log("OK: todas las pruebas del esquema pasaron");

@@ -42,6 +42,13 @@
         <div class="grid">
           <label class="campo"><span class="req">Máquina</span><select name="maquina" id="otMaquina" required></select></label>
           <label class="campo" id="lblMaquinaOtro" hidden><span class="req">¿Cuál máquina?</span><input name="maquina_otro" id="otMaquinaOtro" placeholder="Nombre o código de la máquina"></label>
+          <!-- Solo admin: la máquina nueva queda en la lista para todos (agregar_maquina, sql/17_cierre_roles_maquinas.sql) -->
+          <div class="campo" id="nuevaMaquina" hidden>
+            <span class="req">Máquina nueva</span>
+            <input id="nmNombre" maxlength="80" placeholder="Nombre de la máquina">
+            <select id="nmLinea" aria-label="Línea de la máquina nueva"><option value="">Sin línea (solo códigos generales)</option><option>CTL</option><option>Slitter</option><option>Cubiertas</option><option>Perlin en C</option><option>Entrepiso</option></select>
+            <button type="button" class="btn btn-sec btn-ico" id="btnAgregarMaquina"><span class="ico" data-icono="mas"></span>Agregar máquina</button>
+          </div>
           <div class="campo"><span>Fecha y hora</span><p class="nota">Se registra automáticamente al guardar.</p></div>
         </div>
         <fieldset class="campo" style="margin-top:16px">

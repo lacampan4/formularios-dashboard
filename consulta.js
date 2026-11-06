@@ -93,13 +93,15 @@ const filaEntrega = (o, i) => {
       : i.entregado_por && puede && o.creado_por === yo ? botonFirma(i, "recibe", "Firmar recibido") : "Pendiente",
     { html: (i.entregado ? '<span class="chulo">✓ Entregado</span>' : "Pendiente") + novedad(i) }];
 };
-// El responsable cierra desde el detalle; "Cerrar" se habilita con todos los ítems firmados (sql/13_os_total_sin_fotos.sql)
+// La OS se cierra sola con el último recibido (sql/17_cierre_roles_maquinas.sql). "Cerrar" solo queda para
+// OS anteriores a eso que ya tienen todos los ítems firmados.
 const cierreOS = (o) => {
-  if (!trabaja(o)) return "";
+  if (o.estado !== "Abierta" || !desdeBandeja || ![o.responsable, o.creado_por].includes(yo)) return "";
   const faltan = o.os_items.filter((i) => !i.entregado).length;
-  return `<div class="acciones no-imprimir" id="cierreOS" data-os="${o.id}" data-numero="${esc(o.numero)}">
-    <p class="nota">${faltan ? `Faltan ${faltan} ítem${faltan === 1 ? "" : "s"} con las dos firmas (entrega y recibido).` : ""}</p>
-    <button type="button" class="btn btn-red" id="btnCerrarOS" ${faltan ? "disabled" : ""}>Cerrar orden</button></div>`;
+  if (faltan) return `<p class="nota no-imprimir">Faltan ${faltan} ítem${faltan === 1 ? "" : "s"} con las dos firmas (entrega y recibido).
+    La orden se cierra sola cuando quien la pidió firme el último recibido.</p>`;
+  return trabaja(o) ? `<div class="acciones no-imprimir" id="cierreOS" data-os="${o.id}" data-numero="${esc(o.numero)}"><span></span>
+    <button type="button" class="btn btn-red" id="btnCerrarOS">Cerrar orden</button></div>` : "";
 };
 
 // Correcciones de ítems (sql/14_os_correcciones.sql): solo quien pidió la OS, abierta o cerrada

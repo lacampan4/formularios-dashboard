@@ -4,7 +4,7 @@ Registro digital de la Orden de Trabajo (FO-OPE-001), la Orden de Suministro (FO
 
 ## Puesta en marcha
 
-1. **Supabase → SQL Editor:** ejecute en orden `sql/1_esquema.sql`, `sql/2_semillas.sql`, `sql/3_roles.sql`, `sql/4_lista_roles.sql`, `sql/5_bandeja.sql`, `sql/6_consecutivos.sql`, `sql/7_os_fotos.sql`, `sql/8_ot_requisitos.sql`, `sql/9_guia_octubre.sql`, `sql/10_permisos_funciones.sql`, `sql/11_os_costos.sql`, `sql/12_os_firmas_items.sql`, `sql/13_os_total_sin_fotos.sql`, `sql/14_os_correcciones.sql`, `sql/15_os_proveedor.sql` y `sql/16_usuarios_frentes.sql`. Si vuelve a ejecutar uno, ejecute también todos los que siguen, porque cada uno ajusta reglas del anterior.
+1. **Supabase → SQL Editor:** ejecute en orden `sql/1_esquema.sql`, `sql/2_semillas.sql`, `sql/3_roles.sql`, `sql/4_lista_roles.sql`, `sql/5_bandeja.sql`, `sql/6_consecutivos.sql`, `sql/7_os_fotos.sql`, `sql/8_ot_requisitos.sql`, `sql/9_guia_octubre.sql`, `sql/10_permisos_funciones.sql`, `sql/11_os_costos.sql`, `sql/12_os_firmas_items.sql`, `sql/13_os_total_sin_fotos.sql`, `sql/14_os_correcciones.sql`, `sql/15_os_proveedor.sql`, `sql/16_usuarios_frentes.sql` y `sql/17_cierre_roles_maquinas.sql`. Si vuelve a ejecutar uno, ejecute también todos los que siguen, porque cada uno ajusta reglas del anterior.
 2. **Supabase → Authentication → Sign In / Providers:** desactive **"Allow new users to sign up"**. Si queda activo, cualquiera podría crearse una cuenta.
    Después de crear el primer admin (abajo), los demás usuarios se crean desde la app en **Usuarios** (ver "Crear usuarios desde la app").
    **Authentication → Users → Add user → Create new user:** se entra con **usuario y contraseña**, sin correo real. Para el usuario `juan.perez` escriba como Email `juan.perez@usuarios.lacampana.co` (el dominio de `DOMINIO_USUARIOS` en `config.js`), ponga la contraseña y marque **Auto Confirm User**. Ese correo no existe y nunca recibe mensajes.
@@ -35,7 +35,7 @@ En **Usuarios** (solo admin) se crean las cuentas y se edita el nombre, el rol, 
 2. Nombre: `crear-usuario` (exactamente así).
 3. Borre el código de ejemplo, pegue todo `supabase/functions/crear-usuario/index.ts` y dele **Deploy function**. Deje activo **Verify JWT**.
 
-La llave secreta la pone Supabase sola dentro de la función; no hay que copiarla en ningún lado. Si cambia `DOMINIO_USUARIOS` en `config.js`, cámbielo también al inicio de esa función y vuelva a publicarla.
+La llave secreta la pone Supabase sola dentro de la función; no hay que copiarla en ningún lado. Si cambia `DOMINIO_USUARIOS` en `config.js`, cámbielo también al inicio de esa función y vuelva a publicarla. Desde `sql/17` la función lee los roles de la base: si la publicó antes, vuelva a publicarla con el código nuevo.
 
 ## Seguridad: nada de contraseñas en el código
 
@@ -63,11 +63,13 @@ La llave secreta la pone Supabase sola dentro de la función; no hay que copiarl
 - La OT no lleva firmas: el solicitante es quien la registra y se escoge un **responsable**. La OT llega a la bandeja del responsable y solo él la pasa a **Cerrada**.
 - El reporte de falla admite hasta 500 caracteres. Quien llena OT puede crear códigos de falla nuevos, que quedan en la lista para todos.
 - Al revisar la OT, el responsable marca si requiere ATS y/o Permiso de trabajo de alto riesgo. Es su análisis: no impide cerrarla.
-- La OS llega a la bandeja del responsable. Cada ítem lo firma el responsable al entregarlo y quien pidió la OS al recibirlo, cada uno con su usuario; con las dos firmas queda chuleado. La OS se cierra solo con todos los ítems firmados. Ya no lleva fotos (las que se subieron antes quedan guardadas en el bucket `fotos-os`).
+- La OS llega a la bandeja del responsable. Cada ítem lo firma el responsable al entregarlo y quien pidió la OS al recibirlo, cada uno con su usuario; con las dos firmas queda chuleado. La OS se cierra sola, con la hora, cuando quien la pidió firma el recibido del último ítem; el responsable ya no tiene que cerrarla. Ya no lleva fotos (las que se subieron antes quedan guardadas en el bucket `fotos-os`).
 - El costo total de cada ítem es cantidad × costo unitario: lo calcula la base de datos al guardar. Cada ítem puede llevar su proveedor (opcional).
 - Si un ítem quedó **mal diligenciado** o fue **mal entregado**, quien pidió la OS lo corrige desde el detalle (botón "Corregir"), aunque la OS esté cerrada: escribe qué estaba mal y cuál fue el cambio. El ítem queda con los datos nuevos y los anteriores en el historial "Correcciones", con quién y cuándo; no se edita ni se borra.
 - Cada formato (OT, OS, ATS, Permiso) recibe al guardar un número consecutivo propio, sin saltos, con el formato de la guía: OT-0001, OS-0001, ATS-0001, PT-0001.
 - La OT muestra solo los códigos de falla generales y los de la línea de la máquina elegida (CTL, Slitter, Cubiertas, Perlin en C, Entrepiso). La línea de cada máquina está en `LINEA_DE_MAQUINA` de `config.js`.
+- En **Usuarios**, Rol, Frente y "Se encarga de" traen "+ Agregar…". Un rol nuevo se crea con los formatos que puede llenar (OT, OS, ATS, Permiso) y queda en `rol_formatos`.
+- Las máquinas de la OT están en la tabla `maquinas`. El admin agrega una nueva con "+ Nueva máquina" (y su línea, para el filtro de códigos) y queda en la lista para todos.
 - Nadie puede borrar órdenes.
 - Sin sesión no se ve ni se registra nada.
 
