@@ -54,6 +54,7 @@ await db.exec(readFileSync(`${dir}/14_os_correcciones.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/15_os_proveedor.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/16_usuarios_frentes.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/17_cierre_roles_maquinas.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/18_ats_estado.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
 await db.exec(readFileSync(`${dir}/3_roles.sql`, "utf8"));
@@ -73,6 +74,7 @@ await db.exec(readFileSync(`${dir}/15_os_proveedor.sql`, "utf8"));
 await db.exec(`update usuarios set nombre = 'Sofia Arevalo' where id = '${SIN_ROL}'`);
 await db.exec(readFileSync(`${dir}/16_usuarios_frentes.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/17_cierre_roles_maquinas.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/18_ats_estado.sql`, "utf8"));
 assert.equal((await db.query(`select frente from usuarios where id = '${SIN_ROL}'`)).rows[0].frente, "Abastecimiento");
 await db.exec(`update usuarios set nombre = 'lina.h', frente = null, encargo = null where id = '${SIN_ROL}'`);  // como estaba
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
@@ -154,6 +156,11 @@ const pasos = [{ paso: "Montar andamio", controles: "Arnés y línea de vida" }]
 await falla("select crear_ats($1, $2, $3)", [ats, trab, pasos], /check/);                                  // alturas sin coordinador
 const atsId = await val("select crear_ats($1, $2, $3)", [{ ...ats, firma_coord_alturas: "Lina" }, trab, pasos]);
 assert.equal(await val("select numero from ats where id = $1", [atsId]), "ATS-0001");   // cada formato cuenta aparte
+assert.equal(await val("select estado from ats where id = $1", [atsId]), "Abierta");
+await falla("insert into ats (ot_id, descripcion_labor, firma_encargado, firma_jefe, estado) values ($1, 'x', 'a', 'b', 'Cerrada')", [id2], /row-level security/);
+await db.query("select cerrar_ats($1)", [atsId]);                                                         // "Realizado"
+assert.equal(await val("select estado || (cerrada_en is not null) from ats where id = $1", [atsId]), "Cerradatrue");
+await falla("select cerrar_ats($1)", [atsId], /solo si está abierto/);
 const permiso = `insert into permisos_trabajo (ot_id, ats_id, area_proceso, fecha_ejecucion, trabajador_encargado, tarea, tipos, metodo_electrico, firma_ejecutor, firma_emisor) values (${id2}, $1, 'Mantenimiento', current_date, 'Fredy', 'Cambio motor', $2, $3, 'Fredy', 'Ivan')`;
 await falla(permiso, [atsId, ["alturas", "electrico"], null], /check/);                                    // eléctrico sin método
 await falla(permiso, [atsId, ["otro"], null], /check/);

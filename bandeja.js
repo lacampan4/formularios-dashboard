@@ -1,6 +1,6 @@
 // =====================================================================
-//  BANDEJA: OT y OS en las que el usuario es responsable y OS que él pidió.
-//  La OT se cierra aquí (cerrar_ot, sql/5_bandeja.sql); la OS se firma y se cierra en "Abrir" (consulta.js)
+//  BANDEJA: OT y OS en las que el usuario es responsable, OS que él pidió y ATS que él registró.
+//  La OT se cierra aquí (cerrar_ot, sql/5_bandeja.sql) y el ATS se marca Realizado (cerrar_ats, sql/18_ats_estado.sql); la OS se firma y se cierra en "Abrir" (consulta.js)
 // =====================================================================
 let yo = null;
 let nombres = new Map(); // id de usuario -> nombre, para el solicitante
@@ -13,14 +13,15 @@ const falla = (l) => `<div><b>${esc(String(l.codigo_falla).padStart(2, "0"))} �
 const item = (i) => `<div class="item-os${i.entregado ? " listo" : ""}"><b>${i.entregado ? '<span class="chulo" aria-label="Entregado">✓</span> ' : ""}${esc(i.cantidad)} ${esc(i.medida)} · ${esc(i.descripcion)}</b><br>${esc(i.maquina)}
   <div class="firmas-item">${i.entregado ? "Entregado y recibido" : i.entregado_por ? "Entregado, falta firmar el recibido" : "Entrega pendiente"}</div></div>`;
 const progreso = (items) => `<p class="nota">${items.filter((i) => i.entregado).length} de ${items.length} ítem${items.length === 1 ? "" : "s"} entregado${items.length === 1 ? "" : "s"}</p>`;
-// La OT se sigue cerrando desde la fila
-const accion = (o) => o.tipo === "OT" && o.estado === "Abierta" ?
-  `<button class="btn btn-red" data-cerrar="${o.id}" data-tipo="ot" data-numero="${esc(o.numero)}">Cerrar orden</button>` : "";
+// La OT se cierra y el ATS se marca Realizado desde la fila
+const accion = (o) => o.estado !== "Abierta" || o.tipo === "OS" ? "" :
+  `<button class="btn btn-red" data-cerrar="${o.id}" data-tipo="${o.tipo.toLowerCase()}" data-numero="${esc(o.numero)}">${o.tipo === "ATS" ? "Realizado" : "Cerrar orden"}</button>`;
 
 // Qué le toca hacer al usuario en cada orden abierta, para saberlo sin abrirla
 function toca(o) {
   if (o.estado !== "Abierta") return [];
   if (o.tipo === "OT") return ["Revisar y cerrar"];
+  if (o.tipo === "ATS") return ["Marcar realizado al terminar"];
   const n = (f) => o.os_items.filter(f).length;
   const entregar = o.responsable === yo ? n((i) => !i.entregado_por) : 0;
   const recibir = o.creado_por === yo ? n((i) => i.entregado_por && !i.recibido_por) : 0;
@@ -33,30 +34,32 @@ const pendientes = (t, o) => o.estado !== "Abierta" ? "" : `<div class="toca">${
 
 async function cargar() {
   const filtro = (q) => (f.estado.value ? q.eq("estado", f.estado.value) : q).order("creado_en", { ascending: false }).limit(500);
-  const [ot, os] = await Promise.all([
+  const [ot, os, ats] = await Promise.all([
     filtro(db.from("ordenes_trabajo").select("id, numero, creado_en, creado_por, prioridad, estado, maquina, ot_lineas(codigo_falla, reporte, codigos_falla(descripcion))").eq("responsable", yo)),
     // OS: las que debe entregar (responsable) y las que pidió (solicitante, para firmar el recibido)
     filtro(db.from("ordenes_suministro").select("id, numero, creado_en, creado_por, responsable, prioridad, estado, area_solicitante, " +
       "os_items(id, maquina, cantidad, medida, descripcion, entregado_por, recibido_por, entregado)")
       .or(`responsable.eq.${yo},creado_por.eq.${yo}`).order("id", { referencedTable: "os_items" })),
+    filtro(db.from("ats").select("id, numero, creado_en, creado_por, estado, area, descripcion_labor, ordenes_trabajo!ats_ot_id_fkey(numero)").eq("creado_por", yo)),
   ]);
-  const error = ot.error || os.error;
+  const error = ot.error || os.error || ats.error;
   if (error) return aviso("No se pudo cargar la bandeja: " + error.message, true);
   const lista = [...ot.data.map((o) => ({ ...o, tipo: "OT", donde: o.maquina, detalle: o.ot_lineas.map(falla).join("") })),
-                 ...os.data.map((o) => ({ ...o, tipo: "OS", donde: o.area_solicitante, detalle: progreso(o.os_items) + o.os_items.map(item).join("") }))]
+                 ...os.data.map((o) => ({ ...o, tipo: "OS", donde: o.area_solicitante, detalle: progreso(o.os_items) + o.os_items.map(item).join("") })),
+                 ...ats.data.map((o) => ({ ...o, tipo: "ATS", donde: o.area, detalle: `<div><b>${esc(o.ordenes_trabajo?.numero ?? "")}</b><br>${esc(o.descripcion_labor)}</div>` }))]
     .map((o) => ({ ...o, toca: toca(o) }))
     .sort((a, b) => b.creado_en.localeCompare(a.creado_en));
 
   $("tabla").tBodies[0].innerHTML = lista.length ? lista.map((o) => `<tr>
       <td class="mono"><a href="consulta.html?bandeja#${o.tipo}/${o.id}">${esc(o.numero)}</a></td>
       <td>${fecha(o.creado_en)}</td>
-      <td>${chip(o.prioridad)}</td>
+      <td>${o.prioridad ? chip(o.prioridad) : "—"}</td>
       <td>${esc(o.donde)}</td>
       <td>${esc(nombres.get(o.creado_por) ?? "—")}</td>
       <td>${o.detalle}</td>
       <td><span class="chip ${esc(o.estado)}">${esc(o.estado)}</span>${pendientes(o.toca, o)}</td>
       <td><a class="btn ${o.toca.length ? "btn-red" : "btn-sec"}" href="consulta.html?bandeja#${o.tipo}/${o.id}" style="margin-bottom:8px">Abrir</a>${accion(o)}</td>
-    </tr>`).join("") : `<tr><td class="vacio" colspan="8">No tiene órdenes ${f.estado.value ? (f.estado.value === "Abierta" ? "abiertas" : "cerradas") : ""}</td></tr>`;
+    </tr>`).join("") : `<tr><td class="vacio" colspan="8">No tiene formatos ${f.estado.value ? (f.estado.value === "Abierta" ? "abiertas" : "cerradas") : ""}</td></tr>`;
   etiquetar($("tabla"));
   const conAlgo = lista.filter((o) => o.toca.length).length;
   $("conteo").textContent = `${lista.length} orden${lista.length === 1 ? "" : "es"}` +
@@ -74,11 +77,11 @@ $("tabla").onclick = async (e) => {
     return $("dlgDetalle").showModal();
   }
   const b = e.target.closest("[data-cerrar]");
-  if (!b || !confirm(`¿Cerrar la ${b.dataset.numero}? Ya no se podrá reabrir.`)) return;
+  if (!b || !confirm(b.dataset.tipo === "ats" ? `¿La tarea del ${b.dataset.numero} ya se realizó? El ATS se cierra y no se podrá reabrir.` : `¿Cerrar la ${b.dataset.numero}? Ya no se podrá reabrir.`)) return;
   b.disabled = true;
   const { error } = await db.rpc("cerrar_" + b.dataset.tipo, { [b.dataset.tipo]: Number(b.dataset.cerrar) });
   if (error) { b.disabled = false; return aviso(error.message, true); }
-  aviso(`${b.dataset.numero} cerrada`);
+  aviso(`${b.dataset.numero} ${b.dataset.tipo === "ats" ? "realizado y cerrado" : "cerrada"}`);
   cargar();
 };
 

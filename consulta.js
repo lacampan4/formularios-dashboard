@@ -17,9 +17,9 @@ const DEF = {
     detalle: "*, os_items(*, os_correcciones(*)), ordenes_trabajo!ordenes_suministro_ot_id_fkey(id, numero)",
   },
   ATS: {
-    nombre: "Análisis de Trabajo Seguro", tabla: "ats",
-    lista: "id, numero, creado_en, descripcion_labor, ordenes_trabajo!ats_ot_id_fkey(numero)",
-    fila: (o) => ({ numero: o.numero, detalle: `${o.ordenes_trabajo ? `${o.ordenes_trabajo.numero} · ` : ""}${o.descripcion_labor}` }),
+    nombre: "Análisis de Trabajo Seguro", tabla: "ats", conEstado: true,
+    lista: "id, numero, creado_en, estado, descripcion_labor, ordenes_trabajo!ats_ot_id_fkey(numero)",
+    fila: (o) => ({ numero: o.numero, detalle: `${o.ordenes_trabajo ? `${o.ordenes_trabajo.numero} · ` : ""}${o.descripcion_labor}`, estado: o.estado }),
     detalle: "*, ats_trabajadores(*), ats_pasos(*), ordenes_trabajo!ats_ot_id_fkey(id, numero), permisos_trabajo!permisos_trabajo_ats_id_fkey(id, numero)",
   },
   PT: {
@@ -172,6 +172,7 @@ const VISTA = {
   ATS: (o) => cabecera("ATS", "FR-SST-011 · Versión 1", o.numero) +
     bloque(1, "info", "Información general", datos(
       datoHtml("Orden de trabajo", o.ordenes_trabajo ? enlace("OT", o.ordenes_trabajo.id, o.ordenes_trabajo.numero) : "—"),
+      datoHtml("Estado", estado(o.estado)), dato("Realizado el", o.cerrada_en && fecha(o.cerrada_en)),
       dato("Sede", o.sede), dato("Área de ubicación", o.area), dato("Jefe inmediato", o.jefe_inmediato), dato("Responsables", o.responsables),
       dato("Permisos adicionales", [o.alturas && "Alturas", o.caliente && "Caliente", o.energias && "Energías peligrosas"].filter(Boolean).join(", ")),
       ...registro(o), datoHtml("Permisos de trabajo", enlaces("PT", o.permisos_trabajo, (x) => x.numero)))) +
@@ -214,7 +215,7 @@ async function cargarLista() {
   if (!f.reportValidity()) return;
   const desde = new Date(f.desde.value + "T00:00").toISOString();
   const hasta = new Date(new Date(f.hasta.value + "T00:00").getTime() + 864e5).toISOString();
-  // Estado solo existe en OT y OS: si se filtra por estado, ATS y Permiso no aplican
+  // Estado existe en OT, OS y ATS: si se filtra por estado, el Permiso no aplica
   const tipos = Object.keys(DEF).filter((t) => (!f.formato.value || f.formato.value === t) && (!f.estado.value || DEF[t].conEstado));
   const res = await Promise.all(tipos.map((t) => {
     let q = db.from(DEF[t].tabla).select(DEF[t].lista).gte("creado_en", desde).lt("creado_en", hasta).order("creado_en", { ascending: false }).limit(500);
