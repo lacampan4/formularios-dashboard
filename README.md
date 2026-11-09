@@ -4,7 +4,7 @@ Registro digital de la Orden de Trabajo (FO-OPE-001), la Orden de Suministro (FO
 
 ## Puesta en marcha
 
-1. **Supabase → SQL Editor:** ejecute en orden `sql/1_esquema.sql`, `sql/2_semillas.sql`, `sql/3_roles.sql`, `sql/4_lista_roles.sql`, `sql/5_bandeja.sql`, `sql/6_consecutivos.sql`, `sql/7_os_fotos.sql`, `sql/8_ot_requisitos.sql`, `sql/9_guia_octubre.sql`, `sql/10_permisos_funciones.sql`, `sql/11_os_costos.sql`, `sql/12_os_firmas_items.sql`, `sql/13_os_total_sin_fotos.sql`, `sql/14_os_correcciones.sql`, `sql/15_os_proveedor.sql`, `sql/16_usuarios_frentes.sql`, `sql/17_cierre_roles_maquinas.sql` y `sql/18_ats_estado.sql`. Si vuelve a ejecutar uno, ejecute también todos los que siguen, porque cada uno ajusta reglas del anterior.
+1. **Supabase → SQL Editor:** ejecute en orden `sql/1_esquema.sql`, `sql/2_semillas.sql`, `sql/3_roles.sql`, `sql/4_lista_roles.sql`, `sql/5_bandeja.sql`, `sql/6_consecutivos.sql`, `sql/7_os_fotos.sql`, `sql/8_ot_requisitos.sql`, `sql/9_guia_octubre.sql`, `sql/10_permisos_funciones.sql`, `sql/11_os_costos.sql`, `sql/12_os_firmas_items.sql`, `sql/13_os_total_sin_fotos.sql`, `sql/14_os_correcciones.sql`, `sql/15_os_proveedor.sql`, `sql/16_usuarios_frentes.sql`, `sql/17_cierre_roles_maquinas.sql`, `sql/18_ats_estado.sql` y `sql/19_permiso_sst.sql`. Si vuelve a ejecutar uno, ejecute también todos los que siguen, porque cada uno ajusta reglas del anterior.
 2. **Supabase → Authentication → Sign In / Providers:** desactive **"Allow new users to sign up"**. Si queda activo, cualquiera podría crearse una cuenta.
    Después de crear el primer admin (abajo), los demás usuarios se crean desde la app en **Usuarios** (ver "Crear usuarios desde la app").
    **Authentication → Users → Add user → Create new user:** se entra con **usuario y contraseña**, sin correo real. Para el usuario `juan.perez` escriba como Email `juan.perez@usuarios.lacampana.co` (el dominio de `DOMINIO_USUARIOS` en `config.js`), ponga la contraseña y marque **Auto Confirm User**. Ese correo no existe y nunca recibe mensajes.
@@ -20,7 +20,7 @@ Registro digital de la Orden de Trabajo (FO-OPE-001), la Orden de Suministro (FO
 | `produccion` | OT y OS | No |
 | `mantenimiento` | OT, OS, ATS y Permiso | No |
 | `abastecimiento` | OS | No |
-| `sst` | ATS y Permiso | No |
+| `sst` | Todos (OT, OS, ATS y Permiso). En **Consulta** ve todos los formatos de todos, para hacer seguimiento | No |
 | `sin_rol` | Ninguno | No |
 
 En **Table Editor → usuarios**, la columna `rol` es una lista desplegable con todos los roles. `admin` no aparece en `rol_formatos` porque no lo necesita: puede todo.
@@ -50,7 +50,7 @@ La llave secreta la pone Supabase sola dentro de la función; no hay que copiarl
 | `registro.html` / `registro.js` | Los cuatro formatos en pestañas |
 | `usuarios.html` / `usuarios.js` | Crear usuarios y editar su rol, frente y de qué se encarga (solo admin). Usa la Edge Function `supabase/functions/crear-usuario` |
 | `bandeja.html` / `bandeja.js` | Bandeja de entrada: las OT y OS en las que el usuario es responsable y las OS que pidió. En **Abrir** (ventana flotante con `consulta.html?bandeja`) se firma cada ítem de la OS y se cierra |
-| `consulta.html` / `consulta.js` | Lista de formatos guardados y detalle completo de cada uno, con impresión (solo admin). Enlace directo (por id interno): `consulta.html#OT/5`, `#OS/3`, `#ATS/2`, `#PT/4` |
+| `consulta.html` / `consulta.js` | Lista de formatos guardados y detalle completo de cada uno, con impresión (admin y SST). Enlace directo (por id interno): `consulta.html#OT/5`, `#OS/3`, `#ATS/2`, `#PT/4` |
 | `dashboard.html` / `dashboard.js` | Indicadores, gráficas, tabla de órdenes y firmas |
 | `comun.js` | Cliente Supabase, login y utilidades compartidas |
 | `config.js` | Llaves y catálogos de la guía (frentes, líderes, EPP, medidas) |
@@ -71,6 +71,8 @@ La llave secreta la pone Supabase sola dentro de la función; no hay que copiarl
 - La OT muestra solo los códigos de falla generales y los de la línea de la máquina elegida (CTL, Slitter, Cubiertas, Perlin en C, Entrepiso). La línea de cada máquina está en `LINEA_DE_MAQUINA` de `config.js`.
 - En **Usuarios**, Rol, Frente y "Se encarga de" traen "+ Agregar…". Un rol nuevo se crea con los formatos que puede llenar (OT, OS, ATS, Permiso) y queda en `rol_formatos`.
 - Las máquinas de la OT están en la tabla `maquinas`. El admin agrega una nueva con "+ Nueva máquina" (y su línea, para el filtro de códigos) y queda en la lista para todos.
+- El Permiso de Trabajo sigue el FR-SST-039 completo (borrador de SST del 22/07/2024): datos básicos, descripción, EPP, generalidades, medidas preventivas específicas del tipo de tarea (alturas, caliente, eléctrico/energías, izaje), listas de verificación de trabajo en caliente por equipo (sierra sable, taladro, soldadura, pulidora, oxicorte), verificación diaria, anexos, firmas y cierre. Las preguntas están en `config.js` (`PERMISO_*`) y las respuestas se guardan en `detalle_extra`.
+- La **vigencia del permiso** es una fecha y hora "válido hasta" y no puede pasar de 24 horas desde la fecha y hora de inicio (`sql/19_permiso_sst.sql`). Por eso las listas de verificación se diligencian para un solo día.
 - Nadie puede borrar órdenes.
 - Sin sesión no se ve ni se registra nada.
 

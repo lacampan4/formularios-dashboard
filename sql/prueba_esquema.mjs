@@ -55,6 +55,7 @@ await db.exec(readFileSync(`${dir}/15_os_proveedor.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/16_usuarios_frentes.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/17_cierre_roles_maquinas.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/18_ats_estado.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/19_permiso_sst.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
 await db.exec(readFileSync(`${dir}/3_roles.sql`, "utf8"));
@@ -75,6 +76,7 @@ await db.exec(`update usuarios set nombre = 'Sofia Arevalo' where id = '${SIN_RO
 await db.exec(readFileSync(`${dir}/16_usuarios_frentes.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/17_cierre_roles_maquinas.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/18_ats_estado.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/19_permiso_sst.sql`, "utf8"));
 assert.equal((await db.query(`select frente from usuarios where id = '${SIN_ROL}'`)).rows[0].frente, "Abastecimiento");
 await db.exec(`update usuarios set nombre = 'lina.h', frente = null, encargo = null where id = '${SIN_ROL}'`);  // como estaba
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
@@ -164,7 +166,20 @@ assert.equal(await val("select a.estado || (a.cerrada_en = o.cerrada_en) from at
 const atsTarde = await val("select crear_ats($1, $2, $3)", [{ ...ats, firma_coord_alturas: "Lina", estado: "Abierta" }, trab, pasos]);
 assert.equal(await val("select estado from ats where id = $1", [atsTarde]), "Cerrada");
 await db.exec("rollback to savepoint a18");
-const permiso = `insert into permisos_trabajo (ot_id, ats_id, area_proceso, fecha_ejecucion, trabajador_encargado, tarea, tipos, metodo_electrico, firma_ejecutor, firma_emisor) values (${id2}, $1, 'Mantenimiento', current_date, 'Fredy', 'Cambio motor', $2, $3, 'Fredy', 'Ivan')`;
+// Vigencia (19_permiso_sst.sql): desde la fecha y hora de inicio, máximo 24 h
+const permiso = `insert into permisos_trabajo (ot_id, ats_id, area_proceso, fecha_ejecucion, hora_inicio, vigente_hasta, trabajador_encargado, tarea, tipos, metodo_electrico, firma_ejecutor, firma_emisor)
+  values (${id2}, $1, 'Mantenimiento', current_date, '07:00', current_date + time '07:00' + interval '8 hours', 'Fredy', 'Cambio motor', $2, $3, 'Fredy', 'Ivan')`;
+const conVigencia = (inicio, hasta) => db.query(`insert into permisos_trabajo (ot_id, area_proceso, fecha_ejecucion, hora_inicio, vigente_hasta, trabajador_encargado, tarea, tipos, firma_ejecutor, firma_emisor)
+  values (${id2}, 'Mantenimiento', '2026-11-09', $1, $2, 'Fredy', 'Izaje', '{izaje}', 'Fredy', 'Ivan')`, [inicio, hasta]);
+await db.exec("savepoint v24");
+await conVigencia("07:00", "2026-11-10 07:00");                                                            // justo 24 h: vale, e izaje es un tipo válido
+await db.exec("rollback to savepoint v24");
+await assert.rejects(conVigencia("07:00", "2026-11-10 07:01"), /vigencia_24h/);                            // más de 24 h
+await db.exec("rollback to savepoint v24");
+await assert.rejects(conVigencia("07:00", "2026-11-09 06:00"), /vigencia_24h/);                            // termina antes de empezar
+await db.exec("rollback to savepoint v24");
+await assert.rejects(conVigencia(null, "2026-11-09 10:00"), /vigencia_24h/);                               // sin hora de inicio
+await db.exec("rollback to savepoint v24");
 await falla(permiso, [atsId, ["alturas", "electrico"], null], /check/);                                    // eléctrico sin método
 await falla(permiso, [atsId, ["otro"], null], /check/);
 await db.query(permiso, [atsId, ["alturas", "electrico"], "Desenergizado"]);
@@ -312,6 +327,25 @@ await falla("select corregir_item($1, 'Mal entregado', 'x', '{}')", [it2], /Solo
 assert.equal(await val("select count(*)::int from os_correcciones"), 1);                                // pero ve las de su OS
 assert.equal(await val("select descripcion from os_items where id = $1", [it2]), "Manguera 1/2");
 await comoUsuario();
+
+// SST (19_permiso_sst.sql): llena los cuatro formatos y ve todos los de los demás, con su detalle; producción no
+const totalOS = await val("select count(*)::int from ordenes_suministro"), totalLineas = await val("select count(*)::int from ot_lineas");
+await db.exec(`reset role; update usuarios set rol = 'sst' where id = '${SIN_ROL}'`);
+await comoUsuario(SIN_ROL);
+assert.equal(await val("select count(*)::int from permisos_trabajo"), 1);
+assert.ok(await val("select count(*)::int from ats") >= 1);
+assert.ok(await val("select count(*)::int from ats_trabajadores") >= 1);
+assert.ok(await val("select count(*)::int from ats_pasos") >= 1);
+assert.equal(await val("select count(*)::int from ordenes_suministro"), totalOS);                       // todas las OS
+assert.equal(await val("select count(*)::int from ot_lineas"), totalLineas);                            // reportes de todas las OT
+assert.ok(await val("select count(*)::int from os_items") > 0);
+assert.ok(await val("select count(*)::int from os_correcciones") > 0);
+assert.match(await ot({ maquina: "Slitter 1", prioridad: "Verde" }, linea), /^OT-\d{4}$/);               // crea OT
+assert.match(await os({ area_solicitante: "Corte", prioridad: "Verde" }, [item]), /^OS-\d{4}$/);          // y OS
+await comoUsuario(PROD);
+assert.equal(await val("select count(*)::int from permisos_trabajo"), 0);
+assert.equal(await val("select count(*)::int from ats_pasos"), 0);
+await db.exec(`reset role; update usuarios set rol = 'sin_rol' where id = '${SIN_ROL}'`);
 
 // Sin rol: no hace nada
 await comoUsuario(SIN_ROL);

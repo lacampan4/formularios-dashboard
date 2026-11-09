@@ -236,11 +236,12 @@
           <label class="campo"><span class="req">Área / proceso</span><input name="area_proceso" required placeholder="Área o proceso"></label>
           <label class="campo"><span>Ubicación donde se realiza la labor</span><input name="ubicacion" placeholder="Ubicación"></label>
           <label class="campo"><span>Sede</span><input name="sede" placeholder="Sede"></label>
-          <label class="campo"><span class="req">Fecha de ejecución</span><input type="date" name="fecha_ejecucion" required></label>
-          <label class="campo"><span>Hora de inicio estimada</span><input type="time" name="hora_inicio"></label>
+          <label class="campo"><span class="req">Fecha de ejecución del trabajo</span><input type="date" name="fecha_ejecucion" required></label>
+          <label class="campo"><span class="req">Hora de inicio estimada</span><input type="time" name="hora_inicio" required></label>
           <label class="campo"><span>Hora de finalización estimada</span><input type="time" name="hora_fin"></label>
-          <label class="campo"><span>Vigencia del permiso</span><input name="vigencia" placeholder="Ej: 1 día"></label>
-          <label class="campo"><span class="req">Trabajador encargado</span><input name="trabajador_encargado" required placeholder="Nombre completo"></label>
+          <label class="campo"><span class="req">Vigencia del permiso: válido hasta</span><input type="datetime-local" name="vigente_hasta" id="vigenteHasta" required>
+            <small class="nota" style="margin:0">Máximo 24 horas después del inicio.</small></label>
+          <label class="campo"><span class="req">Nombre del trabajador encargado</span><input name="trabajador_encargado" required placeholder="Nombre completo"></label>
           <label class="campo"><span>Ayudante de seguridad</span><input name="ayudante_seguridad" placeholder="Nombre completo"></label>
         </div>
       </section>
@@ -253,7 +254,7 @@
         </div>
         <label class="campo" style="margin-top:14px"><span>Descripción de la tarea a ejecutar</span><textarea name="descripcion" placeholder="Describa la tarea (opcional)"></textarea></label>
         <fieldset style="margin-top:14px">
-          <legend class="req">Tipo de tarea de alto riesgo (sección 5 que aplica)</legend>
+          <legend class="req">Tipo de tarea de alto riesgo</legend>
           <div class="checks" id="tiposPermiso"></div>
         </fieldset>
         <div class="grid" id="bloqueElectrico" hidden>
@@ -269,30 +270,75 @@
       </section>
 
       <section class="card bloque">
-        <h3 class="seccion"><span class="ico" data-icono="escudo"></span>3. Medidas de prevención y protección (EPP)</h3>
+        <h3 class="seccion"><span class="ico" data-icono="escudo"></span>3. Medidas de prevención y protección</h3>
+        <p class="nota" style="margin:0 0 12px">Elementos de protección personal y sistemas de protección.</p>
         <div class="grid" id="eppLista"></div>
       </section>
 
+      <!-- Secciones 4 a 7: las preguntas salen de config.js (PERMISO_*) y se guardan en detalle_extra -->
       <section class="card bloque">
-        <h3 class="seccion"><span class="ico" data-icono="firma"></span>4. Documentos anexos y firmas de emisión</h3>
-        <div class="checks">
-          <label class="check"><input type="checkbox" name="afiliacion_ss"> Afiliación a seguridad social revisada</label>
-          <label class="check"><input type="checkbox" name="aptitud_medica"> Aptitud médica revisada</label>
+        <h3 class="seccion"><span class="ico" data-icono="lista"></span>4. Generalidades de la actividad</h3>
+        <div id="permGeneralidades"></div>
+      </section>
+
+      <section class="card bloque">
+        <h3 class="seccion"><span class="ico" data-icono="escudo"></span>5. Medidas preventivas específicas</h3>
+        <p class="nota" id="notaEspecificas" style="margin:0 0 8px">Marque arriba el tipo de tarea para ver sus medidas.</p>
+        <div id="permEspecificas"></div>
+      </section>
+
+      <section class="card bloque" id="bloqueCaliente" hidden>
+        <h3 class="seccion"><span class="ico" data-icono="llave"></span>6. Trabajo en caliente: listas de verificación</h3>
+        <fieldset>
+          <legend class="req">Equipos que se van a usar</legend>
+          <div class="checks" id="equiposCaliente"></div>
+        </fieldset>
+        <div id="permCaliente"></div>
+      </section>
+
+      <section class="card bloque">
+        <h3 class="seccion"><span class="ico" data-icono="check"></span>7. Verificación y control diario</h3>
+        <p class="nota" style="margin:0 0 12px">He verificado con el emisor el adecuado estado de los equipos y herramientas a utilizar, con el fin de garantizar la seguridad del personal afectado, y en constancia de lo anterior firma:</p>
+        <div class="grid grid-2">
+          <label class="campo"><span class="req">Responsable de SST</span><input id="verifSst" list="dl-personas" required placeholder="Nombre completo"></label>
+          <label class="campo"><span class="req">Responsable de inspección del equipo</span><input id="verifInspeccion" list="dl-personas" required placeholder="Nombre completo"></label>
         </div>
+      </section>
+
+      <section class="card bloque">
+        <h3 class="seccion"><span class="ico" data-icono="doc"></span>8. Documentos anexos (revisados por el líder ejecutante)</h3>
+        <div class="grid grid-2">
+          <div class="campo">
+            <label class="check"><input type="checkbox" name="afiliacion_ss"> Se ha verificado la afiliación vigente a la seguridad social de las personas directas y contratistas</label>
+            <input id="obsAfiliacion" placeholder="Observaciones (anexe evidencias si es contratista)">
+          </div>
+          <div class="campo">
+            <label class="check"><input type="checkbox" name="aptitud_medica"> Se han revisado los certificados de aptitud médico ocupacional de cada trabajador</label>
+            <input id="obsAptitud" placeholder="Observaciones">
+          </div>
+        </div>
+      </section>
+
+      <section class="card bloque">
+        <h3 class="seccion"><span class="ico" data-icono="firma"></span>9. Firmas de emisión</h3>
         <div class="grid">
-          <label class="campo"><span class="req">Ejecutor</span><input name="firma_ejecutor" required placeholder="Nombre completo"></label>
-          <label class="campo"><span class="req">Emisor</span><input name="firma_emisor" list="dl-personas" required placeholder="Nombre completo"></label>
+          <label class="campo"><span class="req">Ejecutor</span><input name="firma_ejecutor" required placeholder="Nombre completo">
+            <small class="nota" style="margin:0">He verificado con el emisor la aplicación del permiso y los demás controles para minimizar los riesgos asociados a este trabajo y los comunicaré al grupo ejecutor. He verificado el buen estado de las herramientas y equipos a utilizar.</small></label>
+          <label class="campo"><span class="req">Emisor</span><input name="firma_emisor" list="dl-personas" required placeholder="Nombre completo">
+            <small class="nota" style="margin:0">He verificado en campo con el ejecutor la aplicación del permiso y los demás controles para minimizar los riesgos asociados a este trabajo y considero seguro proceder con la ejecución del mismo.</small></label>
           <label class="campo"><span>Revisado por SST</span><input name="revisado_sst" list="dl-personas" placeholder="Nombre completo"></label>
         </div>
       </section>
 
       <section class="card bloque">
-        <h3 class="seccion"><span class="ico" data-icono="check"></span>5. Cierre del permiso</h3>
-        <div class="grid">
-          <label class="campo"><span>Cierre trabajador</span><select name="cierre_trabajador" data-tipo="bool"><option value="">Pendiente</option><option value="true">Sí</option><option value="false">No</option></select></label>
-          <label class="campo"><span>Cierre jefe de SST</span><select name="cierre_sst" data-tipo="bool"><option value="">Pendiente</option><option value="true">Sí</option><option value="false">No</option></select></label>
+        <h3 class="seccion"><span class="ico" data-icono="check"></span>10. Cierre del permiso</h3>
+        <div class="grid grid-2">
+          <div><p class="label">Trabajador: personalmente declaro que</p><div id="cierreTrabajador"></div>
+            <label class="campo" style="margin-top:10px"><span>Nombre y C.C. del trabajador</span><input id="ccTrabajador" placeholder="Nombre y cédula"></label></div>
+          <div><p class="label">Jefe del área de SST: personalmente he verificado que</p><div id="cierreSst"></div>
+            <label class="campo" style="margin-top:10px"><span>Nombre y C.C. del emisor</span><input id="ccEmisor" placeholder="Nombre y cédula"></label></div>
         </div>
-        <p class="nota">La guía solo incluye la primera página del FR-SST-039. Las listas de verificación (trabajo en caliente), la verificación diaria y la sección 5 detallada se siguen diligenciando en papel y se archivan con la OT.</p>
+        <p class="nota">Si el trabajo todavía no termina, deje el cierre en "Pendiente".</p>
       </section>
 
       <div class="acciones">

@@ -16,7 +16,7 @@ const valor = (el) => {
 function datos(form) {
   const d = {};
   for (const el of form.elements) {
-    if (!el.name || el.closest(".tabla")) continue;
+    if (!el.name || el.name.startsWith("x-") || el.closest(".tabla")) continue;
     if (el.type === "checkbox") {
       if (el.value === "on") d[el.name] = el.checked;
       else (d[el.name] ??= []).push(...(el.checked ? [el.value] : []));
@@ -50,6 +50,7 @@ function reiniciar(form) {
   form.querySelectorAll(".alerta").forEach((a) => a.classList.add("hidden"));
   if (form.fecha_apertura) form.fecha_apertura.value = hoy();
   $("bloqueElectrico").hidden = true;
+  mostrarSeccionesPermiso();
   $("otMaquina").onchange();
   totalesOS();
 }
@@ -105,6 +106,56 @@ pintarMaquinas();
 $("osArea").innerHTML = opciones(FRENTES.map((f) => ({ v: f.area, t: `${f.area} (${f.frente})` })), "Seleccione");
 $("tiposPermiso").innerHTML = Object.entries(TIPOS_PERMISO).map(([v, t]) => `<label class="check"><input type="checkbox" name="tipos" value="${v}"> ${esc(t)}</label>`).join("");
 const SINO = opciones([{ v: "true", t: "Sí" }, { v: "false", t: "No" }], "—");
+// ---------------- Permiso: preguntas del FR-SST-039 completo (config.js, PERMISO_*) ----------------
+// Cada pregunta son botones SÍ / NO / N/A. Los grupos que no aplican quedan ocultos y deshabilitados (no se exigen).
+const SINA = ["SÍ", "NO", "N/A"];
+const pregunta = (name, texto, opciones) => `<div class="pregunta" role="radiogroup" aria-label="${esc(texto)}"><p>${esc(texto)}</p><div class="opciones">${
+  opciones.map((o, i) => `<label><input type="radio" name="${name}" value="${esc(o)}"${i ? "" : " required"}><span>${esc(o)}</span></label>`).join("")}</div></div>`;
+$("permGeneralidades").innerHTML = PERMISO_GENERALIDADES.map((t, i) => pregunta(`x-g-${i}`, t, SINA)).join("");
+$("permEspecificas").innerHTML = PERMISO_ESPECIFICAS.map((g, gi) => `<fieldset class="grupo" data-tipos="${g.tipos.join(" ")}" hidden disabled>
+  <h4>${esc(g.titulo)}</h4>${g.items.map((t, i) => pregunta(`x-e-${gi}-${i}`, t, SINA)).join("")}</fieldset>`).join("");
+$("equiposCaliente").innerHTML = PERMISO_CALIENTE.map((q, qi) => `<label class="check"><input type="checkbox" name="x-eq" value="${qi}"> ${esc(q.titulo)}</label>`).join("");
+$("permCaliente").innerHTML = PERMISO_CALIENTE.map((q, qi) => `<fieldset class="grupo" data-equipo="${qi}" hidden disabled>
+  <h4>Lista de verificación: ${esc(q.titulo)}</h4>
+  <div class="grid">${q.datos.map((t, j) => `<label class="campo"><span class="req">${esc(t)}</span><input name="x-cd-${qi}-${j}" required></label>`).join("")}</div>
+  ${q.estado ? pregunta(`x-cs-${qi}`, q.estado, ["Bueno", "Regular", "Malo", "N/A"]) : ""}
+  ${q.items.map((t, j) => pregunta(`x-c-${qi}-${j}`, t, ["Sí", "No"])).join("")}</fieldset>`).join("");
+const cierre = (lado) => PERMISO_CIERRE[lado].map((t, i) => `<label class="campo"><span>${esc(t)}</span>
+  <select name="x-k${lado}-${i}"><option value="">Pendiente</option><option>SÍ</option><option>NO</option></select></label>`).join("");
+$("cierreTrabajador").innerHTML = cierre("trabajador");
+$("cierreSst").innerHTML = cierre("sst");
+
+// Muestra las medidas específicas de cada tipo marcado y, en trabajo en caliente, la lista de cada equipo elegido
+function mostrarSeccionesPermiso() {
+  const f = $("formPermiso");
+  const tipos = [...f.querySelectorAll("[name=tipos]:checked")].map((c) => c.value);
+  f.querySelectorAll("#permEspecificas [data-tipos]").forEach((g) => g.hidden = g.disabled = !g.dataset.tipos.split(" ").some((t) => tipos.includes(t)));
+  $("notaEspecificas").hidden = tipos.length > 0;
+  const caliente = tipos.includes("caliente");
+  $("bloqueCaliente").hidden = !caliente;
+  f.querySelectorAll("[name=x-eq]").forEach((c) => c.disabled = !caliente);
+  f.querySelectorAll("#permCaliente [data-equipo]").forEach((g) =>
+    g.hidden = g.disabled = !(caliente && f.querySelector(`[name=x-eq][value="${g.dataset.equipo}"]`).checked));
+}
+$("equiposCaliente").onchange = mostrarSeccionesPermiso;
+
+// Vigencia: entre el inicio (fecha + hora de inicio) y 24 horas después (sql/19_permiso_sst.sql también lo exige)
+const local = (d) => new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 16);  // formato de datetime-local
+function limitesVigencia() {
+  const f = $("formPermiso"), v = $("vigenteHasta");
+  if (!f.fecha_ejecucion.value || !f.hora_inicio.value) { v.min = v.max = ""; return null; }
+  const inicio = new Date(`${f.fecha_ejecucion.value}T${f.hora_inicio.value}`);
+  v.min = local(new Date(inicio.getTime() + 6e4)); v.max = local(new Date(inicio.getTime() + 864e5));
+  return inicio;
+}
+function revisarVigencia() {
+  const v = $("vigenteHasta"), inicio = limitesVigencia();
+  const fin = v.value ? new Date(v.value) : null;
+  v.setCustomValidity(!inicio || !fin ? "" : fin <= inicio ? "La vigencia debe terminar después de la hora de inicio"
+    : fin - inicio > 864e5 ? "La vigencia del permiso no puede ser mayor a 24 horas" : "");
+}
+["fecha_ejecucion", "hora_inicio", "vigente_hasta"].forEach((n) => $("formPermiso")[n].addEventListener("input", revisarVigencia));
+
 $("eppLista").innerHTML = EPP.map((e) => `<label class="campo"><span class="req">${esc(e)}</span><select data-epp="${esc(e)}" data-tipo="bool" required>${SINO}</select></label>`).join("");
 $("fila-os").content.querySelector(".sel-medida").innerHTML = opciones(MEDIDAS, "—");
 $("fila-trab").content.querySelectorAll(".sel-sino").forEach((s) => s.innerHTML = SINO);
@@ -160,6 +211,7 @@ $("tiposPermiso").onchange = () => {
   const electrico = $("formPermiso").querySelector("[name=tipos][value=electrico]").checked;
   $("bloqueElectrico").hidden = !electrico;
   $("formPermiso").querySelectorAll("[name=metodo_electrico]").forEach((r) => r.required = electrico);
+  mostrarSeccionesPermiso();
 };
 
 // ---------------- Guardar ----------------
@@ -184,12 +236,41 @@ $("formATS").onsubmit = (e) => { e.preventDefault(); guardar(e.target, async () 
 
 $("formPermiso").onsubmit = (e) => {
   e.preventDefault();
-  const primerTipo = e.target.querySelector("[name=tipos]");
-  primerTipo.setCustomValidity(e.target.querySelector("[name=tipos]:checked") ? "" : "Marque al menos un tipo de tarea");
-  guardar(e.target, async () => {
-    const d = datos(e.target);
-    d.epp = Object.fromEntries([...e.target.querySelectorAll("[data-epp]")].map((s) => [s.dataset.epp, valor(s)]));
+  const f = e.target;
+  const primerTipo = f.querySelector("[name=tipos]");
+  primerTipo.setCustomValidity(f.querySelector("[name=tipos]:checked") ? "" : "Marque al menos un tipo de tarea");
+  const primerEquipo = f.querySelector("[name=x-eq]");
+  primerEquipo.setCustomValidity(!primerEquipo.disabled && !f.querySelector("[name=x-eq]:checked") ? "Marque los equipos que se van a usar" : "");
+  revisarVigencia();
+  guardar(f, async () => {
+    const d = datos(f);
+    d.epp = Object.fromEntries([...f.querySelectorAll("[data-epp]")].map((s) => [s.dataset.epp, valor(s)]));
     if (!d.tipos.includes("electrico")) { d.metodo_electrico = null; d.nivel_tension = null; }
+    // Secciones 4 a 10 del formato completo, como listas [pregunta, respuesta] para conservar el orden del formato
+    // (un objeto jsonb ordena sus claves); solo van los grupos que aplican
+    const marcado = (n) => f.querySelector(`[name="${n}"]:checked`)?.value ?? null;
+    const texto = (n) => f.querySelector(`[name="${n}"]`)?.value.trim() || null;
+    const activo = (sel) => !f.querySelector(sel).disabled;
+    const sino = (lado) => PERMISO_CIERRE[lado].map((t, i) => [t, texto(`x-k${lado}-${i}`)]);
+    const cierreT = sino("trabajador"), cierreS = sino("sst");
+    d.detalle_extra = {
+      generalidades: PERMISO_GENERALIDADES.map((t, i) => [t, marcado(`x-g-${i}`)]),
+      especificas: PERMISO_ESPECIFICAS.flatMap((g, gi) => activo(`[data-tipos="${g.tipos.join(" ")}"]`)
+        ? [{ titulo: g.titulo, respuestas: g.items.map((t, i) => [t, marcado(`x-e-${gi}-${i}`)]) }] : []),
+      caliente: PERMISO_CALIENTE.flatMap((q, qi) => activo(`[data-equipo="${qi}"]`) ? [{
+        titulo: q.titulo,
+        datos: q.datos.map((t, j) => [t, texto(`x-cd-${qi}-${j}`)]),
+        respuestas: [...(q.estado ? [[q.estado, marcado(`x-cs-${qi}`)]] : []), ...q.items.map((t, j) => [t, marcado(`x-c-${qi}-${j}`)])],
+      }] : []),
+      verificacion: [["Responsable de SST", $("verifSst").value.trim()], ["Responsable de inspección del equipo", $("verifInspeccion").value.trim()]],
+      anexos: [["Observaciones afiliación a seguridad social", $("obsAfiliacion").value.trim() || null],
+        ["Observaciones aptitud médica", $("obsAptitud").value.trim() || null]],
+      cierre: { trabajador: cierreT, sst: cierreS,
+        cc_trabajador: $("ccTrabajador").value.trim() || null, cc_emisor: $("ccEmisor").value.trim() || null },
+    };
+    // Las columnas de cierre de siempre: SÍ si todo es SÍ, NO si hay algún NO, pendiente si falta algo
+    const resumen = (o) => { const v = o.map(([, r]) => r); return v.every((x) => x === "SÍ") ? true : v.includes("NO") ? false : null; };
+    d.cierre_trabajador = resumen(cierreT); d.cierre_sst = resumen(cierreS);
     const { numero } = ok(await db.from("permisos_trabajo").insert(d).select("numero").single());
     return `${numero} guardado`;
   });

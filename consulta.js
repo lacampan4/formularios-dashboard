@@ -62,6 +62,7 @@ const trabaja = (o) => desdeBandeja && o.responsable === yo && o.estado === "Abi
 
 // ATS y Permiso de la OT: los marca solo el responsable; el admin los ve; los demás no
 let yo = null, esAdmin = false;
+let seguimiento = false;  // admin o SST: ven la lista con todos los formatos de todos (sql/19_permiso_sst.sql)
 // Botones para llenar lo que quedó guardado como requerido; abren Registro con la OT ya escogida (fuera de la ventana flotante)
 const generar = (id, ats, permiso) =>
   (ats ? `<a class="btn btn-sec btn-ico" target="_top" href="registro.html?ot=${id}&formato=ATS"><span class="ico" data-icono="mas"></span>Generar ATS</a>` : "") +
@@ -185,25 +186,47 @@ const VISTA = {
       dato("Fecha de apertura", o.fecha_apertura), dato("Fecha de cierre", o.fecha_cierre), dato("Trabajador encargado", o.firma_encargado),
       dato("Jefe inmediato", o.firma_jefe), dato("Coordinador de alturas", o.firma_coord_alturas), dato("SST", o.firma_sst))),
 
-  PT: (o) => cabecera("PT", "FR-SST-039 · Versión 1 · Área de Mantenimiento", o.numero) +
+  PT: (o) => permiso(o),
+};
+
+// Permiso: el FR-SST-039 completo. Las secciones 4 a 10 vienen de detalle_extra (permisos guardados desde sql/19);
+// los anteriores no las tienen y se ven como antes.
+// Las respuestas se guardan como listas [pregunta, respuesta] en el orden del formato
+const respuestas = (lista, vacio = "—") => tabla(["Ítem", "Respuesta"], (lista ?? []).map(([k, v]) => [k, v ?? vacio]));
+const pares = (lista) => (lista ?? []).map(([k, v]) => dato(k, v));
+const subtitulo = (t) => `<h4 style="margin:16px 0 6px">${esc(t)}</h4>`;
+const hay = (lista) => Array.isArray(lista) && lista.length > 0;
+function permiso(o) {
+  const x = o.detalle_extra ?? {}, c = x.cierre ?? {};
+  return VISTA_PT(o) +
+    (hay(x.generalidades) ? bloque(4, "lista", "Generalidades de la actividad", respuestas(x.generalidades)) : "") +
+    (hay(x.especificas) ? bloque(5, "escudo", "Medidas preventivas específicas",
+      x.especificas.map((g) => subtitulo(g.titulo) + respuestas(g.respuestas)).join("")) : "") +
+    (hay(x.caliente) ? bloque(6, "llave", "Trabajo en caliente: listas de verificación",
+      x.caliente.map((l) => subtitulo(l.titulo) + datos(...pares(l.datos)) + `<div style="margin-top:10px">${respuestas(l.respuestas)}</div>`).join("")) : "") +
+    (hay(x.verificacion) ? bloque(7, "check", "Verificación y control diario", datos(...pares(x.verificacion))) : "") +
+    bloque(8, "doc", "Documentos anexos", datos(
+      dato("Afiliación a seguridad social", siNo(o.afiliacion_ss)), dato("Aptitud médica", siNo(o.aptitud_medica)), ...pares(x.anexos))) +
+    bloque(9, "firma", "Firmas de emisión", datos(dato("Ejecutor", o.firma_ejecutor), dato("Emisor", o.firma_emisor), dato("Revisado por SST", o.revisado_sst))) +
+    bloque(10, "check", "Cierre del permiso", datos(
+      dato("Cierre trabajador", o.cierre_trabajador == null ? "Pendiente" : siNo(o.cierre_trabajador)),
+      dato("Cierre jefe de SST", o.cierre_sst == null ? "Pendiente" : siNo(o.cierre_sst)),
+      dato("Nombre y C.C. del trabajador", c.cc_trabajador), dato("Nombre y C.C. del emisor", c.cc_emisor)) +
+      (hay(c.trabajador) ? subtitulo("Trabajador: personalmente declaro que") + respuestas(c.trabajador, "Pendiente") : "") +
+      (hay(c.sst) ? subtitulo("Jefe del área de SST: personalmente he verificado que") + respuestas(c.sst, "Pendiente") : ""));
+}
+const VISTA_PT = (o) => cabecera("PT", "FR-SST-039 · Versión 1 · Área de Mantenimiento", o.numero) +
     bloque(1, "info", "Datos básicos del permiso", datos(
       datoHtml("Orden de trabajo", o.ordenes_trabajo ? enlace("OT", o.ordenes_trabajo.id, o.ordenes_trabajo.numero) : "—"),
       datoHtml("ATS relacionado", o.ats ? enlace("ATS", o.ats.id, o.ats.numero) : "—"),
       dato("Área / proceso", o.area_proceso), dato("Ubicación", o.ubicacion), dato("Sede", o.sede), dato("Fecha de ejecución", o.fecha_ejecucion),
-      dato("Hora de inicio", o.hora_inicio?.slice(0, 5)), dato("Hora de finalización", o.hora_fin?.slice(0, 5)), dato("Vigencia", o.vigencia),
+      dato("Hora de inicio", o.hora_inicio?.slice(0, 5)), dato("Hora de finalización", o.hora_fin?.slice(0, 5)), dato("Vigencia (válido hasta)", o.vigente_hasta ? fecha(o.vigente_hasta) : o.vigencia),
       dato("Trabajador encargado", o.trabajador_encargado), dato("Ayudante de seguridad", o.ayudante_seguridad), ...registro(o))) +
     bloque(2, "llave", "Descripción del trabajo", datos(
       dato("Tarea a realizar", o.tarea), dato("Tipo de tarea", (o.tipos ?? []).map((t) => TIPOS_PERMISO[t] ?? t).join(", ")),
       dato("Método eléctrico", o.metodo_electrico), dato("Nivel de tensión", o.nivel_tension)) +
       `<div class="grid grid-2" style="margin-top:16px">${texto("Descripción de la tarea", o.descripcion)}${texto("Herramientas y equipos", o.herramientas)}</div>`) +
-    bloque(3, "escudo", "Elementos de protección personal", datos(...Object.entries(o.epp ?? {}).map(([e, v]) => dato(e, siNo(v))))) +
-    bloque(4, "firma", "Anexos y firmas de emisión", datos(
-      dato("Afiliación a seguridad social", siNo(o.afiliacion_ss)), dato("Aptitud médica", siNo(o.aptitud_medica)),
-      dato("Ejecutor", o.firma_ejecutor), dato("Emisor", o.firma_emisor), dato("Revisado por SST", o.revisado_sst))) +
-    bloque(5, "check", "Cierre del permiso", datos(
-      dato("Cierre trabajador", o.cierre_trabajador == null ? "Pendiente" : siNo(o.cierre_trabajador)),
-      dato("Cierre jefe de SST", o.cierre_sst == null ? "Pendiente" : siNo(o.cierre_sst)))),
-};
+    bloque(3, "escudo", "Elementos de protección personal", datos(...Object.entries(o.epp ?? {}).map(([e, v]) => dato(e, siNo(v)))));
 
 // ---------------- Lista ----------------
 const f = $("filtros");
@@ -341,14 +364,15 @@ window.addEventListener("hashchange", mostrar);
 // La lista es solo para admin. Los demás llegan desde su bandeja a ver el detalle de lo que les asignaron (RLS limita qué ven).
 iniciarSesion(async (perfil) => {
   const admin = esAdmin = perfil.rol === "admin";
+  seguimiento = admin || perfil.rol === "sst";
   yo = (await db.auth.getSession()).data.session.user.id;
-  if (!admin && !location.hash) return location.replace("bandeja.html");
-  if (!admin || desdeBandeja) {
+  if (!seguimiento && !location.hash) return location.replace("bandeja.html");
+  if (!seguimiento || desdeBandeja) {
     const volver = document.querySelector('#vistaDetalle a[href="#"]');
     volver.href = "bandeja.html"; volver.lastChild.textContent = "Volver a la bandeja";
   }
   const { data } = admin ? await db.from("usuarios").select("id, nombre, frente, encargo") : await db.rpc("usuarios_activos");
   nombres = new Map((data ?? []).map((u) => [u.id, quien(u)]));
-  if (admin) cargarLista();
+  if (seguimiento) cargarLista();
   mostrar();
 });
