@@ -62,7 +62,8 @@ const trabaja = (o) => desdeBandeja && o.responsable === yo && o.estado === "Abi
 
 // ATS y Permiso de la OT: los marca solo el responsable; el admin los ve; los demás no
 let yo = null, esAdmin = false;
-let seguimiento = false;  // admin o SST: ven la lista con todos los formatos de todos (sql/19_permiso_sst.sql)
+let seguimiento = false;  // admin o SST: ven la lista de formatos guardados
+let soloSeguridad = false; // SST: la lista muestra solo ATS y permisos de todos (sql/20_sst_consulta.sql)
 // Botones para llenar lo que quedó guardado como requerido; abren Registro con la OT ya escogida (fuera de la ventana flotante)
 const generar = (id, ats, permiso) =>
   (ats ? `<a class="btn btn-sec btn-ico" target="_top" href="registro.html?ot=${id}&formato=ATS"><span class="ico" data-icono="mas"></span>Generar ATS</a>` : "") +
@@ -239,7 +240,7 @@ async function cargarLista() {
   const desde = new Date(f.desde.value + "T00:00").toISOString();
   const hasta = new Date(new Date(f.hasta.value + "T00:00").getTime() + 864e5).toISOString();
   // Estado existe en OT, OS y ATS: si se filtra por estado, el Permiso no aplica
-  const tipos = Object.keys(DEF).filter((t) => (!f.formato.value || f.formato.value === t) && (!f.estado.value || DEF[t].conEstado));
+  const tipos = Object.keys(DEF).filter((t) => (!soloSeguridad || t === "ATS" || t === "PT") && (!f.formato.value || f.formato.value === t) && (!f.estado.value || DEF[t].conEstado));
   const res = await Promise.all(tipos.map((t) => {
     let q = db.from(DEF[t].tabla).select(DEF[t].lista).gte("creado_en", desde).lt("creado_en", hasta).order("creado_en", { ascending: false }).limit(500);
     if (f.estado.value) q = q.eq("estado", f.estado.value);
@@ -364,9 +365,14 @@ window.addEventListener("hashchange", mostrar);
 // La lista es solo para admin. Los demás llegan desde su bandeja a ver el detalle de lo que les asignaron (RLS limita qué ven).
 iniciarSesion(async (perfil) => {
   const admin = esAdmin = perfil.rol === "admin";
-  seguimiento = admin || perfil.rol === "sst";
+  soloSeguridad = perfil.rol === "sst";
+  seguimiento = admin || soloSeguridad;
   yo = (await db.auth.getSession()).data.session.user.id;
   if (!seguimiento && !location.hash) return location.replace("bandeja.html");
+  if (soloSeguridad) {
+    f.formato.querySelectorAll('option[value="OT"], option[value="OS"]').forEach((op) => op.remove());
+    document.querySelector("#vistaLista .page-head p").textContent = "Todos los ATS y permisos de trabajo de alto riesgo de la planta, para hacer seguimiento.";
+  }
   if (!seguimiento || desdeBandeja) {
     const volver = document.querySelector('#vistaDetalle a[href="#"]');
     volver.href = "bandeja.html"; volver.lastChild.textContent = "Volver a la bandeja";

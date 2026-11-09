@@ -113,7 +113,7 @@ function iniciarSesion(alEntrar) {
       setTimeout(async () => {
         const perfil = await cargarPerfil(sesion.user.id);
         if (perfil.nombre) $("userName").textContent = perfil.nombre;
-        // Consulta también la ve SST (todos los formatos de todos, sql/19_permiso_sst.sql)
+        // Consulta también la ve SST, solo con ATS y permisos (sql/20_sst_consulta.sql)
         document.querySelectorAll("[data-solo-admin]").forEach((a) => a.hidden = perfil.rol !== "admin"
           && !(perfil.rol === "sst" && a.getAttribute("href") === "consulta.html"));
         alEntrar(perfil);

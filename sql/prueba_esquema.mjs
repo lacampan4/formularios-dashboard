@@ -56,6 +56,7 @@ await db.exec(readFileSync(`${dir}/16_usuarios_frentes.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/17_cierre_roles_maquinas.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/18_ats_estado.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/19_permiso_sst.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/20_sst_consulta.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
 await db.exec(readFileSync(`${dir}/3_roles.sql`, "utf8"));
@@ -77,6 +78,7 @@ await db.exec(readFileSync(`${dir}/16_usuarios_frentes.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/17_cierre_roles_maquinas.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/18_ats_estado.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/19_permiso_sst.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/20_sst_consulta.sql`, "utf8"));
 assert.equal((await db.query(`select frente from usuarios where id = '${SIN_ROL}'`)).rows[0].frente, "Abastecimiento");
 await db.exec(`update usuarios set nombre = 'lina.h', frente = null, encargo = null where id = '${SIN_ROL}'`);  // como estaba
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
@@ -328,7 +330,7 @@ assert.equal(await val("select count(*)::int from os_correcciones"), 1);        
 assert.equal(await val("select descripcion from os_items where id = $1", [it2]), "Manguera 1/2");
 await comoUsuario();
 
-// SST (19_permiso_sst.sql): llena los cuatro formatos y ve todos los de los demás, con su detalle; producción no
+// SST (19 y 20): llena los cuatro formatos; de los demás ve solo ATS y permisos, con su detalle; producción no
 const totalOS = await val("select count(*)::int from ordenes_suministro"), totalLineas = await val("select count(*)::int from ot_lineas");
 await db.exec(`reset role; update usuarios set rol = 'sst' where id = '${SIN_ROL}'`);
 await comoUsuario(SIN_ROL);
@@ -336,10 +338,10 @@ assert.equal(await val("select count(*)::int from permisos_trabajo"), 1);
 assert.ok(await val("select count(*)::int from ats") >= 1);
 assert.ok(await val("select count(*)::int from ats_trabajadores") >= 1);
 assert.ok(await val("select count(*)::int from ats_pasos") >= 1);
-assert.equal(await val("select count(*)::int from ordenes_suministro"), totalOS);                       // todas las OS
-assert.equal(await val("select count(*)::int from ot_lineas"), totalLineas);                            // reportes de todas las OT
-assert.ok(await val("select count(*)::int from os_items") > 0);
-assert.ok(await val("select count(*)::int from os_correcciones") > 0);
+assert.equal(await val("select count(*)::int from ordenes_suministro"), 0);                             // las OS de los demás no
+assert.equal(await val("select count(*)::int from ot_lineas"), 0);                                      // ni los reportes de sus OT
+assert.equal(await val("select count(*)::int from os_items"), 0);
+assert.ok(totalOS > 0 && totalLineas > 0);
 assert.match(await ot({ maquina: "Slitter 1", prioridad: "Verde" }, linea), /^OT-\d{4}$/);               // crea OT
 assert.match(await os({ area_solicitante: "Corte", prioridad: "Verde" }, [item]), /^OS-\d{4}$/);          // y OS
 await comoUsuario(PROD);
