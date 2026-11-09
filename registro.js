@@ -139,22 +139,21 @@ function mostrarSeccionesPermiso() {
 }
 $("equiposCaliente").onchange = mostrarSeccionesPermiso;
 
-// Vigencia: entre el inicio (fecha + hora de inicio) y 24 horas después (sql/19_permiso_sst.sql también lo exige)
+// Vigencia ("válido hasta"): después del inicio (fecha + hora). Solo el ATS tiene máximo de 24 horas
+// (sql/21_ats_vigencia.sql también lo exige); el permiso no tiene máximo.
 const local = (d) => new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 16);  // formato de datetime-local
-function limitesVigencia() {
-  const f = $("formPermiso"), v = $("vigenteHasta");
-  if (!f.fecha_ejecucion.value || !f.hora_inicio.value) { v.min = v.max = ""; return null; }
-  const inicio = new Date(`${f.fecha_ejecucion.value}T${f.hora_inicio.value}`);
-  v.min = local(new Date(inicio.getTime() + 6e4)); v.max = local(new Date(inicio.getTime() + 864e5));
-  return inicio;
-}
-function revisarVigencia() {
-  const v = $("vigenteHasta"), inicio = limitesVigencia();
+function revisarVigencia(form, fecha, hora, maxHoras) {
+  const v = form.vigente_hasta, inicio = form[fecha].value && form[hora].value ? new Date(`${form[fecha].value}T${form[hora].value}`) : null;
+  v.min = inicio ? local(new Date(inicio.getTime() + 6e4)) : "";
+  v.max = inicio && maxHoras ? local(new Date(inicio.getTime() + maxHoras * 36e5)) : "";
   const fin = v.value ? new Date(v.value) : null;
-  v.setCustomValidity(!inicio || !fin ? "" : fin <= inicio ? "La vigencia debe terminar después de la hora de inicio"
-    : fin - inicio > 864e5 ? "La vigencia del permiso no puede ser mayor a 24 horas" : "");
+  v.setCustomValidity(!inicio || !fin ? "" : fin <= inicio ? "La vigencia debe terminar después del inicio"
+    : maxHoras && fin - inicio > maxHoras * 36e5 ? `La vigencia del ATS no puede ser mayor a ${maxHoras} horas` : "");
 }
-["fecha_ejecucion", "hora_inicio", "vigente_hasta"].forEach((n) => $("formPermiso")[n].addEventListener("input", revisarVigencia));
+const vigenciaPermiso = () => revisarVigencia($("formPermiso"), "fecha_ejecucion", "hora_inicio");
+const vigenciaATS = () => revisarVigencia($("formATS"), "fecha_apertura", "hora_apertura", 24);
+["fecha_ejecucion", "hora_inicio", "vigente_hasta"].forEach((n) => $("formPermiso")[n].addEventListener("input", vigenciaPermiso));
+["fecha_apertura", "hora_apertura", "vigente_hasta"].forEach((n) => $("formATS")[n].addEventListener("input", vigenciaATS));
 
 $("eppLista").innerHTML = EPP.map((e) => `<label class="campo"><span class="req">${esc(e)}</span><select data-epp="${esc(e)}" data-tipo="bool" required>${SINO}</select></label>`).join("");
 $("fila-os").content.querySelector(".sel-medida").innerHTML = opciones(MEDIDAS, "—");
@@ -227,7 +226,7 @@ $("formOS").onsubmit = (e) => { e.preventDefault(); guardar(e.target, async () =
   return `${numero} guardada`;
 }); };
 
-$("formATS").onsubmit = (e) => { e.preventDefault(); guardar(e.target, async () => {
+$("formATS").onsubmit = (e) => { e.preventDefault(); vigenciaATS(); guardar(e.target, async () => {
   const [trab, pasos] = e.target.querySelectorAll(".tabla");
   const id = ok(await db.rpc("crear_ats", { datos: datos(e.target), trabajadores: filas(trab), pasos: filas(pasos) }));
   const { numero } = ok(await db.from("ats").select("numero").eq("id", id).single());
@@ -241,7 +240,7 @@ $("formPermiso").onsubmit = (e) => {
   primerTipo.setCustomValidity(f.querySelector("[name=tipos]:checked") ? "" : "Marque al menos un tipo de tarea");
   const primerEquipo = f.querySelector("[name=x-eq]");
   primerEquipo.setCustomValidity(!primerEquipo.disabled && !f.querySelector("[name=x-eq]:checked") ? "Marque los equipos que se van a usar" : "");
-  revisarVigencia();
+  vigenciaPermiso();
   guardar(f, async () => {
     const d = datos(f);
     d.epp = Object.fromEntries([...f.querySelectorAll("[data-epp]")].map((s) => [s.dataset.epp, valor(s)]));

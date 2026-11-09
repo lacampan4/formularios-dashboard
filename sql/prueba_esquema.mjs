@@ -57,6 +57,7 @@ await db.exec(readFileSync(`${dir}/17_cierre_roles_maquinas.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/18_ats_estado.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/19_permiso_sst.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/20_sst_consulta.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/21_ats_vigencia.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
 await db.exec(readFileSync(`${dir}/3_roles.sql`, "utf8"));
@@ -79,6 +80,7 @@ await db.exec(readFileSync(`${dir}/17_cierre_roles_maquinas.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/18_ats_estado.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/19_permiso_sst.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/20_sst_consulta.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/21_ats_vigencia.sql`, "utf8"));
 assert.equal((await db.query(`select frente from usuarios where id = '${SIN_ROL}'`)).rows[0].frente, "Abastecimiento");
 await db.exec(`update usuarios set nombre = 'lina.h', frente = null, encargo = null where id = '${SIN_ROL}'`);  // como estaba
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
@@ -154,10 +156,22 @@ const n2 = await ot({ maquina: "Slitter", prioridad: "Amarillo" }, linea);
 assert.equal(n2, "OT-0004");
 const idDe = (n) => val("select id from ordenes_trabajo where numero = $1", [n]);
 const id2 = await idDe(n2);
-const ats = { ot_id: id2, descripcion_labor: "Cambio de motor en altura", alturas: true, firma_encargado: "Fredy", firma_jefe: "Ivan" };
+// Vigencia del ATS (21_ats_vigencia.sql): desde la fecha y hora de apertura, máximo 24 h
+const ats = { ot_id: id2, descripcion_labor: "Cambio de motor en altura", alturas: true, firma_encargado: "Fredy", firma_jefe: "Ivan",
+  fecha_apertura: "2026-11-09", hora_apertura: "07:00", vigente_hasta: "2026-11-09 17:00" };
 const trab = [{ nombre: "Fredy", salud_ok: true, medicamentos_sueno: false, afiliacion_ss: true, certificado: true }];
 const pasos = [{ paso: "Montar andamio", controles: "Arnés y línea de vida" }];
 await falla("select crear_ats($1, $2, $3)", [ats, trab, pasos], /check/);                                  // alturas sin coordinador
+const conAts = (cambios) => db.query("select crear_ats($1, $2, $3)", [{ ...ats, firma_coord_alturas: "Lina", ...cambios }, trab, pasos]);
+await db.exec("savepoint a21");
+await conAts({ vigente_hasta: "2026-11-10 07:00" });                                                       // justo 24 h: vale
+await db.exec("rollback to savepoint a21");
+await assert.rejects(conAts({ vigente_hasta: "2026-11-10 07:01" }), /ats_vigencia_24h/);                  // más de 24 h
+await db.exec("rollback to savepoint a21");
+await assert.rejects(conAts({ vigente_hasta: "2026-11-09 06:59" }), /ats_vigencia_24h/);                  // antes de la apertura
+await db.exec("rollback to savepoint a21");
+await assert.rejects(conAts({ hora_apertura: null }), /ats_vigencia_24h/);                                // sin hora de apertura
+await db.exec("rollback to savepoint a21");
 const atsId = await val("select crear_ats($1, $2, $3)", [{ ...ats, firma_coord_alturas: "Lina" }, trab, pasos]);
 assert.equal(await val("select numero from ats where id = $1", [atsId]), "ATS-0001");   // cada formato cuenta aparte
 assert.equal(await val("select estado from ats where id = $1", [atsId]), "Abierta");
@@ -168,19 +182,17 @@ assert.equal(await val("select a.estado || (a.cerrada_en = o.cerrada_en) from at
 const atsTarde = await val("select crear_ats($1, $2, $3)", [{ ...ats, firma_coord_alturas: "Lina", estado: "Abierta" }, trab, pasos]);
 assert.equal(await val("select estado from ats where id = $1", [atsTarde]), "Cerrada");
 await db.exec("rollback to savepoint a18");
-// Vigencia (19_permiso_sst.sql): desde la fecha y hora de inicio, máximo 24 h
+// Vigencia del permiso (19 y 21): obligatoria y después del inicio, sin máximo (las 24 h son del ATS)
 const permiso = `insert into permisos_trabajo (ot_id, ats_id, area_proceso, fecha_ejecucion, hora_inicio, vigente_hasta, trabajador_encargado, tarea, tipos, metodo_electrico, firma_ejecutor, firma_emisor)
   values (${id2}, $1, 'Mantenimiento', current_date, '07:00', current_date + time '07:00' + interval '8 hours', 'Fredy', 'Cambio motor', $2, $3, 'Fredy', 'Ivan')`;
 const conVigencia = (inicio, hasta) => db.query(`insert into permisos_trabajo (ot_id, area_proceso, fecha_ejecucion, hora_inicio, vigente_hasta, trabajador_encargado, tarea, tipos, firma_ejecutor, firma_emisor)
   values (${id2}, 'Mantenimiento', '2026-11-09', $1, $2, 'Fredy', 'Izaje', '{izaje}', 'Fredy', 'Ivan')`, [inicio, hasta]);
 await db.exec("savepoint v24");
-await conVigencia("07:00", "2026-11-10 07:00");                                                            // justo 24 h: vale, e izaje es un tipo válido
+await conVigencia("07:00", "2026-11-12 07:00");                                                            // varios días: vale, e izaje es un tipo válido
 await db.exec("rollback to savepoint v24");
-await assert.rejects(conVigencia("07:00", "2026-11-10 07:01"), /vigencia_24h/);                            // más de 24 h
+await assert.rejects(conVigencia("07:00", "2026-11-09 06:00"), /permisos_trabajo_vigencia/);               // termina antes de empezar
 await db.exec("rollback to savepoint v24");
-await assert.rejects(conVigencia("07:00", "2026-11-09 06:00"), /vigencia_24h/);                            // termina antes de empezar
-await db.exec("rollback to savepoint v24");
-await assert.rejects(conVigencia(null, "2026-11-09 10:00"), /vigencia_24h/);                               // sin hora de inicio
+await assert.rejects(conVigencia(null, "2026-11-09 10:00"), /permisos_trabajo_vigencia/);                  // sin hora de inicio
 await db.exec("rollback to savepoint v24");
 await falla(permiso, [atsId, ["alturas", "electrico"], null], /check/);                                    // eléctrico sin método
 await falla(permiso, [atsId, ["otro"], null], /check/);

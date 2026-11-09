@@ -184,7 +184,8 @@ const VISTA = {
     bloque(4, "lista", "Paso a paso de la actividad", tabla(["Paso", "Peligros / riesgos", "Consecuencias", "Medidas de control"],
       o.ats_pasos.map((p) => [p.paso, p.peligros, p.consecuencias, p.controles]))) +
     bloque(5, "firma", "Fechas y responsables", datos(
-      dato("Fecha de apertura", o.fecha_apertura), dato("Fecha de cierre", o.fecha_cierre), dato("Trabajador encargado", o.firma_encargado),
+      dato("Fecha de apertura", o.fecha_apertura), dato("Hora de apertura", o.hora_apertura?.slice(0, 5)),
+      dato("Vigencia (válido hasta)", o.vigente_hasta && fecha(o.vigente_hasta)), dato("Fecha de cierre", o.fecha_cierre), dato("Trabajador encargado", o.firma_encargado),
       dato("Jefe inmediato", o.firma_jefe), dato("Coordinador de alturas", o.firma_coord_alturas), dato("SST", o.firma_sst))),
 
   PT: (o) => permiso(o),

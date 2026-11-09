@@ -206,6 +206,9 @@
         <h3 class="seccion"><span class="ico" data-icono="firma"></span>5. Fechas y responsables</h3>
         <div class="grid">
           <label class="campo"><span class="req">Fecha de apertura</span><input type="date" name="fecha_apertura" required></label>
+          <label class="campo"><span class="req">Hora de apertura</span><input type="time" name="hora_apertura" required></label>
+          <label class="campo"><span class="req">Vigencia del ATS: válido hasta</span><input type="datetime-local" name="vigente_hasta" required>
+            <small class="nota" style="margin:0">Máximo 24 horas después de la apertura.</small></label>
           <label class="campo"><span class="req">Trabajador encargado de la tarea</span><input name="firma_encargado" required placeholder="Nombre completo"></label>
           <label class="campo"><span class="req">Jefe inmediato (firma)</span><input name="firma_jefe" list="dl-personas" required placeholder="Nombre completo"></label>
           <label class="campo"><span id="lblCoord">Coordinador de trabajo en alturas (si aplica)</span><input name="firma_coord_alturas" id="atsCoord" placeholder="Nombre completo"></label>
@@ -240,7 +243,7 @@
           <label class="campo"><span class="req">Hora de inicio estimada</span><input type="time" name="hora_inicio" required></label>
           <label class="campo"><span>Hora de finalización estimada</span><input type="time" name="hora_fin"></label>
           <label class="campo"><span class="req">Vigencia del permiso: válido hasta</span><input type="datetime-local" name="vigente_hasta" id="vigenteHasta" required>
-            <small class="nota" style="margin:0">Máximo 24 horas después del inicio.</small></label>
+            <small class="nota" style="margin:0">Debe ser después de la fecha y hora de inicio.</small></label>
           <label class="campo"><span class="req">Nombre del trabajador encargado</span><input name="trabajador_encargado" required placeholder="Nombre completo"></label>
           <label class="campo"><span>Ayudante de seguridad</span><input name="ayudante_seguridad" placeholder="Nombre completo"></label>
         </div>

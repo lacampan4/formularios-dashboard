@@ -91,7 +91,7 @@ const PERMISO_ESPECIFICAS = [
     "Cuenta con señalero para realizar la maniobra, así como aparejos certificados."] },
 ];
 // Hoja "Trabajo en caliente": lista de verificación de cada equipo que se va a usar (Sí / No).
-// El permiso dura máximo 24 h, así que se diligencia un solo día (el formato en papel traía 7).
+// Se diligencia una vez, al emitir el permiso (el formato en papel traía columnas para 7 días).
 const PERMISO_CALIENTE = [
   { titulo: "Sierra sable", datos: ["Referencia del equipo a utilizar"], items: [
     "Herramientas manuales de potencia: ¿se encuentran sin conexiones de arranque directo (tienen pulsadores de marcha y detención)?",
