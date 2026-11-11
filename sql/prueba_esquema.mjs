@@ -58,6 +58,7 @@ await db.exec(readFileSync(`${dir}/18_ats_estado.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/19_permiso_sst.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/20_sst_consulta.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/21_ats_vigencia.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/22_os_responsable.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
 await db.exec(readFileSync(`${dir}/3_roles.sql`, "utf8"));
@@ -81,6 +82,7 @@ await db.exec(readFileSync(`${dir}/18_ats_estado.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/19_permiso_sst.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/20_sst_consulta.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/21_ats_vigencia.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/22_os_responsable.sql`, "utf8"));
 assert.equal((await db.query(`select frente from usuarios where id = '${SIN_ROL}'`)).rows[0].frente, "Abastecimiento");
 await db.exec(`update usuarios set nombre = 'lina.h', frente = null, encargo = null where id = '${SIN_ROL}'`);  // como estaba
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
@@ -337,10 +339,24 @@ await falla("insert into os_correcciones (item_id, tipo, detalle) values ($1, 'M
 await falla("update os_correcciones set detalle = 'otra'", [], /permission denied/);
 await corregir(it2, "Mal entregado", "Era otra manguera", { descripcion: "Manguera 1/2" });               // OS cerrada: también
 await comoUsuario(PROD);
-await falla("select corregir_item($1, 'Mal entregado', 'x', '{}')", [it2], /Solo quien pidió/);         // el responsable no corrige
-assert.equal(await val("select count(*)::int from os_correcciones"), 1);                                // pero ve las de su OS
+// El responsable también corrige (22); su tipo lo pone la base
+await corregir(it2, "Mal diligenciado", "Costo de la factura", { costo_unitario: 500 });
+assert.deepEqual((await db.query("select tipo, despues from os_correcciones where item_id = $1 order by id desc limit 1", [it2])).rows[0],
+  { tipo: "Ajuste del responsable", despues: { costo_unitario: 500, costo_total: 500 * Number(await val("select cantidad from os_items where id = $1", [it2])) } });
+assert.equal(await val("select count(*)::int from os_correcciones"), 2);                                // ve las de su OS
 assert.equal(await val("select descripcion from os_items where id = $1", [it2]), "Manguera 1/2");
+await falla("select corregir_item($1, 'Mal entregado', 'x', '{}')", [c1], /Solo quien pidió la orden o su responsable/);  // OS ajena
+await falla("select cerrar_os_incompleta($1, 'No hay más')", [os4], /Solo el responsable/);
 await comoUsuario();
+await falla("select corregir_item($1, 'Ajuste del responsable', 'x', '{}')", [c1], /mal diligenciado o mal entregado/);
+// Cierre con entrega incompleta (22): solo el responsable, con motivo, una vez
+await db.exec("savepoint s22");
+await falla("select cerrar_os_incompleta($1, '  ')", [os4], /Escriba por qué/);
+await db.query("select cerrar_os_incompleta($1, ' Solo había 10 de 20 en el almacén ')", [os4]);
+assert.equal(await val("select estado || ' · ' || cierre_incompleto || ' · ' || (cerrada_en is not null) from ordenes_suministro where id = $1", [os4]),
+  "Cerrada · Solo había 10 de 20 en el almacén · true");
+await falla("select cerrar_os_incompleta($1, 'otra vez')", [os4], /solo si está abierta/);
+await db.exec("rollback to savepoint s22");
 
 // SST (19 y 20): llena los cuatro formatos; de los demás ve solo ATS y permisos, con su detalle; producción no
 const totalOS = await val("select count(*)::int from ordenes_suministro"), totalLineas = await val("select count(*)::int from ot_lineas");

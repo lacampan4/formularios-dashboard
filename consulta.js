@@ -100,17 +100,21 @@ const filaEntrega = (o, i) => {
 const cierreOS = (o) => {
   if (o.estado !== "Abierta" || !desdeBandeja || ![o.responsable, o.creado_por].includes(yo)) return "";
   const faltan = o.os_items.filter((i) => !i.entregado).length;
+  // Si no hay cómo entregar todo, el responsable la cierra incompleta con el motivo (sql/22_os_responsable.sql)
   if (faltan) return `<p class="nota no-imprimir">Faltan ${faltan} ítem${faltan === 1 ? "" : "s"} con las dos firmas (entrega y recibido).
-    La orden se cierra sola cuando quien la pidió firme el último recibido.</p>`;
+    La orden se cierra sola cuando quien la pidió firme el último recibido.</p>` + (trabaja(o) ? `<div class="card bloque no-imprimir" id="cierreOS" data-os="${o.id}" data-numero="${esc(o.numero)}">
+    <label class="campo"><span class="req">¿No puede entregar todo? Escriba por qué y cierre la orden</span>
+      <textarea id="motivoIncompleta" maxlength="500" placeholder="Ej: se entregaron 10 de 20; no hay más en el almacén"></textarea></label>
+    <div class="acciones-fila" style="justify-content:flex-end"><button type="button" class="btn btn-red" id="btnCerrarIncompleta">Cerrar con entrega incompleta</button></div></div>` : "");
   return trabaja(o) ? `<div class="acciones no-imprimir" id="cierreOS" data-os="${o.id}" data-numero="${esc(o.numero)}"><span></span>
     <button type="button" class="btn btn-red" id="btnCerrarOS">Cerrar orden</button></div>` : "";
 };
 
-// Correcciones de ítems (sql/14_os_correcciones.sql): solo quien pidió la OS, abierta o cerrada
+// Correcciones de ítems (sql/14_os_correcciones.sql y 22): quien pidió la OS y su responsable, abierta o cerrada
 const CAMPOS = { maquina: "Máquina", referencia: "Referencia", marca: "Marca", codigo: "Código", cantidad: "Cantidad", medida: "Medida",
   costo_unitario: "Costo unitario", costo_total: "Costo total", proveedor: "Proveedor", descripcion: "Descripción", funcion: "Función" };
 let itemsOS = new Map(); // id -> ítem, para llenar el formulario de corrección
-const corrige = (o) => o.creado_por === yo;
+const corrige = (o) => [o.creado_por, o.responsable].includes(yo);
 const valorCampo = (k, v) => v == null || v === "" ? "—" : k.startsWith("costo_") ? pesos(v) : String(v);
 const cambiosDe = (c) => Object.keys(c.despues).length
   ? { html: Object.keys(c.despues).map((k) => `${esc(CAMPOS[k] ?? k)}: ${esc(valorCampo(k, c.antes[k]))} → <b>${esc(valorCampo(k, c.despues[k]))}</b>`).join("<br>") }
@@ -157,11 +161,12 @@ const VISTA = {
       dato("Área solicitante", o.area_solicitante), datoHtml("Prioridad", chip(o.prioridad)), datoHtml("Estado", estado(o.estado)),
       dato("Registrado el", fecha(o.creado_en)), dato("Solicitante", nombres.get(o.creado_por)), dato("Responsable", nombres.get(o.responsable)),
       datoHtml("OT relacionada", o.ordenes_trabajo ? enlace("OT", o.ordenes_trabajo.id, o.ordenes_trabajo.numero) : "—"),
-      dato("Cerrada el", o.cerrada_en && fecha(o.cerrada_en)))) +
+      dato("Cerrada el", o.cerrada_en && fecha(o.cerrada_en)),
+      ...(o.cierre_incompleto ? [dato("Cerrada con entrega incompleta", o.cierre_incompleto)] : []))) +
     bloque(2, "caja", "Ítems solicitados", tabla(["Máquina", "Referencia", "Marca", "Código", "Cantidad", "Medida", "Costo unitario", "Costo total", "Proveedor", "Descripción", "Función",
       ...(corrige(o) ? [""] : [])],
       [...o.os_items].sort((a, b) => a.id - b.id).map((i) => [i.maquina, i.referencia, i.marca, i.codigo, i.cantidad, i.medida, pesos(i.costo_unitario), pesos(i.costo_total), i.proveedor, i.descripcion, i.funcion,
-        ...(corrige(o) ? [{ html: `<button type="button" class="btn btn-sec btn-firma no-imprimir" data-corregir="${i.id}">Corregir</button>` }] : [])])) +
+        ...(corrige(o) ? [{ html: `<button type="button" class="btn btn-sec btn-firma no-imprimir" data-corregir="${i.id}" ${o.creado_por === yo ? "" : "data-ajuste"}>${o.creado_por === yo ? "Corregir" : "Editar"}</button>` }] : [])])) +
       totalOS(o.os_items)) +
     // Firmas por ítem (sql/12_os_firmas_items.sql): cada quien con su usuario y la hora en que firmó
     bloque(3, "firma", "Entregas por ítem", tabla(["Ítem", "Entregó", "Recibió", "Estado"],
@@ -292,9 +297,13 @@ async function mostrar() {
 const fc = $("formCorregir");
 fc.medida.innerHTML = opciones(MEDIDAS);
 $("cancelarCorregir").onclick = () => $("dlgCorregir").close();
-function abrirCorreccion(id) {
+function abrirCorreccion(id, ajuste) {
   const i = itemsOS.get(id);
   fc.reset(); fc.dataset.item = id;
+  // El responsable no escoge tipo: la base lo guarda como "Ajuste del responsable"
+  fc.querySelector("fieldset").hidden = ajuste;
+  fc.querySelectorAll("[name=tipo]").forEach((r) => r.required = !ajuste);
+  $("tituloCorregir").textContent = ajuste ? "Editar ítem" : "Corregir ítem";
   for (const k of Object.keys(CAMPOS)) if (fc[k]) fc[k].value = i[k] ?? "";
   $("dlgCorregir").showModal();
 }
@@ -306,7 +315,7 @@ fc.onsubmit = async (e) => {
   }));
   const boton = fc.querySelector("button[type=submit]");
   boton.disabled = true;
-  const { error } = await db.rpc("corregir_item", { item: Number(fc.dataset.item), tipo: fc.tipo.value, detalle: fc.detalle.value, cambios });
+  const { error } = await db.rpc("corregir_item", { item: Number(fc.dataset.item), tipo: fc.tipo.value || "Ajuste del responsable", detalle: fc.detalle.value, cambios });
   boton.disabled = false;
   if (error) return aviso(error.message, true);
   $("dlgCorregir").close();
@@ -324,7 +333,7 @@ $("detalle").onchange = (e) => {
 };
 $("detalle").onclick = async (e) => {
   const co = e.target.closest("[data-corregir]");
-  if (co) return abrirCorreccion(Number(co.dataset.corregir));
+  if (co) return abrirCorreccion(Number(co.dataset.corregir), co.hasAttribute("data-ajuste"));
   // Firma del ítem: queda con el usuario de la sesión y la hora del servidor
   const fi = e.target.closest("[data-firmar]");
   if (fi) {
@@ -334,6 +343,17 @@ $("detalle").onclick = async (e) => {
     const { error } = await db.rpc("firmar_item", { item: Number(fi.dataset.firmar), como: fi.dataset.como });
     if (error) { fi.disabled = false; return aviso(error.message, true); }
     aviso(fi.dataset.como === "entrega" ? "Entrega firmada" : "Recibido firmado");
+    return recargar();
+  }
+  const bi = e.target.closest("#btnCerrarIncompleta");
+  if (bi) {
+    const c = $("cierreOS"), motivo = $("motivoIncompleta").value.trim();
+    if (!motivo) { $("motivoIncompleta").focus(); return aviso("Escriba por qué se cierra sin entregar todo", true); }
+    if (!confirm(`¿Cerrar la ${c.dataset.numero} con entrega incompleta? Ya no se podrá reabrir.`)) return;
+    bi.disabled = true;
+    const { error } = await db.rpc("cerrar_os_incompleta", { os: Number(c.dataset.os), motivo });
+    if (error) { bi.disabled = false; return aviso(error.message, true); }
+    aviso(`${c.dataset.numero} cerrada con entrega incompleta`);
     return recargar();
   }
   if (e.target.closest("#btnCerrarOS")) {
@@ -417,6 +437,7 @@ $("btnExcel").onclick = async () => {
       "No.": o.numero, "Creada": hora(o.creado_en), "Solicitante": n(o.creado_por), "Responsable": n(o.responsable),
       "Área solicitante": o.area_solicitante, "Prioridad": o.prioridad, "OT": o.ordenes_trabajo?.numero ?? "",
       "Estado": o.estado, "Cerrada": hora(o.cerrada_en), "Horas hasta el cierre": horasEntre(o.creado_en, o.cerrada_en),
+      "Cierre incompleto (motivo)": o.cierre_incompleto ?? "",
       "Máquina": i.maquina ?? "", "Descripción": i.descripcion ?? "", "Referencia": i.referencia ?? "", "Marca": i.marca ?? "",
       "Código": i.codigo ?? "", "Cantidad": i.cantidad ?? "", "Medida": i.medida ?? "", "Función": i.funcion ?? "", "Proveedor": i.proveedor ?? "",
       "Costo unitario": i.costo_unitario ?? "", "Costo total": i.costo_total ?? "",
