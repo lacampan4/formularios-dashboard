@@ -364,12 +364,84 @@ $("btnImprimir").onclick = () => window.print();
 window.addEventListener("hashchange", mostrar);
 
 // La lista es solo para admin. Los demás llegan desde su bandeja a ver el detalle de lo que les asignaron (RLS limita qué ven).
+// ---------------- Excel para el dashboard (solo admin): OT y OS de la consulta, cada una en su hoja ----------------
+const hora = (f) => f ? new Date(f).toLocaleString("sv-SE", { timeZone: "America/Bogota" }).slice(0, 16) : ""; // AAAA-MM-DD HH:MM, ordena bien en Excel
+const horasEntre = (a, b) => a && b ? Math.round((new Date(b) - new Date(a)) / 36e5 * 10) / 10 : "";
+function hoja(filas) {
+  const h = XLSX.utils.json_to_sheet(filas);
+  if (!filas.length) return h;
+  const cols = Object.keys(filas[0]);
+  h["!cols"] = cols.map((c) => ({ wch: Math.min(50, Math.max(c.length, ...filas.map((f) => String(f[c] ?? "").length)) + 2) }));
+  h["!autofilter"] = { ref: h["!ref"] };
+  return h;
+}
+$("btnExcel").onclick = async () => {
+  if (!f.reportValidity()) return;
+  const b = $("btnExcel");
+  b.disabled = true;
+  try {
+    // La librería se carga solo al descargar
+    if (!window.XLSX) await new Promise((ok, mal) => document.head.append(Object.assign(document.createElement("script"),
+      { src: "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js", onload: ok, onerror: () => mal(new Error("No se pudo cargar la librería de Excel")) })));
+    const desde = new Date(f.desde.value + "T00:00").toISOString();
+    const hasta = new Date(new Date(f.hasta.value + "T00:00").getTime() + 864e5).toISOString();
+    // Mismos filtros que la lista; con formato ATS o Permiso se bajan las dos hojas
+    const filtrar = (q) => {
+      q = q.gte("creado_en", desde).lt("creado_en", hasta).order("creado_en").limit(10000);
+      return f.estado.value ? q.eq("estado", f.estado.value) : q;
+    };
+    const conOT = f.formato.value !== "OS", conOS = f.formato.value !== "OT";
+    const buscar = f.buscar.value.trim().toLowerCase();
+    const busca = (...t) => !buscar || t.join(" ").toLowerCase().includes(buscar);
+    const ninguna = { data: [] };
+    const [ot, os] = await Promise.all([
+      !conOT ? ninguna : filtrar(db.from("ordenes_trabajo").select("*, ot_lineas(codigo_falla, reporte, codigos_falla(descripcion))")),
+      !conOS ? ninguna : filtrar(db.from("ordenes_suministro").select("*, os_items(*), ordenes_trabajo!ordenes_suministro_ot_id_fkey(numero)")),
+    ]);
+    const error = ot.error || os.error;
+    if (error) throw error;
+    const n = (id) => nombres.get(id) ?? "";
+    ot.data = ot.data.filter((o) => busca(o.numero, o.maquina));
+    os.data = os.data.filter((o) => busca(o.numero, o.area_solicitante));
+
+    const filasOT = ot.data.map((o) => ({
+      "No.": o.numero, "Creada": hora(o.creado_en), "Solicitante": n(o.creado_por), "Responsable": n(o.responsable),
+      "Máquina": o.maquina, "Prioridad": o.prioridad,
+      "Códigos de falla": o.ot_lineas.map((l) => `${String(l.codigo_falla).padStart(2, "0")} ${l.codigos_falla?.descripcion ?? ""}`).join("; "),
+      "Reporte de falla": o.ot_lineas.map((l) => l.reporte).join("; "),
+      "Requiere ATS": siNo(o.requiere_ats), "Requiere permiso": siNo(o.requiere_permiso),
+      "Estado": o.estado, "Cerrada": hora(o.cerrada_en), "Horas hasta el cierre": horasEntre(o.creado_en, o.cerrada_en),
+    }));
+    // Una fila por ítem, con los datos de su OS: así se suman costos y cantidades con filtros de Excel
+    const filasOS = os.data.flatMap((o) => (o.os_items.length ? [...o.os_items].sort((a, b) => a.id - b.id) : [{}]).map((i) => ({
+      "No.": o.numero, "Creada": hora(o.creado_en), "Solicitante": n(o.creado_por), "Responsable": n(o.responsable),
+      "Área solicitante": o.area_solicitante, "Prioridad": o.prioridad, "OT": o.ordenes_trabajo?.numero ?? "",
+      "Estado": o.estado, "Cerrada": hora(o.cerrada_en), "Horas hasta el cierre": horasEntre(o.creado_en, o.cerrada_en),
+      "Máquina": i.maquina ?? "", "Descripción": i.descripcion ?? "", "Referencia": i.referencia ?? "", "Marca": i.marca ?? "",
+      "Código": i.codigo ?? "", "Cantidad": i.cantidad ?? "", "Medida": i.medida ?? "", "Función": i.funcion ?? "", "Proveedor": i.proveedor ?? "",
+      "Costo unitario": i.costo_unitario ?? "", "Costo total": i.costo_total ?? "",
+      "Entregó": n(i.entregado_por), "Entregado el": hora(i.entregado_en), "Recibió": n(i.recibido_por), "Recibido el": hora(i.recibido_en),
+    })));
+
+    const libro = XLSX.utils.book_new();
+    if (conOT) XLSX.utils.book_append_sheet(libro, hoja(filasOT), "Órdenes de trabajo");
+    if (conOS) XLSX.utils.book_append_sheet(libro, hoja(filasOS), "Órdenes de suministro");
+    XLSX.writeFile(libro, `Ordenes ${f.desde.value} a ${f.hasta.value}.xlsx`);
+    aviso(`Excel descargado: ${filasOT.length} OT y ${os.data.length} OS`);
+  } catch (e) {
+    aviso("No se pudo generar el Excel: " + e.message, true);
+  } finally {
+    b.disabled = false;
+  }
+};
+
 iniciarSesion(async (perfil) => {
   const admin = esAdmin = perfil.rol === "admin";
   soloSeguridad = perfil.rol === "sst";
   seguimiento = admin || soloSeguridad;
   yo = (await db.auth.getSession()).data.session.user.id;
   if (!seguimiento && !location.hash) return location.replace("bandeja.html");
+  $("btnExcel").hidden = !admin;
   if (soloSeguridad) {
     f.formato.querySelectorAll('option[value="OT"], option[value="OS"]').forEach((op) => op.remove());
     document.querySelector("#vistaLista .page-head p").textContent = "Todos los ATS y permisos de trabajo de alto riesgo de la planta, para hacer seguimiento.";

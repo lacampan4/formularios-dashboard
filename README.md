@@ -50,8 +50,8 @@ La llave secreta la pone Supabase sola dentro de la función; no hay que copiarl
 | `registro.html` / `registro.js` | Los cuatro formatos en pestañas |
 | `usuarios.html` / `usuarios.js` | Crear usuarios y editar su rol, frente y de qué se encarga (solo admin). Usa la Edge Function `supabase/functions/crear-usuario` |
 | `bandeja.html` / `bandeja.js` | Bandeja de entrada: las OT y OS en las que el usuario es responsable y las OS que pidió. En **Abrir** (ventana flotante con `consulta.html?bandeja`) se firma cada ítem de la OS y se cierra |
-| `consulta.html` / `consulta.js` | Lista de formatos guardados y detalle completo de cada uno, con impresión (admin; SST la usa solo para ATS y permisos). Enlace directo (por id interno): `consulta.html#OT/5`, `#OS/3`, `#ATS/2`, `#PT/4` |
-| `dashboard.html` / `dashboard.js` | Indicadores, gráficas, tabla de órdenes y firmas. **Descargar Excel** baja las OT (una fila por orden) y las OS (una fila por ítem, con costos y firmas) del periodo y filtros elegidos |
+| `consulta.html` / `consulta.js` | Lista de formatos guardados y detalle completo de cada uno, con impresión (admin; SST la usa solo para ATS y permisos). **Descargar Excel** (solo admin) baja las OT y las OS de la consulta en dos hojas: una fila por OT y una fila por ítem de OS, con costos y firmas. Enlace directo (por id interno): `consulta.html#OT/5`, `#OS/3`, `#ATS/2`, `#PT/4` |
+| `dashboard.html` / `dashboard.js` | Indicadores, gráficas, tabla de órdenes y firmas |
 | `comun.js` | Cliente Supabase, login y utilidades compartidas |
 | `config.js` | Llaves y catálogos de la guía (frentes, líderes, EPP, medidas) |
 | `styles.css` | Estilos según `DESIGN.md` |
