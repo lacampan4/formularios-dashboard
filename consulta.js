@@ -87,10 +87,15 @@ const requisitos = (o) => {
 const firmaItem = (por, en) => `${nombres.get(por) ?? "—"} · ${fecha(en)}`;
 const botonFirma = (i, como, txt) => ({ html: `<button type="button" class="btn btn-sec btn-firma" data-firmar="${i.id}" data-como="${como}"
   data-texto="${esc(`${i.cantidad} ${i.medida} · ${i.descripcion}`)}">${txt}</button>` });
+// La entrega lleva cuánto se entregó (sql/23_os_entrega_parcial.sql): por defecto todo, o menos si no hay en el almacén
+const campoCantidad = (i) => `<label class="cant-entrega">Entrega <input type="number" data-cant="${i.id}" value="${i.cantidad}" min="0.01" max="${i.cantidad}" step="any"
+  aria-label="Cantidad que entrega"> de ${esc(i.cantidad)} ${esc(i.medida)}</label>`;
+const entregado = (i) => i.cantidad_entregada == null ? "" : ` · ${i.cantidad_entregada} de ${i.cantidad} ${i.medida}`;
 const filaEntrega = (o, i) => {
   const puede = desdeBandeja && o.estado === "Abierta";
   return [`${i.cantidad} ${i.medida} · ${i.descripcion}`,
-    i.entregado_por ? firmaItem(i.entregado_por, i.entregado_en) : puede && o.responsable === yo ? botonFirma(i, "entrega", "Firmar entrega") : "Pendiente",
+    i.entregado_por ? firmaItem(i.entregado_por, i.entregado_en) + entregado(i)
+      : puede && o.responsable === yo ? { html: campoCantidad(i) + botonFirma(i, "entrega", "Firmar entrega").html } : "Pendiente",
     i.recibido_por ? firmaItem(i.recibido_por, i.recibido_en)
       : i.entregado_por && puede && o.creado_por === yo ? botonFirma(i, "recibe", "Firmar recibido") : "Pendiente",
     { html: (i.entregado ? '<span class="chulo">✓ Entregado</span>' : "Pendiente") + novedad(i) }];
@@ -100,12 +105,8 @@ const filaEntrega = (o, i) => {
 const cierreOS = (o) => {
   if (o.estado !== "Abierta" || !desdeBandeja || ![o.responsable, o.creado_por].includes(yo)) return "";
   const faltan = o.os_items.filter((i) => !i.entregado).length;
-  // Si no hay cómo entregar todo, el responsable la cierra incompleta con el motivo (sql/22_os_responsable.sql)
   if (faltan) return `<p class="nota no-imprimir">Faltan ${faltan} ítem${faltan === 1 ? "" : "s"} con las dos firmas (entrega y recibido).
-    La orden se cierra sola cuando quien la pidió firme el último recibido.</p>` + (trabaja(o) ? `<div class="card bloque no-imprimir" id="cierreOS" data-os="${o.id}" data-numero="${esc(o.numero)}">
-    <label class="campo"><span class="req">¿No puede entregar todo? Escriba por qué y cierre la orden</span>
-      <textarea id="motivoIncompleta" maxlength="500" placeholder="Ej: se entregaron 10 de 20; no hay más en el almacén"></textarea></label>
-    <div class="acciones-fila" style="justify-content:flex-end"><button type="button" class="btn btn-red" id="btnCerrarIncompleta">Cerrar con entrega incompleta</button></div></div>` : "");
+    La orden se cierra sola cuando quien la pidió firme el último recibido. Si no hay todo en el almacén, entregue la cantidad que tenga.</p>`;
   return trabaja(o) ? `<div class="acciones no-imprimir" id="cierreOS" data-os="${o.id}" data-numero="${esc(o.numero)}"><span></span>
     <button type="button" class="btn btn-red" id="btnCerrarOS">Cerrar orden</button></div>` : "";
 };
@@ -161,8 +162,7 @@ const VISTA = {
       dato("Área solicitante", o.area_solicitante), datoHtml("Prioridad", chip(o.prioridad)), datoHtml("Estado", estado(o.estado)),
       dato("Registrado el", fecha(o.creado_en)), dato("Solicitante", nombres.get(o.creado_por)), dato("Responsable", nombres.get(o.responsable)),
       datoHtml("OT relacionada", o.ordenes_trabajo ? enlace("OT", o.ordenes_trabajo.id, o.ordenes_trabajo.numero) : "—"),
-      dato("Cerrada el", o.cerrada_en && fecha(o.cerrada_en)),
-      ...(o.cierre_incompleto ? [dato("Cerrada con entrega incompleta", o.cierre_incompleto)] : []))) +
+      dato("Cerrada el", o.cerrada_en && fecha(o.cerrada_en)))) +
     bloque(2, "caja", "Ítems solicitados", tabla(["Máquina", "Referencia", "Marca", "Código", "Cantidad", "Medida", "Costo unitario", "Costo total", "Proveedor", "Descripción", "Función",
       ...(corrige(o) ? [""] : [])],
       [...o.os_items].sort((a, b) => a.id - b.id).map((i) => [i.maquina, i.referencia, i.marca, i.codigo, i.cantidad, i.medida, pesos(i.costo_unitario), pesos(i.costo_total), i.proveedor, i.descripcion, i.funcion,
@@ -337,23 +337,14 @@ $("detalle").onclick = async (e) => {
   // Firma del ítem: queda con el usuario de la sesión y la hora del servidor
   const fi = e.target.closest("[data-firmar]");
   if (fi) {
-    const que = fi.dataset.como === "entrega" ? "la entrega" : "que recibió";
-    if (!confirm(`¿Firmar ${que} de: ${fi.dataset.texto}? Quedará con su nombre y la hora actual.`)) return;
+    const cant = $("detalle").querySelector(`[data-cant="${fi.dataset.firmar}"]`);
+    if (cant && !cant.reportValidity()) return;
+    const que = cant ? `la entrega de ${cant.value} de` : "que recibió";
+    if (!confirm(`¿Firmar ${que}: ${fi.dataset.texto}? Quedará con su nombre y la hora actual.`)) return;
     fi.disabled = true;
-    const { error } = await db.rpc("firmar_item", { item: Number(fi.dataset.firmar), como: fi.dataset.como });
+    const { error } = await db.rpc("firmar_item", { item: Number(fi.dataset.firmar), como: fi.dataset.como, ...(cant && { cantidad: Number(cant.value) }) });
     if (error) { fi.disabled = false; return aviso(error.message, true); }
     aviso(fi.dataset.como === "entrega" ? "Entrega firmada" : "Recibido firmado");
-    return recargar();
-  }
-  const bi = e.target.closest("#btnCerrarIncompleta");
-  if (bi) {
-    const c = $("cierreOS"), motivo = $("motivoIncompleta").value.trim();
-    if (!motivo) { $("motivoIncompleta").focus(); return aviso("Escriba por qué se cierra sin entregar todo", true); }
-    if (!confirm(`¿Cerrar la ${c.dataset.numero} con entrega incompleta? Ya no se podrá reabrir.`)) return;
-    bi.disabled = true;
-    const { error } = await db.rpc("cerrar_os_incompleta", { os: Number(c.dataset.os), motivo });
-    if (error) { bi.disabled = false; return aviso(error.message, true); }
-    aviso(`${c.dataset.numero} cerrada con entrega incompleta`);
     return recargar();
   }
   if (e.target.closest("#btnCerrarOS")) {
@@ -437,9 +428,8 @@ $("btnExcel").onclick = async () => {
       "No.": o.numero, "Creada": hora(o.creado_en), "Solicitante": n(o.creado_por), "Responsable": n(o.responsable),
       "Área solicitante": o.area_solicitante, "Prioridad": o.prioridad, "OT": o.ordenes_trabajo?.numero ?? "",
       "Estado": o.estado, "Cerrada": hora(o.cerrada_en), "Horas hasta el cierre": horasEntre(o.creado_en, o.cerrada_en),
-      "Cierre incompleto (motivo)": o.cierre_incompleto ?? "",
       "Máquina": i.maquina ?? "", "Descripción": i.descripcion ?? "", "Referencia": i.referencia ?? "", "Marca": i.marca ?? "",
-      "Código": i.codigo ?? "", "Cantidad": i.cantidad ?? "", "Medida": i.medida ?? "", "Función": i.funcion ?? "", "Proveedor": i.proveedor ?? "",
+      "Código": i.codigo ?? "", "Cantidad": i.cantidad ?? "", "Cantidad entregada": i.cantidad_entregada ?? "", "Medida": i.medida ?? "", "Función": i.funcion ?? "", "Proveedor": i.proveedor ?? "",
       "Costo unitario": i.costo_unitario ?? "", "Costo total": i.costo_total ?? "",
       "Entregó": n(i.entregado_por), "Entregado el": hora(i.entregado_en), "Recibió": n(i.recibido_por), "Recibido el": hora(i.recibido_en),
     })));

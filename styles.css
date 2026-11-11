@@ -280,3 +280,7 @@ label.btn.cargando { opacity: .6; pointer-events: none; }
   .pregunta { flex-direction: column; align-items: stretch; }
   .opciones label { flex: 1; } .opciones span { width: 100%; }
 }
+
+/* Cantidad que se entrega al firmar la entrega del ítem (consulta.js) */
+.cant-entrega { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.cant-entrega input { width: 6.5em; }
