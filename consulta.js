@@ -189,7 +189,8 @@ const VISTA = {
     bloque(2, "caja", "Ítems solicitados", tabla(["Máquina", "Referencia", "Marca", "Código", "Cantidad", "Medida", "Costo unitario", "Costo total", "Proveedor", "Descripción", "Función",
       ...(corrige(o) ? [""] : [])],
       [...o.os_items].sort((a, b) => a.id - b.id).map((i) => [i.maquina, i.referencia, i.marca, i.codigo, i.cantidad, i.medida,
-        llena(o) ? celda(i, "costo_unitario", "number") : pesos(i.costo_unitario), pesos(i.costo_total), llena(o) ? celda(i, "proveedor", "text") : i.proveedor, i.descripcion, i.funcion,
+        llena(o) ? celda(i, "costo_unitario", "number") : pesos(i.costo_unitario),
+        llena(o) ? { html: `<span id="ct-${i.id}">${esc(pesos(i.costo_total))}</span>` } : pesos(i.costo_total), llena(o) ? celda(i, "proveedor", "text") : i.proveedor, i.descripcion, i.funcion,
         ...(corrige(o) ? [{ html: `<button type="button" class="btn btn-sec btn-firma no-imprimir" data-corregir="${i.id}" ${o.creado_por === yo ? "" : "data-ajuste"}>${o.creado_por === yo ? "Corregir" : "Editar"}</button>` }] : [])])) +
       totalOS(o.os_items) +
       (llena(o) ? `<div class="acciones-fila no-imprimir" style="justify-content:flex-end"><button type="button" class="btn btn-red btn-ico" id="btnGuardarItems" hidden>
@@ -356,6 +357,17 @@ const recargar = async () => { recargando = true; try { await mostrar(); } final
 const casillas = () => [...$("requisitos").querySelectorAll("input")];
 $("detalle").oninput = (e) => {
   if (e.target.matches(".celda-item")) $("btnGuardarItems").hidden = celdas().every((c) => c.value === c.defaultValue);
+  // Mientras escribe el costo unitario: costo total del ítem y total de la orden (la base los vuelve a calcular al guardar)
+  if (e.target.matches(".celda-item[name=costo_unitario]")) {
+    const total = (i) => {
+      const c = $("detalle").querySelector(`.celda-item[data-item="${i.id}"][name=costo_unitario]`);
+      return !c ? i.costo_total : c.value === "" ? null : Math.round(Number(i.cantidad) * Number(c.value) * 100) / 100;
+    };
+    const i = itemsOS.get(Number(e.target.dataset.item));
+    $("ct-" + i.id).textContent = pesos(total(i));
+    const con = [...itemsOS.values()].map(total).filter((t) => t != null);
+    $("detalle").querySelector(".total-os b").textContent = con.length ? pesos(con.reduce((s, t) => s + Number(t), 0)) : "—";
+  }
 };
 $("detalle").onchange = (e) => {
   if (e.target.closest("#requisitos")) $("btnGuardarRequisitos").hidden = casillas().every((c) => c.checked === c.defaultChecked);
