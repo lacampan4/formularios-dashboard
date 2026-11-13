@@ -14,7 +14,7 @@ const DEF = {
     nombre: "Orden de Suministro", tabla: "ordenes_suministro", conEstado: true,
     lista: "id, numero, creado_en, prioridad, estado, area_solicitante",
     fila: (o) => ({ numero: o.numero, prioridad: o.prioridad, detalle: o.area_solicitante, estado: o.estado }),
-    detalle: "*, os_items(*, os_correcciones(*)), ordenes_trabajo!ordenes_suministro_ot_id_fkey(id, numero)",
+    detalle: "*, os_items(*, os_correcciones(*), os_entregas(*)), ordenes_trabajo!ordenes_suministro_ot_id_fkey(id, numero)",
   },
   ATS: {
     nombre: "Análisis de Trabajo Seguro", tabla: "ats", conEstado: true,
@@ -58,7 +58,7 @@ const firmas = (o) => datos(dato("Autorizado por", o.autorizado_por), dato("Entr
 const desdeBandeja = new URLSearchParams(location.search).has("bandeja");
 // Dentro de la ventana flotante de la bandeja: sin barra roja ni botones de Consulta (styles.css)
 document.body.classList.toggle("flotante", new URLSearchParams(location.search).has("flotante"));
-const trabaja = (o) => desdeBandeja && o.responsable === yo && o.estado === "Abierta";
+const trabaja = (o) => desdeBandeja && o.responsable === yo && o.estado !== "Cerrada";  // Abierta o En proceso
 
 // ATS y Permiso de la OT: los marca solo el responsable; el admin los ve; los demás no
 let yo = null, esAdmin = false;
@@ -87,26 +87,37 @@ const requisitos = (o) => {
 const firmaItem = (por, en) => `${nombres.get(por) ?? "—"} · ${fecha(en)}`;
 const botonFirma = (i, como, txt) => ({ html: `<button type="button" class="btn btn-sec btn-firma" data-firmar="${i.id}" data-como="${como}"
   data-texto="${esc(`${i.cantidad} ${i.medida} · ${i.descripcion}`)}">${txt}</button>` });
-// La entrega lleva cuánto se entregó (sql/23_os_entrega_parcial.sql): por defecto todo, o menos si no hay en el almacén
-const campoCantidad = (i) => `<label class="cant-entrega">Entrega <input type="number" data-cant="${i.id}" value="${i.cantidad}" min="0.01" max="${i.cantidad}" step="any"
-  aria-label="Cantidad que entrega"> de ${esc(i.cantidad)} ${esc(i.medida)}</label>`;
-const entregado = (i) => i.cantidad_entregada == null ? "" : ` · ${i.cantidad_entregada} de ${i.cantidad} ${i.medida}`;
+// Entregas del ítem (sql/25_os_entregas_parciales.sql): "Firmar entrega" entrega todo lo que falta;
+// "Entrega parcial" pide cuánto y lo que falta se entrega después. Cada entrega se recibe aparte.
+const falta = (i) => Number(i.cantidad) - Number(i.cantidad_entregada ?? 0);
+const lineas = (lista) => lista.map((x) => `<div>${esc(x)}</div>`).join("");
+const parcial = (i) => `<button type="button" class="btn btn-sec btn-firma" data-abrir-parcial="${i.id}">Entrega parcial</button>
+  <div class="cant-entrega" id="parcial-${i.id}" hidden>Entrega <input type="number" data-cant="${i.id}" min="0.01" max="${falta(i)}" step="any" required
+    aria-label="Cantidad que entrega"> de ${falta(i)} ${esc(i.medida)} que faltan
+    <button type="button" class="btn btn-red btn-firma" data-firmar="${i.id}" data-como="entrega" data-parcial
+      data-texto="${esc(`${i.medida} · ${i.descripcion}`)}">Firmar entrega parcial</button></div>`;
 const filaEntrega = (o, i) => {
-  const puede = desdeBandeja && o.estado === "Abierta";
+  const puede = desdeBandeja && o.estado !== "Cerrada";
+  const entregas = [...(i.os_entregas ?? [])].sort((a, b) => a.id - b.id);
+  const porRecibir = entregas.some((x) => !x.recibido_por);
+  const quien = (x, por, en) => `${x.cantidad} ${i.medida} · ${firmaItem(por, en)}`;
+  const entrego = lineas(entregas.map((x) => quien(x, x.entregado_por, x.entregado_en)));
+  const recibio = lineas(entregas.filter((x) => x.recibido_por).map((x) => quien(x, x.recibido_por, x.recibido_en)));
+  const entrega = !i.entregado_por && puede && o.responsable === yo, recibe = porRecibir && puede && o.creado_por === yo;
   return [`${i.cantidad} ${i.medida} · ${i.descripcion}`,
-    i.entregado_por ? firmaItem(i.entregado_por, i.entregado_en) + entregado(i)
-      : puede && o.responsable === yo ? { html: campoCantidad(i) + botonFirma(i, "entrega", "Firmar entrega").html } : "Pendiente",
-    i.recibido_por ? firmaItem(i.recibido_por, i.recibido_en)
-      : i.entregado_por && puede && o.creado_por === yo ? botonFirma(i, "recibe", "Firmar recibido") : "Pendiente",
-    { html: (i.entregado ? '<span class="chulo">✓ Entregado</span>' : "Pendiente") + novedad(i) }];
+    { html: (entrego || (entrega ? "" : "Pendiente")) + (entrega ? `<div class="acciones-fila">${botonFirma({ ...i, cantidad: falta(i) }, "entrega",
+      entregas.length ? "Entregar lo que falta" : "Firmar entrega").html}${parcial(i)}</div>` : "") },
+    { html: (recibio || (recibe ? "" : "Pendiente")) + (recibe ? botonFirma(i, "recibe", "Firmar recibido").html : "") },
+    { html: (i.entregado ? '<span class="chulo">✓ Entregado</span>' : i.entregado_por ? "Entregado, falta el recibido"
+      : i.cantidad_entregada ? `<span class="chip proceso">Parcial: ${esc(i.cantidad_entregada)} de ${esc(i.cantidad)} ${esc(i.medida)}</span>` : "Pendiente") + novedad(i) }];
 };
 // La OS se cierra sola con el último recibido (sql/17_cierre_roles_maquinas.sql). "Cerrar" solo queda para
 // OS anteriores a eso que ya tienen todos los ítems firmados.
 const cierreOS = (o) => {
-  if (o.estado !== "Abierta" || !desdeBandeja || ![o.responsable, o.creado_por].includes(yo)) return "";
+  if (o.estado === "Cerrada" || !desdeBandeja || ![o.responsable, o.creado_por].includes(yo)) return "";
   const faltan = o.os_items.filter((i) => !i.entregado).length;
   if (faltan) return `<p class="nota no-imprimir">Faltan ${faltan} ítem${faltan === 1 ? "" : "s"} con las dos firmas (entrega y recibido).
-    La orden se cierra sola cuando quien la pidió firme el último recibido. Si no hay todo en el almacén, entregue la cantidad que tenga.</p>`;
+    La orden se cierra sola cuando quien la pidió firme el último recibido. Si no hay todo en el almacén, use <b>Entrega parcial</b>: la orden queda En proceso y lo que falta se entrega después.</p>`;
   return trabaja(o) ? `<div class="acciones no-imprimir" id="cierreOS" data-os="${o.id}" data-numero="${esc(o.numero)}"><span></span>
     <button type="button" class="btn btn-red" id="btnCerrarOS">Cerrar orden</button></div>` : "";
 };
@@ -283,7 +294,7 @@ async function mostrar() {
   let { data, error } = await db.from(DEF[tipo].tabla).select(DEF[tipo].detalle).eq("id", id).maybeSingle();
   // Sin sql/14_os_correcciones.sql en Supabase (PGRST200: no conoce la relación) la OS se ve igual, sin correcciones
   if (error?.code === "PGRST200" && tipo === "OS")
-    ({ data, error } = await db.from(DEF.OS.tabla).select(DEF.OS.detalle.replace("os_items(*, os_correcciones(*))", "os_items(*)")).eq("id", id).maybeSingle());
+    ({ data, error } = await db.from(DEF.OS.tabla).select(DEF.OS.detalle.replace("os_items(*, os_correcciones(*), os_entregas(*))", "os_items(*)")).eq("id", id).maybeSingle());
   if (location.hash !== pedido) return; // ya se abrió otro formato mientras cargaba
   if (error) return $("detalle").innerHTML = `<p class="msg error">${esc(error.message)}</p>`;
   if (!data) return $("detalle").innerHTML = `<div class="card"><p>No se encontró ese formato.</p></div>`;
@@ -335,11 +346,16 @@ $("detalle").onclick = async (e) => {
   const co = e.target.closest("[data-corregir]");
   if (co) return abrirCorreccion(Number(co.dataset.corregir), co.hasAttribute("data-ajuste"));
   // Firma del ítem: queda con el usuario de la sesión y la hora del servidor
+  const ap = e.target.closest("[data-abrir-parcial]");
+  if (ap) {
+    const caja = $("parcial-" + ap.dataset.abrirParcial);
+    ap.hidden = true; caja.hidden = false; return caja.querySelector("input").focus();
+  }
   const fi = e.target.closest("[data-firmar]");
   if (fi) {
-    const cant = $("detalle").querySelector(`[data-cant="${fi.dataset.firmar}"]`);
+    const cant = fi.hasAttribute("data-parcial") ? $("detalle").querySelector(`[data-cant="${fi.dataset.firmar}"]`) : null;
     if (cant && !cant.reportValidity()) return;
-    const que = cant ? `la entrega de ${cant.value} de` : "que recibió";
+    const que = cant ? `la entrega parcial de ${cant.value}` : fi.dataset.como === "entrega" ? "la entrega de" : "que recibió";
     if (!confirm(`¿Firmar ${que}: ${fi.dataset.texto}? Quedará con su nombre y la hora actual.`)) return;
     fi.disabled = true;
     const { error } = await db.rpc("firmar_item", { item: Number(fi.dataset.firmar), como: fi.dataset.como, ...(cant && { cantidad: Number(cant.value) }) });

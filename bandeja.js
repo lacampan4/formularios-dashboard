@@ -19,25 +19,26 @@ const accion = (o) => o.tipo === "OT" && o.estado === "Abierta" ?
 
 // Qué le toca hacer al usuario en cada orden abierta, para saberlo sin abrirla
 function toca(o) {
-  if (o.estado !== "Abierta") return [];
+  if (o.estado === "Cerrada") return [];
   if (o.tipo === "OT") return ["Revisar y cerrar"];
   const n = (f) => o.os_items.filter(f).length;
   const entregar = o.responsable === yo ? n((i) => !i.entregado_por) : 0;
-  const recibir = o.creado_por === yo ? n((i) => i.entregado_por && !i.recibido_por) : 0;
+  const recibir = o.creado_por === yo ? n((i) => (i.os_entregas ?? []).some((x) => !x.recibido_por)) : 0;
   return [entregar && `Firmar entrega (${entregar})`, recibir && `Firmar recibido (${recibir})`,
     o.responsable === yo && !n((i) => !i.entregado) && "Lista para cerrar"].filter(Boolean);
 }
-const pendientes = (t, o) => o.estado !== "Abierta" ? "" : `<div class="toca">${t.length
+const pendientes = (t, o) => o.estado === "Cerrada" ? "" : `<div class="toca">${t.length
   ? t.map((x) => `<span class="chip ${x === "Lista para cerrar" ? "chip-listo" : "chip-toca"}">${x}</span>`).join("")
   : '<span class="nota" style="margin:0">Esperando a la otra persona</span>'}</div>`;
 
 async function cargar() {
-  const filtro = (q) => (f.estado.value ? q.eq("estado", f.estado.value) : q).order("creado_en", { ascending: false }).limit(500);
+  // "Sin cerrar": abiertas y en proceso
+  const filtro = (q) => (f.estado.value === "sin_cerrar" ? q.neq("estado", "Cerrada") : f.estado.value ? q.eq("estado", f.estado.value) : q).order("creado_en", { ascending: false }).limit(500);
   const [ot, os] = await Promise.all([
     filtro(db.from("ordenes_trabajo").select("id, numero, creado_en, creado_por, prioridad, estado, maquina, ot_lineas(codigo_falla, reporte, codigos_falla(descripcion))").eq("responsable", yo)),
     // OS: las que debe entregar (responsable) y las que pidió (solicitante, para firmar el recibido)
     filtro(db.from("ordenes_suministro").select("id, numero, creado_en, creado_por, responsable, prioridad, estado, area_solicitante, " +
-      "os_items(id, maquina, cantidad, medida, descripcion, entregado_por, recibido_por, entregado, cantidad_entregada)")
+      "os_items(id, maquina, cantidad, medida, descripcion, entregado_por, recibido_por, entregado, cantidad_entregada, os_entregas(recibido_por))")
       .or(`responsable.eq.${yo},creado_por.eq.${yo}`).order("id", { referencedTable: "os_items" })),
   ]);
   const error = ot.error || os.error;
@@ -56,7 +57,7 @@ async function cargar() {
       <td>${o.detalle}</td>
       <td><span class="chip ${esc(o.estado)}">${esc(o.estado)}</span>${pendientes(o.toca, o)}</td>
       <td><a class="btn ${o.toca.length ? "btn-red" : "btn-sec"}" href="consulta.html?bandeja#${o.tipo}/${o.id}" style="margin-bottom:8px">Abrir</a>${accion(o)}</td>
-    </tr>`).join("") : `<tr><td class="vacio" colspan="8">No tiene órdenes ${f.estado.value ? (f.estado.value === "Abierta" ? "abiertas" : "cerradas") : ""}</td></tr>`;
+    </tr>`).join("") : `<tr><td class="vacio" colspan="8">No tiene órdenes ${{ sin_cerrar: "sin cerrar", Abierta: "abiertas", "En proceso": "en proceso", Cerrada: "cerradas" }[f.estado.value] ?? ""}</td></tr>`;
   etiquetar($("tabla"));
   const conAlgo = lista.filter((o) => o.toca.length).length;
   $("conteo").textContent = `${lista.length} orden${lista.length === 1 ? "" : "es"}` +

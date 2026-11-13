@@ -71,14 +71,14 @@ async function cargar() {
 
 function pintar(lista, fallas) {
   const ot = lista.filter((o) => o.formato === "OT"), os = lista.filter((o) => o.formato === "OS");
-  const abiertas = lista.filter((o) => o.estado === "Abierta");
+  const abiertas = lista.filter((o) => o.estado !== "Cerrada");  // abiertas y en proceso
   const rojas = lista.filter((o) => o.prioridad === "Rojo").length;
   const pctRojo = lista.length ? Math.round((rojas / lista.length) * 100) : 0;
 
   // Regla de oro 4: si todo es urgente, nada es urgente (alarma > 30 % en Rojo)
   $("kpis").innerHTML = [
     ["Órdenes en el periodo", lista.length, `${ot.length} OT · ${os.length} OS`],
-    ["Abiertas", abiertas.length, `${abiertas.filter((o) => o.formato === "OT").length} OT · ${abiertas.filter((o) => o.formato === "OS").length} OS`],
+    ["Sin cerrar", abiertas.length, `${abiertas.filter((o) => o.formato === "OT").length} OT · ${abiertas.filter((o) => o.formato === "OS").length} OS`],
     ["En Rojo", `${pctRojo} %`, `${rojas} órdenes${pctRojo > 30 ? " · demasiadas urgencias" : ""}`, pctRojo > 30],
   ].map(([t, v, s, alarma]) => `<div class="kpi"><small>${esc(t)}</small><b class="${alarma ? "alarma" : ""}">${esc(v)}</b><small>${esc(s)}</small></div>`).join("");
 

@@ -117,8 +117,10 @@ fieldset { border: none; margin: 0; padding: 0; min-width: 0; }
 .chip.Rojo { background: var(--prio-rojo); color: #fff; }
 .chip.Amarillo { background: var(--prio-amarillo); color: var(--negro); }
 .chip.Verde { background: var(--prio-verde); color: #fff; }
-.chip.Abierta { background: var(--gris-200); color: var(--negro); }
-.chip.Cerrada { background: #e3f4ea; color: var(--ok); }
+/* Estados: abierta verde, en proceso naranja, cerrada rojo */
+.chip.Abierta { background: #e3f4ea; color: #00703a; }
+.chip.proceso { background: #fff0db; color: #a14f00; }
+.chip.Cerrada { background: #fde4e3; color: #b3140d; }
 
 /* ================= DASHBOARD ================= */
 .filtros { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 18px; }

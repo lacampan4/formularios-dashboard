@@ -61,6 +61,7 @@ await db.exec(readFileSync(`${dir}/21_ats_vigencia.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/22_os_responsable.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/23_os_entrega_parcial.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/24_maquinas_galones.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/25_os_entregas_parciales.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
 await db.exec(readFileSync(`${dir}/3_roles.sql`, "utf8"));
@@ -87,6 +88,7 @@ await db.exec(readFileSync(`${dir}/21_ats_vigencia.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/22_os_responsable.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/23_os_entrega_parcial.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/24_maquinas_galones.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/25_os_entregas_parciales.sql`, "utf8"));
 assert.equal((await db.query(`select frente from usuarios where id = '${SIN_ROL}'`)).rows[0].frente, "Abastecimiento");
 await db.exec(`update usuarios set nombre = 'lina.h', frente = null, encargo = null where id = '${SIN_ROL}'`);  // como estaba
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
@@ -285,7 +287,7 @@ await falla("select cerrar_os($1)", [os2], /dos firmas/);                       
 const it2 = await val("select id from os_items where os_id = $1", [os2]);
 await falla("select firmar_item($1, 'recibe')", [it2], /Solo quien pidió/);                                // el responsable no firma el recibido
 await db.query("select firmar_item($1, 'entrega')", [it2]);
-await falla("select firmar_item($1, 'entrega')", [it2], /ya está firmada/);
+await falla("select firmar_item($1, 'entrega')", [it2], /ya se entregó completo/);
 assert.equal(await val("select entregado_por::text from os_items where id = $1", [it2]), PROD);
 await falla("update os_items set recibido_por = $1 where id = $2", [PROD, it2], /permission denied/);       // nadie firma por otro editando
 await comoUsuario();
@@ -298,7 +300,7 @@ assert.equal(await val("select estado from ordenes_suministro where id = $1", [o
 assert.ok(await val("select cerrada_en from ordenes_suministro where id = $1", [os2]));
 // Recibir antes de que entreguen no se puede
 const it3 = await val("select id from os_items where os_id = $1", [os3]);
-await falla("select firmar_item($1, 'recibe')", [it3], /Primero el responsable/);
+await falla("select firmar_item($1, 'recibe')", [it3], /No hay entregas de este ítem por recibir/);
 await falla("select firmar_item($1, 'otro')", [it3], /no válida/);
 // Con varios ítems sigue abierta hasta el último recibido
 const osVarios = await val("select id from ordenes_suministro where numero = $1", [await os({ area_solicitante: "Corte", prioridad: "Verde" }, [item, { ...item, descripcion: "Acople" }])]);
@@ -352,16 +354,26 @@ assert.equal(await val("select descripcion from os_items where id = $1", [it2]),
 await falla("select corregir_item($1, 'Mal entregado', 'x', '{}')", [c1], /Solo quien pidió la orden o su responsable/);  // OS ajena
 await comoUsuario();
 await falla("select corregir_item($1, 'Ajuste del responsable', 'x', '{}')", [c1], /mal diligenciado o mal entregado/);
-// Entrega parcial (23): el responsable entrega menos de lo pedido; con el último recibido la OS se cierra igual
-await db.exec("savepoint s23");
+// Entregas parciales (25): lo que falta se entrega después; la OS queda En proceso hasta completar todo
+const estadoOS4 = () => val("select estado from ordenes_suministro where id = $1", [os4]);
+await db.exec("savepoint s25");
 await falla("select firmar_item($1, 'entrega', 0)", [c1], /Entregue más de 0 y hasta 2 m/);
 await falla("select firmar_item($1, 'entrega', 3)", [c1], /hasta 2/);
-await db.query("select firmar_item($1, 'entrega', 1.5)", [c1]);
-await db.query("select firmar_item($1, 'entrega')", [c2]);                                                // sin cantidad: todo
-assert.deepEqual((await db.query("select cantidad_entregada::float e from os_items where os_id = $1 order by id", [os4])).rows.map((r) => r.e), [1.5, 2]);
+await db.query("select firmar_item($1, 'entrega', 1.5)", [c1]);                                           // entrega parcial
+assert.equal(await estadoOS4(), "En proceso");
+assert.equal(await val("select (entregado_por is null) || ' ' || cantidad_entregada::float from os_items where id = $1", [c1]), "true 1.5");
+await db.query("select firmar_item($1, 'recibe')", [c1]);                                                 // recibe la parte
+await falla("select firmar_item($1, 'recibe')", [c1], /No hay entregas de este ítem por recibir/);
+assert.equal(await estadoOS4(), "En proceso");
+await falla("select firmar_item($1, 'entrega', 1)", [c1], /hasta 0.5/);
+await db.query("select firmar_item($1, 'entrega')", [c1]);                                                // sin cantidad: lo que falta
+await db.query("select firmar_item($1, 'entrega')", [c2]);
 for (const it of [c1, c2]) await db.query("select firmar_item($1, 'recibe')", [it]);
-assert.equal(await val("select estado from ordenes_suministro where id = $1", [os4]), "Cerrada");
-await db.exec("rollback to savepoint s23");
+assert.equal(await estadoOS4(), "Cerrada");
+assert.deepEqual((await db.query("select cantidad::float q, (recibido_por is not null) r from os_entregas where item_id = $1 order by id", [c1])).rows,
+  [{ q: 1.5, r: true }, { q: 0.5, r: true }]);
+await db.exec("rollback to savepoint s25");
+assert.equal(await val("select count(*)::int from os_items i where entregado_por is not null and not exists (select 1 from os_entregas e where e.item_id = i.id)"), 0);
 assert.equal(await val("select count(*)::int from os_items where entregado_por is not null and cantidad_entregada is distinct from cantidad"), 0);  // las de antes: todo
 
 // SST (19 y 20): llena los cuatro formatos; de los demás ve solo ATS y permisos, con su detalle; producción no
