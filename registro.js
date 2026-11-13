@@ -87,6 +87,7 @@ document.addEventListener("click", (e) => {
 
 // ---------------- Catálogos fijos ----------------
 $("dl-personas").innerHTML = opciones(PERSONAS);
+let editando = null; // máquina que el admin está editando (modoMaquina)
 let esAdmin = false; // solo el admin ve "+ Nueva máquina" y "+ Nuevo código"; la base de datos también lo exige
 // Máquinas: tabla maquinas (sql/17_cierre_roles_maquinas.sql). Mientras no exista, la lista fija de config.js.
 let maquinas = MAQUINAS.map((nombre) => ({ nombre, linea: LINEA_DE_MAQUINA[nombre] ?? null }));
@@ -165,21 +166,36 @@ $("otMaquina").onchange = () => {
   const v = $("otMaquina").value, otro = v === "OTRO", nueva = v === "nueva";
   $("lblMaquinaOtro").hidden = !otro;
   $("otMaquinaOtro").required = otro;
+  modoMaquina(null);
   $("nuevaMaquina").hidden = !nueva;
+  $("editarMaquinaBox").hidden = !(esAdmin && maquinas.some((m) => m.nombre === v));
   $("otMaquina").setCustomValidity(nueva ? "Agregue la máquina nueva o elija una de la lista" : "");
   if (nueva) $("nmNombre").focus();
   pintarCodigos();
 };
+// El mismo cuadro sirve para agregar una máquina nueva o editar la elegida (editando = su nombre actual)
+function modoMaquina(actual) {
+  editando = actual;
+  const m = maquinas.find((x) => x.nombre === actual);
+  $("nmTitulo").textContent = actual ? "Editar máquina" : "Máquina nueva";
+  $("btnAgregarMaquina").lastChild.textContent = actual ? "Guardar cambios" : "Agregar máquina";
+  $("nmNombre").value = actual ?? ""; $("nmLinea").value = m?.linea ?? "";
+}
+$("btnEditarMaquina").onclick = () => {
+  modoMaquina($("otMaquina").value);
+  $("editarMaquinaBox").hidden = true; $("nuevaMaquina").hidden = false; $("nmNombre").focus();
+};
 $("btnAgregarMaquina").onclick = async () => {
   if (!$("nmNombre").value.trim()) return $("nmNombre").focus();
   $("btnAgregarMaquina").disabled = true;
-  const { data: nombre, error } = await db.rpc("agregar_maquina", { nombre: $("nmNombre").value, linea: $("nmLinea").value || null });
+  const datos = { nombre: $("nmNombre").value, linea: $("nmLinea").value || null };
+  const { data: nombre, error } = editando ? await db.rpc("editar_maquina", { actual: editando, ...datos }) : await db.rpc("agregar_maquina", datos);
   $("btnAgregarMaquina").disabled = false;
   if (error) return aviso(error.message, true);
-  $("nmNombre").value = ""; $("nmLinea").value = "";
+  const fue = editando;
   await cargarMaquinas();
   $("otMaquina").value = nombre; $("otMaquina").onchange();
-  aviso(`Máquina ${nombre} agregada a la lista`);
+  aviso(fue ? `Máquina ${nombre} actualizada` : `Máquina ${nombre} agregada a la lista`);
 };
 // "+ Nuevo código" (solo admin) abre en esa fila el campo para escribirlo; mientras esté elegido no se puede guardar
 $("formOT").addEventListener("change", (e) => {

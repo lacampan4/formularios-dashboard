@@ -60,6 +60,7 @@ await db.exec(readFileSync(`${dir}/20_sst_consulta.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/21_ats_vigencia.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/22_os_responsable.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/23_os_entrega_parcial.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/24_maquinas_galones.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
 await db.exec(readFileSync(`${dir}/3_roles.sql`, "utf8"));
@@ -85,6 +86,7 @@ await db.exec(readFileSync(`${dir}/20_sst_consulta.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/21_ats_vigencia.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/22_os_responsable.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/23_os_entrega_parcial.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/24_maquinas_galones.sql`, "utf8"));
 assert.equal((await db.query(`select frente from usuarios where id = '${SIN_ROL}'`)).rows[0].frente, "Abastecimiento");
 await db.exec(`update usuarios set nombre = 'lina.h', frente = null, encargo = null where id = '${SIN_ROL}'`);  // como estaba
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
@@ -431,10 +433,23 @@ assert.equal(await val("select agregar_maquina($1, $2)", ["Dobladora", "CTL"]), 
 assert.equal(await val("select count(*)::int from maquinas"), 16);
 await assert.rejects(db.query("select agregar_maquina('otro')"), /ya es una opción/);
 await assert.rejects(db.query("select agregar_maquina('X', 'Bodega')"), /Línea no válida/);
+// Editar máquina (24): nombre y línea; sin repetir otra; las órdenes guardadas no cambian
+const otDobladora = await ot({ maquina: "DOBLADORA", prioridad: "Verde" }, linea);
+assert.equal(await val("select editar_maquina($1, $2, $3)", ["DOBLADORA", " dobladora 2 ", "Cubiertas"]), "DOBLADORA 2");
+assert.equal(await val("select nombre || ' · ' || linea from maquinas where nombre = 'DOBLADORA 2'"), "DOBLADORA 2 · Cubiertas");
+assert.equal(await val("select maquina from ordenes_trabajo where numero = $1", [otDobladora]), "DOBLADORA");
+assert.equal(await val("select editar_maquina('DOBLADORA 2', 'Dobladora 2')"), "DOBLADORA 2");             // misma: solo cambia la línea
+assert.equal(await val("select count(*)::int from maquinas where linea is null and nombre = 'DOBLADORA 2'"), 1);
+await assert.rejects(db.query("select editar_maquina('DOBLADORA 2', 'ctl bronx')"), /Ya existe la máquina CTL BRONX/);
+await assert.rejects(db.query("select editar_maquina('NO EXISTE', 'Y')"), /no está en la lista/);
+await assert.rejects(db.query("select editar_maquina('DOBLADORA 2', 'otro')"), /ya es una opción/);
+// Galones en la OS (24)
+assert.match(await os({ area_solicitante: "Corte", prioridad: "Verde" }, [{ ...item, cantidad: 3, medida: "gal" }]), /^OS-\d{4}$/);
 await comoUsuario(PROD);
 assert.equal(await val("select puede('OS')"), true);                                                // el rol nuevo llena lo que se le dio
 assert.equal(await val("select puede('OT')"), false);
 await assert.rejects(db.query("select crear_rol('x_rol', '{OT}')"), /Solo un administrador/);
 await assert.rejects(db.query("select agregar_maquina('Y')"), /Solo un administrador/);
+await assert.rejects(db.query("select editar_maquina('DOBLADORA 2', 'Y')"), /Solo un administrador/);
 await db.exec("reset role");
 console.log("OK: todas las pruebas del esquema pasaron");
