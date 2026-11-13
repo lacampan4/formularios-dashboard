@@ -189,7 +189,7 @@ const VISTA = {
       // El responsable la marca En proceso cuando empieza a gestionarla (sql/27_os_en_proceso.sql)
       (trabaja(o) && o.estado === "Abierta" ? `<div class="acciones-fila no-imprimir" style="justify-content:flex-end;margin-top:12px">
         <button type="button" class="btn btn-sec" id="btnEnProceso" data-os="${o.id}" data-numero="${esc(o.numero)}">Poner en proceso</button></div>` : "")) +
-    bloque(2, "caja", "Ítems solicitados", tabla(["Máquina", "Referencia", "Marca", "Código", "Cantidad", "Medida", "Costo unitario", "Costo total", "Proveedor", "Descripción", "Función",
+    bloque(2, "caja", "Ítems solicitados", tabla(["Máquina", "Referencia", "Marca", "Código", "Cantidad", "Medida", "Costo unitario (almacén)", "Costo total (almacén)", "Proveedor (almacén)", "Descripción", "Función",
       ...(corrige(o) ? [""] : [])],
       [...o.os_items].sort((a, b) => a.id - b.id).map((i) => [i.maquina, i.referencia, i.marca, i.codigo, i.cantidad, i.medida,
         llena(o) ? celda(i, "costo_unitario", "number") : pesos(i.costo_unitario),
@@ -517,8 +517,8 @@ $("btnExcel").onclick = async () => {
       "Área solicitante": o.area_solicitante, "Prioridad": o.prioridad, "OT": o.ordenes_trabajo?.numero ?? "",
       "Estado": o.estado, "Cerrada": hora(o.cerrada_en), "Horas hasta el cierre": horasEntre(o.creado_en, o.cerrada_en),
       "Máquina": i.maquina ?? "", "Descripción": i.descripcion ?? "", "Referencia": i.referencia ?? "", "Marca": i.marca ?? "",
-      "Código": i.codigo ?? "", "Cantidad": i.cantidad ?? "", "Cantidad entregada": i.cantidad_entregada ?? "", "Medida": i.medida ?? "", "Función": i.funcion ?? "", "Proveedor": i.proveedor ?? "",
-      "Costo unitario": i.costo_unitario ?? "", "Costo total": i.costo_total ?? "",
+      "Código": i.codigo ?? "", "Cantidad": i.cantidad ?? "", "Cantidad entregada": i.cantidad_entregada ?? "", "Medida": i.medida ?? "", "Función": i.funcion ?? "", "Proveedor (almacén)": i.proveedor ?? "",
+      "Costo unitario (almacén)": i.costo_unitario ?? "", "Costo total (almacén)": i.costo_total ?? "",
       "Entregó": n(i.entregado_por), "Entregado el": hora(i.entregado_en), "Recibió": n(i.recibido_por), "Recibido el": hora(i.recibido_en),
     })));
 
