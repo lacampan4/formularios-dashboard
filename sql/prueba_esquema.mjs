@@ -64,6 +64,8 @@ await db.exec(readFileSync(`${dir}/24_maquinas_galones.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/25_os_entregas_parciales.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/26_os_editar_entrega.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/27_os_en_proceso.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/28_os_maquina_lista.sql`, "utf8"));
+await db.exec("insert into maquinas (nombre) values ('Formadora 1'), ('M')");  // máquinas de los ítems de prueba (28)
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
 await db.exec(readFileSync(`${dir}/3_roles.sql`, "utf8"));
@@ -93,6 +95,7 @@ await db.exec(readFileSync(`${dir}/24_maquinas_galones.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/25_os_entregas_parciales.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/26_os_editar_entrega.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/27_os_en_proceso.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/28_os_maquina_lista.sql`, "utf8"));
 assert.equal((await db.query(`select frente from usuarios where id = '${SIN_ROL}'`)).rows[0].frente, "Abastecimiento");
 await db.exec(`update usuarios set nombre = 'lina.h', frente = null, encargo = null where id = '${SIN_ROL}'`);  // como estaba
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
@@ -217,6 +220,7 @@ const item = { maquina: "Formadora 1", cantidad: 2, medida: "m", descripcion: "M
 await falla("select crear_os($1, $2)", [{ area_solicitante: "Formadoras", prioridad: "Rojo", responsable: U }, [{ ...item, medida: "cm" }]]);
 await falla("select crear_os($1, $2)", [{ area_solicitante: "Formadoras", prioridad: "Rojo", responsable: U }, [{ ...item, cantidad: 0 }]]);
 await falla("select crear_os($1, $2)", [{ area_solicitante: "Formadoras", prioridad: "Rojo", responsable: U }, [{ ...item, maquina: "" }]]);
+await falla("select crear_os($1, $2)", [{ area_solicitante: "Formadoras", prioridad: "Rojo", responsable: U }, [{ ...item, maquina: "INVENTADA" }]], /no está en la lista/);  // 28
 await falla("select crear_os($1, $2)", [{ area_solicitante: "Formadoras", prioridad: "Rojo" }, [item]], /os_con_responsable/);
 const n4 = await os({ area_solicitante: "Formadoras", prioridad: "Rojo", ot_id: 2 }, [item]);
 assert.equal(n4, "OS-0001");
@@ -464,10 +468,10 @@ await assert.rejects(db.query("select crear_rol($1, $2)", ["bodega ñ", ["OS"]])
 await assert.rejects(db.query("select crear_rol($1, $2)", ["calidad", []]), /formatos/);
 await db.query("select actualizar_usuario($1, 'Cesar Riveros', 'bodega_n', ' Logística ', 'Despachos')", [PROD]);
 assert.equal(await val(`select rol::text || ' · ' || frente from usuarios where id = '${PROD}'`), "bodega_n · Logística");
-assert.equal(await val("select count(*)::int from maquinas"), 15);
+assert.equal(await val("select count(*)::int from maquinas"), 17);  // 15 de la lista + 2 de prueba (28)
 assert.equal(await val("select agregar_maquina($1)", ["  dobladora "]), "DOBLADORA");
 assert.equal(await val("select agregar_maquina($1, $2)", ["Dobladora", "CTL"]), "DOBLADORA");     // ya existe: no se repite
-assert.equal(await val("select count(*)::int from maquinas"), 16);
+assert.equal(await val("select count(*)::int from maquinas"), 18);
 await assert.rejects(db.query("select agregar_maquina('otro')"), /ya es una opción/);
 await assert.rejects(db.query("select agregar_maquina('X', 'Bodega')"), /Línea no válida/);
 // Editar máquina (24): nombre y línea; sin repetir otra; las órdenes guardadas no cambian

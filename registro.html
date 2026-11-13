@@ -362,7 +362,7 @@
     <td class="quitar"><button type="button" class="btn-link" data-quitar aria-label="Quitar fila">✕</button></td>
   </tr></template>
   <template id="fila-os"><tr>
-    <td><input data-k="maquina" list="dl-maquinas" required placeholder="Máquina"></td>
+    <td><select data-k="maquina" class="sel-maquina" required aria-label="Máquina"></select></td>
     <td><input data-k="referencia" placeholder="Referencia"></td>
     <td><input data-k="marca" placeholder="Marca"></td>
     <td><input data-k="codigo" placeholder="Código"></td>
@@ -393,7 +393,6 @@
   </tr></template>
 
   <datalist id="dl-personas"></datalist>
-  <datalist id="dl-maquinas"></datalist>
   <div class="toast hidden" id="toast" role="status"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>

@@ -97,6 +97,10 @@ function pintarMaquinas(v = $("otMaquina").value) {
   $("otMaquina").innerHTML = opciones([], "Seleccione") + (esAdmin ? `<option value="nueva">+ Nueva máquina</option>` : "") +
     opciones([...maquinas.map((m) => m.nombre), "OTRO"]);
   $("otMaquina").value = v;
+  // OS: solo máquinas de la lista (sql/28_os_maquina_lista.sql); las agrega el admin desde la OT
+  const html = opciones(maquinas.map((m) => m.nombre), "Seleccione");
+  $("fila-os").content.querySelector(".sel-maquina").innerHTML = html;
+  $("formOS").querySelectorAll(".sel-maquina").forEach((s) => { const x = s.value; s.innerHTML = html; s.value = x; });
 }
 async function cargarMaquinas() {
   const { data, error } = await db.from("maquinas").select("nombre, linea").order("nombre");
@@ -302,7 +306,6 @@ async function cargarListas() {
   const lista = ots.data.map((o) => ({ v: o.id, t: `${o.numero} · ${o.maquina}${o.alto_riesgo ? " · alto riesgo" : ""} (${o.estado})` }));
   document.querySelectorAll(".sel-ot").forEach((s) => { const v = s.value; s.innerHTML = opciones(lista, "Seleccione"); s.value = v; });
   $("selATS").innerHTML = opciones(atss.data.map((a) => ({ v: a.id, t: `${a.numero} · ${a.ordenes_trabajo?.numero ?? ""} · ${a.fecha_apertura}` })), "Ninguno");
-  $("dl-maquinas").innerHTML = opciones([...new Set([...maquinas.map((m) => m.nombre), ...ots.data.map((o) => o.maquina)])]);
 }
 
 // En la plantilla de fila y en las filas ya puestas, sin perder lo elegido
