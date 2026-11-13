@@ -149,6 +149,13 @@ const novedad = (i) => {
   return c ? ` <span class="chip chip-novedad">${esc(c.tipo)} · corregido</span>` : "";
 };
 
+// El responsable llena costo unitario y proveedor en la misma tabla; "Guardar" aparece al escribir.
+// Se guarda con corregir_item (sql/22_os_responsable.sql): queda en el historial de correcciones.
+const llena = (o) => o.responsable === yo;
+const celda = (i, campo, tipo) => ({ html: `<input class="celda-item" type="${tipo}" data-item="${i.id}" name="${campo}" value="${esc(i[campo] ?? "")}"
+  ${tipo === "number" ? 'min="0" step="any"' : 'maxlength="120"'} aria-label="${CAMPOS[campo]} de ${esc(i.descripcion)}" placeholder="${tipo === "number" ? "$" : "Proveedor"}">` });
+const celdas = () => [...$("detalle").querySelectorAll(".celda-item")];
+
 // Suma de los costos totales de los ítems que tienen costo; "—" si ninguno lo tiene
 const totalOS = (items) => {
   const con = items.filter((i) => i.costo_total != null);
@@ -181,9 +188,12 @@ const VISTA = {
       dato("Cerrada el", o.cerrada_en && fecha(o.cerrada_en)))) +
     bloque(2, "caja", "Ítems solicitados", tabla(["Máquina", "Referencia", "Marca", "Código", "Cantidad", "Medida", "Costo unitario", "Costo total", "Proveedor", "Descripción", "Función",
       ...(corrige(o) ? [""] : [])],
-      [...o.os_items].sort((a, b) => a.id - b.id).map((i) => [i.maquina, i.referencia, i.marca, i.codigo, i.cantidad, i.medida, pesos(i.costo_unitario), pesos(i.costo_total), i.proveedor, i.descripcion, i.funcion,
+      [...o.os_items].sort((a, b) => a.id - b.id).map((i) => [i.maquina, i.referencia, i.marca, i.codigo, i.cantidad, i.medida,
+        llena(o) ? celda(i, "costo_unitario", "number") : pesos(i.costo_unitario), pesos(i.costo_total), llena(o) ? celda(i, "proveedor", "text") : i.proveedor, i.descripcion, i.funcion,
         ...(corrige(o) ? [{ html: `<button type="button" class="btn btn-sec btn-firma no-imprimir" data-corregir="${i.id}" ${o.creado_por === yo ? "" : "data-ajuste"}>${o.creado_por === yo ? "Corregir" : "Editar"}</button>` }] : [])])) +
-      totalOS(o.os_items)) +
+      totalOS(o.os_items) +
+      (llena(o) ? `<div class="acciones-fila no-imprimir" style="justify-content:flex-end"><button type="button" class="btn btn-red btn-ico" id="btnGuardarItems" hidden>
+        <span class="ico" data-icono="guardar"></span>Guardar</button></div>` : "")) +
     // Firmas por ítem (sql/12_os_firmas_items.sql): cada quien con su usuario y la hora en que firmó
     bloque(3, "firma", "Entregas por ítem", tabla(["Ítem", "Entregó", "Recibió", "Estado"],
       [...o.os_items].sort((a, b) => a.id - b.id).map((i) => filaEntrega(o, i)))) +
@@ -344,6 +354,9 @@ let recargando = false;
 const recargar = async () => { recargando = true; try { await mostrar(); } finally { recargando = false; } };
 // "Guardar" aparece cuando las casillas difieren de lo guardado (defaultChecked), también al desmarcar las dos
 const casillas = () => [...$("requisitos").querySelectorAll("input")];
+$("detalle").oninput = (e) => {
+  if (e.target.matches(".celda-item")) $("btnGuardarItems").hidden = celdas().every((c) => c.value === c.defaultValue);
+};
 $("detalle").onchange = (e) => {
   if (e.target.closest("#requisitos")) $("btnGuardarRequisitos").hidden = casillas().every((c) => c.checked === c.defaultChecked);
 };
@@ -351,6 +364,22 @@ $("detalle").onclick = async (e) => {
   const co = e.target.closest("[data-corregir]");
   if (co) return abrirCorreccion(Number(co.dataset.corregir), co.hasAttribute("data-ajuste"));
   // Firma del ítem: queda con el usuario de la sesión y la hora del servidor
+  const gi = e.target.closest("#btnGuardarItems");
+  if (gi) {
+    const cambiadas = celdas().filter((c) => c.value !== c.defaultValue);
+    if (!cambiadas.every((c) => c.reportValidity())) return;
+    const porItem = new Map();
+    for (const c of cambiadas) porItem.set(c.dataset.item, { ...porItem.get(c.dataset.item),
+      [c.name]: c.value.trim() === "" ? null : c.type === "number" ? Number(c.value) : c.value.trim() });
+    gi.disabled = true;
+    for (const [item, cambios] of porItem) {
+      // La base lo guarda como "Ajuste del responsable"; si el responsable también pidió la OS, queda como "Mal diligenciado"
+      const { error } = await db.rpc("corregir_item", { item: Number(item), tipo: "Mal diligenciado", detalle: "Costo o proveedor diligenciado por el responsable", cambios });
+      if (error) { gi.disabled = false; return aviso(error.message, true); }
+    }
+    aviso("Datos guardados");
+    return recargar();
+  }
   const ee = e.target.closest("[data-editar-entrega]");
   if (ee) {
     const caja = $("editar-" + ee.dataset.editarEntrega);

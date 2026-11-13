@@ -286,3 +286,6 @@ label.btn.cargando { opacity: .6; pointer-events: none; }
 /* Cantidad que se entrega al firmar la entrega del ítem (consulta.js) */
 .cant-entrega { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
 .cant-entrega input { width: 6.5em; }
+
+/* Costo unitario y proveedor que llena el responsable en la tabla de ítems (consulta.js) */
+.celda-item { width: 100%; min-width: 7em; }
