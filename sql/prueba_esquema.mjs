@@ -63,6 +63,7 @@ await db.exec(readFileSync(`${dir}/23_os_entrega_parcial.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/24_maquinas_galones.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/25_os_entregas_parciales.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/26_os_editar_entrega.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/27_os_en_proceso.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
 await db.exec(readFileSync(`${dir}/3_roles.sql`, "utf8"));
@@ -91,6 +92,7 @@ await db.exec(readFileSync(`${dir}/23_os_entrega_parcial.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/24_maquinas_galones.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/25_os_entregas_parciales.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/26_os_editar_entrega.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/27_os_en_proceso.sql`, "utf8"));
 assert.equal((await db.query(`select frente from usuarios where id = '${SIN_ROL}'`)).rows[0].frente, "Abastecimiento");
 await db.exec(`update usuarios set nombre = 'lina.h', frente = null, encargo = null where id = '${SIN_ROL}'`);  // como estaba
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
@@ -358,6 +360,12 @@ await comoUsuario();
 await falla("select corregir_item($1, 'Ajuste del responsable', 'x', '{}')", [c1], /mal diligenciado o mal entregado/);
 // Entregas parciales (25): lo que falta se entrega después; la OS queda En proceso hasta completar todo
 const estadoOS4 = () => val("select estado from ordenes_suministro where id = $1", [os4]);
+// Poner en proceso (27): solo el responsable y solo si está abierta
+await db.exec("savepoint s27");
+await db.query("select poner_en_proceso($1)", [os4]);
+assert.equal(await estadoOS4(), "En proceso");
+await falla("select poner_en_proceso($1)", [os4], /solo si está abierta/);
+await db.exec("rollback to savepoint s27");
 await db.exec("savepoint s25");
 await falla("select firmar_item($1, 'entrega', 0)", [c1], /Entregue más de 0 y hasta 2 m/);
 await falla("select firmar_item($1, 'entrega', 3)", [c1], /hasta 2/);

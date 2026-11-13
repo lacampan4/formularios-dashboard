@@ -185,7 +185,10 @@ const VISTA = {
       dato("Área solicitante", o.area_solicitante), datoHtml("Prioridad", chip(o.prioridad)), datoHtml("Estado", estado(o.estado)),
       dato("Registrado el", fecha(o.creado_en)), dato("Solicitante", nombres.get(o.creado_por)), dato("Responsable", nombres.get(o.responsable)),
       datoHtml("OT relacionada", o.ordenes_trabajo ? enlace("OT", o.ordenes_trabajo.id, o.ordenes_trabajo.numero) : "—"),
-      dato("Cerrada el", o.cerrada_en && fecha(o.cerrada_en)))) +
+      dato("Cerrada el", o.cerrada_en && fecha(o.cerrada_en))) +
+      // El responsable la marca En proceso cuando empieza a gestionarla (sql/27_os_en_proceso.sql)
+      (trabaja(o) && o.estado === "Abierta" ? `<div class="acciones-fila no-imprimir" style="justify-content:flex-end;margin-top:12px">
+        <button type="button" class="btn btn-sec" id="btnEnProceso" data-os="${o.id}" data-numero="${esc(o.numero)}">Poner en proceso</button></div>` : "")) +
     bloque(2, "caja", "Ítems solicitados", tabla(["Máquina", "Referencia", "Marca", "Código", "Cantidad", "Medida", "Costo unitario", "Costo total", "Proveedor", "Descripción", "Función",
       ...(corrige(o) ? [""] : [])],
       [...o.os_items].sort((a, b) => a.id - b.id).map((i) => [i.maquina, i.referencia, i.marca, i.codigo, i.cantidad, i.medida,
@@ -422,6 +425,14 @@ $("detalle").onclick = async (e) => {
     const { error } = await db.rpc("firmar_item", { item: Number(fi.dataset.firmar), como: fi.dataset.como, ...(cant && { cantidad: Number(cant.value) }) });
     if (error) { fi.disabled = false; return aviso(error.message, true); }
     aviso(fi.dataset.como === "entrega" ? "Entrega firmada" : "Recibido firmado");
+    return recargar();
+  }
+  const ep = e.target.closest("#btnEnProceso");
+  if (ep) {
+    ep.disabled = true;
+    const { error } = await db.rpc("poner_en_proceso", { os: Number(ep.dataset.os) });
+    if (error) { ep.disabled = false; return aviso(error.message, true); }
+    aviso(`${ep.dataset.numero} en proceso`);
     return recargar();
   }
   if (e.target.closest("#btnCerrarOS")) {
