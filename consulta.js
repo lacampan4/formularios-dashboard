@@ -101,7 +101,12 @@ const filaEntrega = (o, i) => {
   const entregas = [...(i.os_entregas ?? [])].sort((a, b) => a.id - b.id);
   const porRecibir = entregas.some((x) => !x.recibido_por);
   const quien = (x, por, en) => `${x.cantidad} ${i.medida} · ${firmaItem(por, en)}`;
-  const entrego = lineas(entregas.map((x) => quien(x, x.entregado_por, x.entregado_en)));
+  // El responsable corrige la cantidad mientras no la hayan recibido (sql/26_os_editar_entrega.sql)
+  const editable = (x) => !x.recibido_por && puede && o.responsable === yo;
+  const entrego = entregas.map((x) => `<div>${esc(quien(x, x.entregado_por, x.entregado_en))}${x.cantidad_anterior != null ? ` <small class="nota">(corregida; antes ${esc(x.cantidad_anterior)})</small>` : ""}${editable(x)
+    ? ` <button type="button" class="btn btn-sec btn-firma" data-editar-entrega="${x.id}">Editar cantidad</button>
+      <span class="cant-entrega" id="editar-${x.id}" hidden><input type="number" value="${x.cantidad}" min="0.01" max="${Number(x.cantidad) + falta(i)}" step="any" required aria-label="Cantidad entregada">
+      ${esc(i.medida)} <button type="button" class="btn btn-red btn-firma" data-guardar-entrega="${x.id}">Guardar</button></span>` : ""}</div>`).join("");
   const recibio = lineas(entregas.filter((x) => x.recibido_por).map((x) => quien(x, x.recibido_por, x.recibido_en)));
   const entrega = !i.entregado_por && puede && o.responsable === yo, recibe = porRecibir && puede && o.creado_por === yo;
   return [`${i.cantidad} ${i.medida} · ${i.descripcion}`,
@@ -346,6 +351,21 @@ $("detalle").onclick = async (e) => {
   const co = e.target.closest("[data-corregir]");
   if (co) return abrirCorreccion(Number(co.dataset.corregir), co.hasAttribute("data-ajuste"));
   // Firma del ítem: queda con el usuario de la sesión y la hora del servidor
+  const ee = e.target.closest("[data-editar-entrega]");
+  if (ee) {
+    const caja = $("editar-" + ee.dataset.editarEntrega);
+    ee.hidden = true; caja.hidden = false; return caja.querySelector("input").focus();
+  }
+  const ge = e.target.closest("[data-guardar-entrega]");
+  if (ge) {
+    const input = $("editar-" + ge.dataset.guardarEntrega).querySelector("input");
+    if (!input.reportValidity()) return;
+    ge.disabled = true;
+    const { error } = await db.rpc("editar_entrega", { entrega: Number(ge.dataset.guardarEntrega), cantidad: Number(input.value) });
+    if (error) { ge.disabled = false; return aviso(error.message, true); }
+    aviso("Cantidad de la entrega corregida");
+    return recargar();
+  }
   const ap = e.target.closest("[data-abrir-parcial]");
   if (ap) {
     const caja = $("parcial-" + ap.dataset.abrirParcial);

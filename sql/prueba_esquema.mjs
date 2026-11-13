@@ -62,6 +62,7 @@ await db.exec(readFileSync(`${dir}/22_os_responsable.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/23_os_entrega_parcial.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/24_maquinas_galones.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/25_os_entregas_parciales.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/26_os_editar_entrega.sql`, "utf8"));
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
 await db.exec(readFileSync(`${dir}/3_roles.sql`, "utf8"));
@@ -89,6 +90,7 @@ await db.exec(readFileSync(`${dir}/22_os_responsable.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/23_os_entrega_parcial.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/24_maquinas_galones.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/25_os_entregas_parciales.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/26_os_editar_entrega.sql`, "utf8"));
 assert.equal((await db.query(`select frente from usuarios where id = '${SIN_ROL}'`)).rows[0].frente, "Abastecimiento");
 await db.exec(`update usuarios set nombre = 'lina.h', frente = null, encargo = null where id = '${SIN_ROL}'`);  // como estaba
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
@@ -360,10 +362,18 @@ await db.exec("savepoint s25");
 await falla("select firmar_item($1, 'entrega', 0)", [c1], /Entregue más de 0 y hasta 2 m/);
 await falla("select firmar_item($1, 'entrega', 3)", [c1], /hasta 2/);
 await db.query("select firmar_item($1, 'entrega', 1.5)", [c1]);                                           // entrega parcial
+// Editar la entrega mal digitada (26): mientras no se reciba; el ítem queda completo o parcial según el total
+const ent1 = await val("select max(id) from os_entregas where item_id = $1", [c1]);
+await falla("select editar_entrega($1, 3)", [ent1], /hasta 2 m/);
+await db.query("select editar_entrega($1, 2)", [ent1]);
+assert.equal(await val("select (entregado_por is not null) || ' ' || cantidad_entregada::float from os_items where id = $1", [c1]), "true 2");
+await db.query("select editar_entrega($1, 1.5)", [ent1]);
+assert.equal(await val("select cantidad::float || ' ' || cantidad_anterior::float || ' ' || (editada_en is not null) from os_entregas where id = $1", [ent1]), "1.5 1.5 true");
 assert.equal(await estadoOS4(), "En proceso");
 assert.equal(await val("select (entregado_por is null) || ' ' || cantidad_entregada::float from os_items where id = $1", [c1]), "true 1.5");
 await db.query("select firmar_item($1, 'recibe')", [c1]);                                                 // recibe la parte
 await falla("select firmar_item($1, 'recibe')", [c1], /No hay entregas de este ítem por recibir/);
+await falla("select editar_entrega($1, 1)", [ent1], /ya fue recibida/);
 assert.equal(await estadoOS4(), "En proceso");
 await falla("select firmar_item($1, 'entrega', 1)", [c1], /hasta 0.5/);
 await db.query("select firmar_item($1, 'entrega')", [c1]);                                                // sin cantidad: lo que falta
@@ -373,6 +383,13 @@ assert.equal(await estadoOS4(), "Cerrada");
 assert.deepEqual((await db.query("select cantidad::float q, (recibido_por is not null) r from os_entregas where item_id = $1 order by id", [c1])).rows,
   [{ q: 1.5, r: true }, { q: 0.5, r: true }]);
 await db.exec("rollback to savepoint s25");
+// Borrar una OS desde Supabase se lleva sus entregas y correcciones (26)
+await db.exec("savepoint s26; reset role");
+await db.query("insert into os_entregas (item_id, cantidad, entregado_por) values ($1, 1, $2)", [c1, U]);
+await db.query("delete from ordenes_suministro where id = $1", [os4]);
+assert.equal(await val("select count(*)::int from os_correcciones where item_id = $1", [c1]), 0);
+await db.exec("rollback to savepoint s26");
+await comoUsuario();
 assert.equal(await val("select count(*)::int from os_items i where entregado_por is not null and not exists (select 1 from os_entregas e where e.item_id = i.id)"), 0);
 assert.equal(await val("select count(*)::int from os_items where entregado_por is not null and cantidad_entregada is distinct from cantidad"), 0);  // las de antes: todo
 
