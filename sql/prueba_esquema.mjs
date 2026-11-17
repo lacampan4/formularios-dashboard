@@ -585,4 +585,28 @@ const n37 = await val("select crear_os($1, $2)", [{ area_solicitante: "Corte", p
 assert.deepEqual((await db.query("select i.descripcion, i.stock from os_items i join ordenes_suministro o on o.id = i.os_id where o.numero = $1", [n37])).rows[0],
   { descripcion: "Sello", stock: true });
 await db.exec("reset role; rollback");
+// Referencia y función obligatorias en ítems nuevos (39); los viejos sin referencia se siguen editando
+await db.exec(`set app.uid = '${U}'; set role authenticated;`);
+const viejo = await val("select i.id from os_items i join ordenes_suministro o on o.id = i.os_id where o.numero = $1",
+  [await os({ area_solicitante: "Corte", prioridad: "Verde" }, [{ maquina: "Formadora 1", cantidad: 2, medida: "und", funcion: "Viejo" }])]);
+await db.exec("reset role");
+await db.exec(readFileSync(`${dir}/39_os_referencia_obligatoria.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/39_os_referencia_obligatoria.sql`, "utf8"));   // se puede volver a ejecutar
+await db.exec(`set app.uid = '${U}'; set role authenticated;`);
+const nuevo = { maquina: "Formadora 1", referencia: "R-1", cantidad: 1, medida: "und", funcion: "Sello" };
+const os39 = (it) => db.query("select crear_os($1, $2)", [{ area_solicitante: "Corte", prioridad: "Verde", responsable: U }, [it]]);
+await assert.rejects(os39({ ...nuevo, referencia: "  " }), /Escriba la referencia/);
+await assert.rejects(os39({ ...nuevo, referencia: undefined }), /Escriba la referencia/);
+await assert.rejects(os39({ ...nuevo, funcion: undefined, descripcion: "x" }), /Escriba la función/);
+await assert.rejects(os39({ ...nuevo, maquina: undefined }), /máquina|maquina/);
+await assert.rejects(os39({ ...nuevo, cantidad: undefined }), /cantidad/);
+await assert.rejects(os39({ ...nuevo, medida: undefined }), /medida/);
+const n39 = (await os39(nuevo)).rows[0].crear_os;
+const i39 = await val("select i.id from os_items i join ordenes_suministro o on o.id = i.os_id where o.numero = $1", [n39]);
+await assert.rejects(corregir(i39, "Mal diligenciado", "x", { referencia: "" }), /Escriba la referencia/);
+await corregir(i39, "Mal diligenciado", "x", { referencia: "R-9" });
+assert.equal(await val("select referencia from os_items where id = $1", [i39]), "R-9");
+await corregir(viejo, "Mal diligenciado", "x", { cantidad: 1 });                               // ítem viejo sin referencia: sí se corrige
+assert.equal(await val("select cantidad::int from os_items where id = $1", [viejo]), 1);
+await db.exec("reset role");
 console.log("OK: todas las pruebas del esquema pasaron");

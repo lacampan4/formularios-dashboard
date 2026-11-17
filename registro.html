@@ -121,7 +121,7 @@
         <h3 class="seccion"><span class="ico" data-icono="caja"></span>2. Ítems solicitados</h3>
         <div class="table-wrap">
           <table class="tabla tabla-items" data-fila="os">
-            <thead><tr><th class="req">Máquina</th><th>Referencia</th><th>Marca</th><th>Código</th><th class="req">Cantidad</th><th class="req">Medida</th><th>Costo unitario (almacén)</th><th>Costo total (almacén)</th><th>Proveedor (almacén)</th><th class="req">Función</th><th>Stock</th><th><span class="sr-only">Quitar</span></th></tr></thead>
+            <thead><tr><th class="req">Máquina</th><th class="req">Referencia</th><th>Marca</th><th>Código</th><th class="req">Cantidad</th><th class="req">Medida</th><th>Costo unitario (almacén)</th><th>Costo total (almacén)</th><th>Proveedor (almacén)</th><th class="req">Función</th><th>Stock</th><th><span class="sr-only">Quitar</span></th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -360,7 +360,7 @@
   </tr></template>
   <template id="fila-os"><tr>
     <td><select data-k="maquina" class="sel-maquina" required aria-label="Máquina"></select><select class="sel-num" hidden aria-label="Número de la máquina"></select></td>
-    <td><input data-k="referencia" placeholder="Referencia"></td>
+    <td><input data-k="referencia" required placeholder="Referencia"></td>
     <td><input data-k="marca" placeholder="Marca"></td>
     <td><input data-k="codigo" placeholder="Código"></td>
     <td><input data-k="cantidad" data-tipo="num" type="number" min="0.01" step="any" required placeholder="0"></td>
