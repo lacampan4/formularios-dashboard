@@ -92,39 +92,18 @@ let editando = null; // máquina que el admin está editando (modoMaquina)
 let esAdmin = false; // solo el admin ve "+ Nueva máquina" y "+ Nuevo código"; la base de datos también lo exige
 // Máquinas: tabla maquinas (sql/17_cierre_roles_maquinas.sql). Mientras no exista, la lista fija de config.js.
 let maquinas = MAQUINAS.map((nombre) => ({ nombre, linea: LINEA_DE_MAQUINA[nombre] ?? null }));
-const lineaDe = (nombre) => maquinas.find((m) => m.nombre === nombre || m.nombre.startsWith(nombre + " #"))?.linea;
-// Máquinas numeradas ("MONTACARGA #1" … "#13", sql/35_montacargas.sql): en la lista salen una sola vez
-// ("MONTACARGA") y al lado se escoge el número; se guarda el nombre completo, "MONTACARGA #5".
-const NUMERADA = /^(.*) #(\d+)$/;
-function grupos() {
-  const g = {};
-  for (const m of maquinas) { const x = m.nombre.match(NUMERADA); if (x) (g[x[1]] ??= []).push(Number(x[2])); }
-  Object.values(g).forEach((l) => l.sort((a, b) => a - b));
-  return g;
-}
-const nombresLista = () => [...new Set(maquinas.map((m) => m.nombre.match(NUMERADA)?.[1] ?? m.nombre))];
-// Muestra (y exige) el número solo si la máquina escogida es numerada
-function numeroDe(sel, num) {
-  const lista = grupos()[sel.value];
-  num.hidden = !lista; num.required = !!lista;
-  if (!lista) return;
-  const v = num.value;
-  num.innerHTML = opciones([], "Número") + opciones(lista.map((n) => ({ v: String(n), t: `#${n}` })));
-  num.value = lista.includes(Number(v)) ? v : "";
-}
-const conNumero = (maquina, num) => grupos()[maquina] ? `${maquina} #${num}` : maquina;
+const lineaDe = (nombre) => maquinas.find((m) => m.nombre === nombre)?.linea;
 // "+ Nueva máquina" (solo admin) de primero, como "+ Nuevo código"; "OTRO" al final, sin campo para escribir cuál
 // (escrita a mano, la misma máquina salía repetida en el dashboard: sql/36 y 38). Si falta una, la agrega el admin.
-const sinOtro = () => nombresLista().filter((n) => n !== "OTRO");
+const sinOtro = () => maquinas.map((m) => m.nombre).filter((n) => n !== "OTRO");
 function pintarMaquinas(v = $("otMaquina").value) {
   $("otMaquina").innerHTML = opciones([], "Seleccione") + (esAdmin ? `<option value="nueva">+ Nueva máquina</option>` : "") +
     opciones([...sinOtro(), "OTRO"]);
   $("otMaquina").value = v;
-  numeroDe($("otMaquina"), $("otMaquinaNum"));
   // OS: solo máquinas de la lista (sql/28_os_maquina_lista.sql); las agrega el admin desde la OT
   const html = opciones(sinOtro(), "Seleccione");   // en la OS no va OTRO
   $("fila-os").content.querySelector(".sel-maquina").innerHTML = html;
-  $("formOS").querySelectorAll(".sel-maquina").forEach((s) => { const x = s.value; s.innerHTML = html; s.value = x; numeroDe(s, s.nextElementSibling); });
+  $("formOS").querySelectorAll(".sel-maquina").forEach((s) => { const x = s.value; s.innerHTML = html; s.value = x; });
 }
 async function cargarMaquinas() {
   const { data, error } = await db.from("maquinas").select("nombre, linea").order("nombre");
@@ -192,7 +171,6 @@ $("otMaquina").onchange = () => {
   $("nuevaMaquina").hidden = !nueva;
   $("editarMaquinaBox").hidden = !(esAdmin && v !== "OTRO" && maquinas.some((m) => m.nombre === v));
   $("otMaquina").setCustomValidity(nueva ? "Agregue la máquina nueva o elija una de la lista" : "");
-  numeroDe($("otMaquina"), $("otMaquinaNum"));
   if (nueva) $("nmNombre").focus();
   pintarCodigos();
 };
@@ -255,16 +233,13 @@ $("tiposPermiso").onchange = () => {
 // ---------------- Guardar ----------------
 $("formOT").onsubmit = (e) => { e.preventDefault(); guardar(e.target, async () => {
   const orden = datos(e.target);
-  orden.maquina = conNumero(orden.maquina, $("otMaquinaNum").value);
   const numero = ok(await db.rpc("crear_ot", { orden, lineas: filas(e.target.querySelector(".tabla")) }));
   return `${numero} guardada`;
 }); };
 
 // OS: al escoger una máquina numerada aparece su número en la misma tarjeta
-$("formOS").addEventListener("change", (e) => { if (e.target.matches(".sel-maquina")) numeroDe(e.target, e.target.nextElementSibling); });
 $("formOS").onsubmit = (e) => { e.preventDefault(); guardar(e.target, async () => {
   const tabla = e.target.querySelector(".tabla"), items = filas(tabla);
-  [...tabla.tBodies[0].rows].forEach((tr, i) => items[i].maquina = conNumero(items[i].maquina, tr.querySelector(".sel-num").value));
   const numero = ok(await db.rpc("crear_os", { orden: datos(e.target), items }));
   return `${numero} guardada`;
 }); };

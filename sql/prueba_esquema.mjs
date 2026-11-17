@@ -625,5 +625,15 @@ await db.query("select guardar_observaciones_os($1, ' ')", [os40]);
 assert.equal(await val("select observaciones from ordenes_suministro where id = $1", [os40]), null);
 await comoUsuario();
 assert.equal(await val("select cantidad::int from os_items where id = $1", [viejo]), 1);
+// Sin montacargas numerados (41): salen de la lista; las órdenes guardadas no cambian; se agregan y editan uno por uno
+await db.exec("reset role");
+const conMontacarga = await val("select count(*)::int from os_items where maquina like 'MONTACARGA #%'");
+await db.exec(readFileSync(`${dir}/41_quitar_montacargas.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/41_quitar_montacargas.sql`, "utf8"));   // se puede volver a ejecutar
+assert.equal(await val("select count(*)::int from maquinas where nombre like 'MONTACARGA%'"), 0);
+assert.equal(await val("select count(*)::int from os_items where maquina like 'MONTACARGA #%'"), conMontacarga);
+await comoUsuario();
+assert.equal(await val("select agregar_maquina('Montacarga 1')"), "MONTACARGA 1");
+assert.equal(await val("select editar_maquina('MONTACARGA 1', 'Montacarga 01')"), "MONTACARGA 01");
 await db.exec("reset role");
 console.log("OK: todas las pruebas del esquema pasaron");

@@ -40,8 +40,7 @@
       <section class="card bloque">
         <h3 class="seccion"><span class="ico" data-icono="info"></span>1. Información general</h3>
         <div class="grid">
-          <label class="campo"><span class="req">Máquina</span><select name="maquina" id="otMaquina" required></select>
-            <select id="otMaquinaNum" hidden aria-label="Número de la máquina"></select></label>
+          <label class="campo"><span class="req">Máquina</span><select name="maquina" id="otMaquina" required></select></label>
           <!-- Solo admin: corregir la máquina elegida (editar_maquina, sql/24_maquinas_galones.sql) -->
           <div class="campo" id="editarMaquinaBox" hidden><span>Máquina de la lista</span><button type="button" class="btn btn-sec btn-ico" id="btnEditarMaquina"><span class="ico" data-icono="llave"></span>Editar máquina</button></div>
           <!-- Solo admin: la máquina nueva queda en la lista para todos (agregar_maquina, sql/17_cierre_roles_maquinas.sql) -->
@@ -359,7 +358,7 @@
     <td class="quitar"><button type="button" class="btn-link" data-quitar aria-label="Quitar fila">✕</button></td>
   </tr></template>
   <template id="fila-os"><tr>
-    <td><select data-k="maquina" class="sel-maquina" required aria-label="Máquina"></select><select class="sel-num" hidden aria-label="Número de la máquina"></select></td>
+    <td><select data-k="maquina" class="sel-maquina" required aria-label="Máquina"></select></td>
     <td><input data-k="referencia" required placeholder="Referencia"></td>
     <td><input data-k="marca" placeholder="Marca"></td>
     <td><input data-k="codigo" placeholder="Código"></td>
