@@ -6,6 +6,7 @@ const hoy = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Bo
 
 // ---------------- Lectura de campos ----------------
 const valor = (el) => {
+  if (el.type === "checkbox") return el.checked;  // casilla de stock de la OS (sql/32_os_libras_stock.sql)
   const v = el.value.trim();
   if (v === "") return null;
   if (el.dataset.tipo === "num") return Number(v);

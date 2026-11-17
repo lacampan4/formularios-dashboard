@@ -35,7 +35,7 @@ const LINEA_DE_MAQUINA = {
 };
 
 const PRIORIDADES = { Rojo: "Urgente", Amarillo: "Programable", Verde: "Preventivo" };
-const MEDIDAS = ["und", "kg", "m", "L", "gal"]; // gal: galones (sql/24_maquinas_galones.sql)
+const MEDIDAS = ["und", "kg", "lb", "m", "L", "gal"]; // gal: galones (sql/24); lb: libras (sql/32_os_libras_stock.sql)
 const TIPOS_PERMISO = { alturas: "Trabajo en alturas", caliente: "Trabajo en caliente", energias: "Energías peligrosas (bloqueo y etiquetado)",
   electrico: "Trabajo riesgo eléctrico", izaje: "Trabajo con izaje de cargas" };
 

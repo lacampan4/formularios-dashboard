@@ -227,7 +227,10 @@ a.btn { display: inline-flex; align-items: center; text-decoration: none; }
 .tabla-items td { display: flex; flex-direction: column; gap: 4px; padding: 0; border: 0; }
 .tabla-items td::before { content: attr(data-label); font-size: 12px; font-weight: 600; color: var(--gris-600); text-transform: none; }
 .tabla-items td:nth-child(9), .tabla-items td:nth-child(10) { grid-column: span 2; }  /* proveedor y descripción */
-.tabla-items td:nth-child(11) { grid-column: 1 / -1; }                               /* función: fila entera */
+.tabla-items td:nth-child(11) { grid-column: span 3; }                               /* función */
+.tabla-items td.stock { justify-content: flex-end; }                                   /* casilla de stock, al lado de función */
+.tabla-items td.stock .check { min-height: 44px; font-weight: 600; }
+.tabla td .check input[type=checkbox] { min-width: 0; width: 20px; height: 20px; min-height: 20px; accent-color: var(--rojo); }
 .tabla-items td.quitar { position: absolute; top: 2px; right: 4px; width: auto; }
 .tabla-items td.quitar::before { content: none; }
 .tabla-items td input, .tabla-items td select { min-width: 0; }

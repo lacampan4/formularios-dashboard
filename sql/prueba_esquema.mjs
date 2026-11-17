@@ -68,6 +68,7 @@ await db.exec(readFileSync(`${dir}/28_os_maquina_lista.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/29_ats_vencimiento.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/30_formatos_extra.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/31_consulta_todos.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/32_os_libras_stock.sql`, "utf8"));
 await db.exec("insert into maquinas (nombre) values ('Formadora 1'), ('M')");  // máquinas de los ítems de prueba (28)
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
@@ -102,6 +103,7 @@ await db.exec(readFileSync(`${dir}/28_os_maquina_lista.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/29_ats_vencimiento.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/30_formatos_extra.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/31_consulta_todos.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/32_os_libras_stock.sql`, "utf8"));
 assert.equal((await db.query(`select frente from usuarios where id = '${SIN_ROL}'`)).rows[0].frente, "Abastecimiento");
 await db.exec(`update usuarios set nombre = 'lina.h', frente = null, encargo = null where id = '${SIN_ROL}'`);  // como estaba
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
@@ -450,6 +452,14 @@ await comoUsuario(PROD);
 const otPropia = await idDe(await ot({ maquina: "Slitter 1", prioridad: "Verde" }, linea));             // responsable: U, no él
 assert.equal(await val("select count(*)::int from ot_lineas where ot_id = $1", [otPropia]), 1);
 await comoUsuario();
+
+// Libras y stock (32_os_libras_stock.sql): el ítem se pide en lb y quien pide marca si es para stock
+await comoUsuario();
+const os32 = await val("select id from ordenes_suministro where numero = $1", [await os({ area_solicitante: "Corte", prioridad: "Verde" },
+  [{ ...item, medida: "lb", stock: true }, { ...item, descripcion: "Sin stock" }])]);
+assert.deepEqual((await db.query("select medida, stock from os_items where os_id = $1 order by id", [os32])).rows,
+  [{ medida: "lb", stock: true }, { medida: "m", stock: false }]);
+await falla("select crear_os($1, $2)", [{ area_solicitante: "Corte", prioridad: "Verde", responsable: U }, [{ ...item, medida: "onzas" }]], /medida_check/);
 
 // Sin rol: no hace nada
 await comoUsuario(SIN_ROL);
