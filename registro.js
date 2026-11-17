@@ -373,6 +373,10 @@ async function alEntrar(perfil) {
   if (error) aviso("No se pudo cargar la lista de responsables: " + error.message, true);
   const responsables = opciones((usuarios ?? []).map((u) => ({ v: u.id, t: quien(u) })), "Seleccione");
   document.querySelectorAll(".sel-responsable").forEach((s) => s.innerHTML = responsables);
+  // Área solicitante de la OS: las de la guía más los encargos que el admin agregó en Usuarios (ej. "Mecánica montacargas y camiones")
+  const areas = new Map(FRENTES.map((f) => [f.area, f.frente]));
+  (usuarios ?? []).forEach((u) => { if (u.encargo && !areas.has(u.encargo)) areas.set(u.encargo, u.frente); });
+  $("osArea").innerHTML = opciones([...areas].map(([a, fr]) => ({ v: a, t: fr ? `${a} (${fr})` : a })), "Seleccione");
   FORMS.forEach((f) => reiniciar($("form" + f)));
   await cargarListas();
   // registro.html?ot=5[&formato=ATS|Permiso] viene de los botones "Generar…" del detalle de la OT: abre ese formato (OS si no dice) enlazado a esa OT
