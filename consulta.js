@@ -62,8 +62,13 @@ const trabaja = (o) => desdeBandeja && o.responsable === yo && o.estado !== "Cer
 
 // ATS y Permiso de la OT: los marca solo el responsable; el admin los ve; los demás no
 let yo = null, esAdmin = false;
-let seguimiento = false;  // admin o SST: ven la lista de formatos guardados
+let seguimiento = false;  // cualquier usuario con rol ve la lista (sql/31_consulta_todos.sql)
 let soloSeguridad = false; // SST: la lista muestra solo ATS y permisos de todos (sql/20_sst_consulta.sql)
+let tiposPermitidos = Object.keys(DEF);  // admin: todos; los demás, los formatos que tienen (rol + adicionales)
+// Los demás ven solo los suyos: los que registraron o en los que son responsables o solicitantes.
+// shortcut: en OT es un filtro de la lista, no de la base (todos los roles leen OT para escogerla en ATS/Permiso)
+const suyos = (t, q) => esAdmin || (soloSeguridad && (t === "ATS" || t === "PT")) ? q
+  : t === "OT" || t === "OS" ? q.or(`creado_por.eq.${yo},responsable.eq.${yo}`) : q.eq("creado_por", yo);
 // Botones para llenar lo que quedó guardado como requerido; abren Registro con la OT ya escogida (fuera de la ventana flotante)
 const generar = (id, ats, permiso) =>
   (ats ? `<a class="btn btn-sec btn-ico" target="_top" href="registro.html?ot=${id}&formato=ATS"><span class="ico" data-icono="mas"></span>Generar ATS</a>` : "") +
@@ -276,9 +281,9 @@ async function cargarLista() {
   const desde = new Date(f.desde.value + "T00:00").toISOString();
   const hasta = new Date(new Date(f.hasta.value + "T00:00").getTime() + 864e5).toISOString();
   // Estado existe en OT, OS y ATS: si se filtra por estado, el Permiso no aplica
-  const tipos = Object.keys(DEF).filter((t) => (!soloSeguridad || t === "ATS" || t === "PT") && (!f.formato.value || f.formato.value === t) && (!f.estado.value || DEF[t].conEstado));
+  const tipos = Object.keys(DEF).filter((t) => tiposPermitidos.includes(t) && (!f.formato.value || f.formato.value === t) && (!f.estado.value || DEF[t].conEstado));
   const res = await Promise.all(tipos.map((t) => {
-    let q = db.from(DEF[t].tabla).select(DEF[t].lista).gte("creado_en", desde).lt("creado_en", hasta).order("creado_en", { ascending: false }).limit(500);
+    let q = suyos(t, db.from(DEF[t].tabla).select(DEF[t].lista)).gte("creado_en", desde).lt("creado_en", hasta).order("creado_en", { ascending: false }).limit(500);
     if (f.estado.value) q = q.eq("estado", f.estado.value);
     return q;
   }));
@@ -537,13 +542,19 @@ $("btnExcel").onclick = async () => {
 iniciarSesion(async (perfil) => {
   const admin = esAdmin = perfil.rol === "admin";
   soloSeguridad = perfil.rol === "sst";
-  seguimiento = admin || soloSeguridad;
+  seguimiento = perfil.rol !== "sin_rol";
   yo = (await db.auth.getSession()).data.session.user.id;
   if (!seguimiento && !location.hash) return location.replace("bandeja.html");
   $("btnExcel").hidden = !admin;
-  if (soloSeguridad) {
-    f.formato.querySelectorAll('option[value="OT"], option[value="OS"]').forEach((op) => op.remove());
-    document.querySelector("#vistaLista .page-head p").textContent = "Todos los ATS y permisos de trabajo de alto riesgo de la planta, para hacer seguimiento.";
+  if (!admin) {
+    // Tipos de formato que tiene: rol + adicionales (sql/30); sin el sql/30, solo los del rol
+    let { data: mf, error: sinSql30 } = await db.rpc("mis_formatos");
+    if (sinSql30) mf = ((await db.from("rol_formatos").select("formato").eq("rol", perfil.rol)).data ?? []).map((r) => r.formato);
+    tiposPermitidos = soloSeguridad ? ["ATS", "PT"] : (mf ?? []).map((x) => x === "PERMISO" ? "PT" : x);
+    f.formato.querySelectorAll("option").forEach((op) => { if (op.value && !tiposPermitidos.includes(op.value)) op.remove(); });
+    document.querySelector("#vistaLista .page-head p").textContent = soloSeguridad
+      ? "Todos los ATS y permisos de trabajo de alto riesgo de la planta, para hacer seguimiento."
+      : "Los formatos que usted registró o en los que es responsable o solicitante.";
   }
   if (!seguimiento || desdeBandeja) {
     const volver = document.querySelector('#vistaDetalle a[href="#"]');

@@ -67,6 +67,7 @@ await db.exec(readFileSync(`${dir}/27_os_en_proceso.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/28_os_maquina_lista.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/29_ats_vencimiento.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/30_formatos_extra.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/31_consulta_todos.sql`, "utf8"));
 await db.exec("insert into maquinas (nombre) values ('Formadora 1'), ('M')");  // máquinas de los ítems de prueba (28)
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
@@ -100,6 +101,7 @@ await db.exec(readFileSync(`${dir}/27_os_en_proceso.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/28_os_maquina_lista.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/29_ats_vencimiento.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/30_formatos_extra.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/31_consulta_todos.sql`, "utf8"));
 assert.equal((await db.query(`select frente from usuarios where id = '${SIN_ROL}'`)).rows[0].frente, "Abastecimiento");
 await db.exec(`update usuarios set nombre = 'lina.h', frente = null, encargo = null where id = '${SIN_ROL}'`);  // como estaba
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
@@ -259,7 +261,7 @@ await falla(permiso, [null, ["alturas"], null], /row-level security/);
 assert.equal(await val("select count(*)::int from v_ordenes"), 0);
 assert.equal(await val("select count(*)::int from v_fallas"), 0);
 assert.equal(await val("select count(*)::int from ordenes_suministro"), 1);                             // solo la suya
-assert.equal(await val("select count(*)::int from ot_lineas"), 0);
+assert.equal(await val("select count(*)::int from ot_lineas"), 1);                                      // solo la de la OT que él registró (31)
 assert.equal(await val("select count(*)::int from ats"), 0);
 assert.equal(await val("select count(*)::int from usuarios"), 1);                                       // solo su perfil
 await falla("update ordenes_trabajo set autorizado_por = 'yo' where id = 2", [], /permission denied/);
@@ -276,7 +278,7 @@ await comoUsuario();
 const n3 = await ot({ maquina: "Platina", prioridad: "Verde", responsable: PROD }, linea);
 await comoUsuario(PROD);
 assert.equal(await val("select count(*)::int from ordenes_trabajo where responsable = auth.uid()"), 1);
-assert.equal(await val("select count(*)::int from ot_lineas"), 1);
+assert.equal(await val("select count(*)::int from ot_lineas"), 2);                                      // la que registró y la que tiene a cargo
 // El responsable marca si requiere ATS / Permiso; no obliga a nada para cerrar
 await falla(`select marcar_requisitos_ot(${id2}, true, true)`, [], /Solo el responsable/);
 await db.query("select marcar_requisitos_ot($1, true, false)", [await idDe(n3)]);
@@ -442,6 +444,12 @@ await falla("select actualizar_formatos_extra($1, $2)", [PROD, ["PERMISO"]], /So
 await comoUsuario();
 await db.query("select actualizar_formatos_extra($1, '{}')", [PROD]);
 assert.deepEqual(await val("select mis_formatos()"), ["OT", "OS", "ATS", "PERMISO"]);                    // admin: todos
+
+// Quien registró una OT ve sus reportes de falla al abrirla en Consulta (31_consulta_todos.sql)
+await comoUsuario(PROD);
+const otPropia = await idDe(await ot({ maquina: "Slitter 1", prioridad: "Verde" }, linea));             // responsable: U, no él
+assert.equal(await val("select count(*)::int from ot_lineas where ot_id = $1", [otPropia]), 1);
+await comoUsuario();
 
 // Sin rol: no hace nada
 await comoUsuario(SIN_ROL);

@@ -113,9 +113,9 @@ function iniciarSesion(alEntrar) {
       setTimeout(async () => {
         const perfil = await cargarPerfil(sesion.user.id);
         if (perfil.nombre) $("userName").textContent = perfil.nombre;
-        // Consulta también la ve SST, solo con ATS y permisos (sql/20_sst_consulta.sql)
+        // Consulta la ve todo el que tenga rol, con sus formatos (sql/31_consulta_todos.sql); Dashboard y Usuarios, solo admin
         document.querySelectorAll("[data-solo-admin]").forEach((a) => a.hidden = perfil.rol !== "admin"
-          && !(perfil.rol === "sst" && a.getAttribute("href") === "consulta.html"));
+          && !(perfil.rol !== "sin_rol" && a.getAttribute("href") === "consulta.html"));
         alEntrar(perfil);
       }, 0);
     }
