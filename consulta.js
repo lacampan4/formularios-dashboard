@@ -200,7 +200,12 @@ const VISTA = {
       (trabaja(o) ? `<div class="acciones-fila no-imprimir" style="justify-content:flex-end;margin-top:12px">
         <label class="check casilla-listo"><input type="checkbox" id="chkListo" data-os="${o.id}" data-numero="${esc(o.numero)}" ${o.listo_recoger_en ? "checked" : ""}>
           Listo para recoger en bodega</label>
-        ${o.estado === "Abierta" ? `<button type="button" class="btn btn-sec" id="btnEnProceso" data-os="${o.id}" data-numero="${esc(o.numero)}">Poner en proceso</button>` : ""}</div>` : "")) +
+        ${o.estado === "Abierta" ? `<button type="button" class="btn btn-sec" id="btnEnProceso" data-os="${o.id}" data-numero="${esc(o.numero)}">Poner en proceso</button>` : ""}</div>` : "") +
+      // Observaciones (sql/40): solo el responsable las escribe; los demás las leen
+      (trabaja(o) ? `<label class="campo no-imprimir" style="margin-top:12px"><span>Observaciones del responsable</span>
+        <textarea id="txtObs" rows="2" maxlength="500" placeholder="Ej.: el material está en bodega pero no han pasado por él">${esc(o.observaciones ?? "")}</textarea></label>
+        <div class="acciones-fila no-imprimir" style="justify-content:flex-end"><button type="button" class="btn btn-sec" id="btnObs" data-os="${o.id}">Guardar observaciones</button></div>`
+        : o.observaciones ? `<div style="margin-top:12px">${texto("Observaciones del responsable", o.observaciones)}</div>` : "")) +
     bloque(2, "caja", "Ítems solicitados", tabla(["Máquina", "Referencia", "Marca", "Código", "Cantidad", "Medida", "Costo unitario (almacén)", "Costo total (almacén)", "Proveedor (almacén)", "Función", "Stock",
       ...(corrige(o) ? [""] : [])],
       [...o.os_items].sort((a, b) => a.id - b.id).map((i) => [i.maquina, i.referencia, i.marca, i.codigo, i.cantidad, i.medida,
@@ -451,6 +456,14 @@ $("detalle").onclick = async (e) => {
     aviso(fi.dataset.como === "entrega" ? "Entrega firmada" : "Recibido firmado");
     return recargar();
   }
+  const ob = e.target.closest("#btnObs");
+  if (ob) {
+    ob.disabled = true;
+    const { error } = await db.rpc("guardar_observaciones_os", { os: Number(ob.dataset.os), texto: $("txtObs").value });
+    if (error) { ob.disabled = false; return aviso(error.message, true); }
+    aviso("Observaciones guardadas");
+    return recargar();
+  }
   const ep = e.target.closest("#btnEnProceso");
   if (ep) {
     ep.disabled = true;
@@ -539,7 +552,7 @@ $("btnExcel").onclick = async () => {
     const filasOS = os.data.flatMap((o) => (o.os_items.length ? [...o.os_items].sort((a, b) => a.id - b.id) : [{}]).map((i) => ({
       "No.": o.numero, "Creada": hora(o.creado_en), "Solicitante": n(o.creado_por), "Responsable": n(o.responsable),
       "Área solicitante": o.area_solicitante, "Prioridad": o.prioridad, "OT": o.ordenes_trabajo?.numero ?? "",
-      "Estado": o.estado, "Lista para recoger": hora(o.listo_recoger_en), "Cerrada": hora(o.cerrada_en), "Horas hasta el cierre": horasEntre(o.creado_en, o.cerrada_en),
+      "Estado": o.estado, "Lista para recoger": hora(o.listo_recoger_en), "Observaciones": o.observaciones ?? "", "Cerrada": hora(o.cerrada_en), "Horas hasta el cierre": horasEntre(o.creado_en, o.cerrada_en),
       "Máquina": i.maquina ?? "", "Referencia": i.referencia ?? "", "Marca": i.marca ?? "",
       "Código": i.codigo ?? "", "Cantidad": i.cantidad ?? "", "Cantidad entregada": i.cantidad_entregada ?? "", "Medida": i.medida ?? "", "Stock": i.stock == null ? "" : i.stock ? "Sí" : "No", "Función": i.funcion ?? i.descripcion ?? "", "Proveedor (almacén)": i.proveedor ?? "",
       "Costo unitario (almacén)": i.costo_unitario ?? "", "Costo total (almacén)": i.costo_total ?? "",

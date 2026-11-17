@@ -606,7 +606,24 @@ const i39 = await val("select i.id from os_items i join ordenes_suministro o on 
 await assert.rejects(corregir(i39, "Mal diligenciado", "x", { referencia: "" }), /Escriba la referencia/);
 await corregir(i39, "Mal diligenciado", "x", { referencia: "R-9" });
 assert.equal(await val("select referencia from os_items where id = $1", [i39]), "R-9");
-await corregir(viejo, "Mal diligenciado", "x", { cantidad: 1 });                               // ítem viejo sin referencia: sí se corrige
+await corregir(viejo, "Mal diligenciado", "x", { cantidad: 1 });   // ítem viejo sin referencia: sí se corrige
+// Observaciones del responsable (40): solo él las escribe, con la orden sin cerrar; vacías se borran
+await db.exec("reset role");
+await db.exec(readFileSync(`${dir}/40_os_observaciones.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/40_os_observaciones.sql`, "utf8"));   // se puede volver a ejecutar
+await comoUsuario();
+const os40 = await val("select id from ordenes_suministro where numero = $1", [await os({ area_solicitante: "Corte", prioridad: "Verde", responsable: PROD },
+  [{ maquina: "Formadora 1", referencia: "R", cantidad: 1, medida: "und", funcion: "Sello" }])]);
+await assert.rejects(db.query("select guardar_observaciones_os($1, 'x')", [os40]), /Solo el responsable/);   // quien pidió no
+await comoUsuario(PROD);
+await db.query("select guardar_observaciones_os($1, $2)", [os40, "  En bodega, no han pasado por él  "]);
+assert.deepEqual((await db.query("select observaciones, observaciones_en is not null en from ordenes_suministro where id = $1", [os40])).rows[0],
+  { observaciones: "En bodega, no han pasado por él", en: true });
+await assert.rejects(db.query("select guardar_observaciones_os($1, $2)", [os40, "x".repeat(501)]), /observaciones_check/);
+await assert.rejects(db.query("update ordenes_suministro set observaciones = 'x' where id = $1", [os40]), /permission denied/);
+await db.query("select guardar_observaciones_os($1, ' ')", [os40]);
+assert.equal(await val("select observaciones from ordenes_suministro where id = $1", [os40]), null);
+await comoUsuario();
 assert.equal(await val("select cantidad::int from os_items where id = $1", [viejo]), 1);
 await db.exec("reset role");
 console.log("OK: todas las pruebas del esquema pasaron");
