@@ -70,6 +70,7 @@ await db.exec(readFileSync(`${dir}/30_formatos_extra.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/31_consulta_todos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/32_os_libras_stock.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/33_os_listo_recoger.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/34_os_sin_descripcion.sql`, "utf8"));
 await db.exec("insert into maquinas (nombre) values ('Formadora 1'), ('M')");  // máquinas de los ítems de prueba (28)
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
@@ -106,6 +107,7 @@ await db.exec(readFileSync(`${dir}/30_formatos_extra.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/31_consulta_todos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/32_os_libras_stock.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/33_os_listo_recoger.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/34_os_sin_descripcion.sql`, "utf8"));
 assert.equal((await db.query(`select frente from usuarios where id = '${SIN_ROL}'`)).rows[0].frente, "Abastecimiento");
 await db.exec(`update usuarios set nombre = 'lina.h', frente = null, encargo = null where id = '${SIN_ROL}'`);  // como estaba
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
@@ -475,6 +477,14 @@ await db.query("select marcar_listo_recoger($1, false)", [os33]);
 assert.equal(await val("select listo_recoger_en from ordenes_suministro where id = $1", [os33]), null);
 await falla("update ordenes_suministro set listo_recoger_en = now() where id = $1", [os33], /permission denied/);
 await comoUsuario();
+
+// Sin descripción (34): la función describe el ítem; sin función ni descripción no se guarda
+await comoUsuario();
+const os34 = await val("select id from ordenes_suministro where numero = $1", [await os({ area_solicitante: "Corte", prioridad: "Verde" },
+  [{ maquina: item.maquina, cantidad: 1, medida: "und", funcion: "  Guantes de carnaza para soldar " }])]);
+assert.deepEqual((await db.query("select descripcion, funcion from os_items where os_id = $1", [os34])).rows[0],
+  { descripcion: "Guantes de carnaza para soldar", funcion: "Guantes de carnaza para soldar" });
+await falla("select crear_os($1, $2)", [{ area_solicitante: "Corte", prioridad: "Verde", responsable: U }, [{ maquina: item.maquina, cantidad: 1, medida: "und" }]], /Escriba la función/);
 
 // Sin rol: no hace nada
 await comoUsuario(SIN_ROL);
