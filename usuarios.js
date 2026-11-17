@@ -2,8 +2,23 @@
 //  USUARIOS (solo admin): crear cuentas con la Edge Function crear-usuario (supabase/functions)
 //  y editar nombre, rol, frente y encargo con actualizar_usuario (sql/16 y 17).
 //  Rol, Frente y "Se encarga de" traen "+ Agregar…" para valores nuevos (sql/17_cierre_roles_maquinas.sql).
+//  "Formularios adicionales": formatos de más para una persona, sin cambiarle el rol (sql/30_formatos_extra.sql).
 // =====================================================================
 const NUEVO = "__nuevo";
+const FORMATOS = [["OT", "OT"], ["OS", "OS"], ["ATS", "ATS"], ["PERMISO", "Permiso"]];
+// Casillas de formularios adicionales: los que ya da el rol salen marcados y bloqueados
+const casillasExtra = (usuario) => FORMATOS.map(([v, t]) =>
+  `<label class="check"><input type="checkbox" name="extra" value="${v}" aria-label="${t} adicional para ${esc(usuario)}"> ${t}</label>`).join("");
+function marcarRol(tr) {
+  const delRol = roles.find((r) => r.rol === tr.querySelector("[name=rol]").value)?.formatos ?? [];
+  const admin = tr.querySelector("[name=rol]").value === "admin";
+  tr.querySelectorAll("[name=extra]").forEach((c) => {
+    const porRol = admin || delRol.includes(c.value);
+    c.disabled = porRol;
+    c.checked = porRol || c.dataset.extra === "1";
+    c.parentElement.title = porRol ? "Ya lo tiene por su rol" : "";
+  });
+}
 const FRENTES_GUIA = ["Dirección", ...new Set(FRENTES.map((f) => f.frente))];   // guía, sección 1
 const ENCARGOS_GUIA = ["Operación General", ...FRENTES.map((f) => f.area)];
 let roles = [], frentes = FRENTES_GUIA, encargos = ENCARGOS_GUIA;              // más los que ya usan los usuarios
@@ -26,7 +41,7 @@ const pintarListas = () => {
 
 async function cargar() {
   const [{ data, error }, r] = await Promise.all([
-    db.from("usuarios").select("id, usuario, nombre, rol, frente, encargo").order("nombre"), db.rpc("roles_disponibles")]);
+    db.from("usuarios").select("id, usuario, nombre, rol, frente, encargo, formatos_extra").order("nombre"), db.rpc("roles_disponibles")]);
   if (error || r.error) return aviso("No se pudo cargar la lista: " + (error || r.error).message, true);
   roles = r.data;
   const usados = (k) => data.map((u) => u[k]).filter(Boolean);
@@ -38,6 +53,7 @@ async function cargar() {
       <td><select name="rol" aria-label="Rol de ${esc(u.usuario)}"></select></td>
       <td><select name="frente" aria-label="Frente de ${esc(u.usuario)}">${conAgregar("—", "Agregar frente", frentes)}</select>${campoNuevo("frente")}</td>
       <td><select name="encargo" aria-label="De qué se encarga ${esc(u.usuario)}">${conAgregar("—", "Agregar encargo", encargos)}</select>${campoNuevo("encargo")}</td>
+      <td><div class="checks formatos-extra">${casillasExtra(u.usuario)}</div></td>
       <td><button type="button" class="btn btn-sec" data-guardar>Guardar</button></td>
     </tr>`).join("");
   pintarListas();
@@ -46,6 +62,8 @@ async function cargar() {
     tr.querySelector("[name=rol]").value = u.rol;
     tr.querySelector("[name=frente]").value = u.frente ?? "";
     tr.querySelector("[name=encargo]").value = u.encargo ?? "";
+    tr.querySelectorAll("[name=extra]").forEach((c) => c.dataset.extra = (u.formatos_extra ?? []).includes(c.value) ? "1" : "");
+    marcarRol(tr);
   });
   etiquetar($("tabla"));
 }
@@ -60,6 +78,8 @@ document.addEventListener("change", (e) => {
     nuevo.hidden = s.value !== NUEVO; nuevo.required = s.value === NUEVO;
     if (!nuevo.hidden) nuevo.focus();
   }
+  if (s.matches("#tabla [name=extra]")) s.dataset.extra = s.checked ? "1" : "";
+  if (s.matches("#tabla select[name=rol]") && s.value !== NUEVO) marcarRol(s.closest("tr"));
   if (s.matches("select[name=rol]") && s.value === NUEVO) {
     rolPendiente = s; s.value = s.dataset.anterior ?? "";
     $("formRol").reset(); msg($("formRol").querySelector(".msg"), "");
@@ -90,8 +110,11 @@ $("tabla").onclick = async (e) => {
   b.disabled = true;
   const { error } = await db.rpc("actualizar_usuario", { uid: tr.dataset.id, nombre: sel("nombre").value, rol: sel("rol").value,
     frente: valor(sel("frente")), encargo: valor(sel("encargo")) });
+  if (error) { b.disabled = false; return aviso(error.message, true); }
+  const extra = [...tr.querySelectorAll("[name=extra]:checked:not(:disabled)")].map((c) => c.value);
+  const r = await db.rpc("actualizar_formatos_extra", { uid: tr.dataset.id, formatos: extra });
   b.disabled = false;
-  if (error) return aviso(error.message, true);
+  if (r.error) return aviso("Se guardó el resto, pero no los formularios adicionales: " + r.error.message, true);
   aviso("Guardado");
   if (sel("frente").value === NUEVO || sel("encargo").value === NUEVO) cargar();   // el valor nuevo pasa a las listas
 };

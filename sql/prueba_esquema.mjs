@@ -66,6 +66,7 @@ await db.exec(readFileSync(`${dir}/26_os_editar_entrega.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/27_os_en_proceso.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/28_os_maquina_lista.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/29_ats_vencimiento.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/30_formatos_extra.sql`, "utf8"));
 await db.exec("insert into maquinas (nombre) values ('Formadora 1'), ('M')");  // máquinas de los ítems de prueba (28)
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
@@ -98,6 +99,7 @@ await db.exec(readFileSync(`${dir}/26_os_editar_entrega.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/27_os_en_proceso.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/28_os_maquina_lista.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/29_ats_vencimiento.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/30_formatos_extra.sql`, "utf8"));
 assert.equal((await db.query(`select frente from usuarios where id = '${SIN_ROL}'`)).rows[0].frente, "Abastecimiento");
 await db.exec(`update usuarios set nombre = 'lina.h', frente = null, encargo = null where id = '${SIN_ROL}'`);  // como estaba
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
@@ -426,6 +428,20 @@ await comoUsuario(PROD);
 assert.equal(await val("select count(*)::int from permisos_trabajo"), 0);
 assert.equal(await val("select count(*)::int from ats_pasos"), 0);
 await db.exec(`reset role; update usuarios set rol = 'sin_rol' where id = '${SIN_ROL}'`);
+
+// Formularios adicionales (30_formatos_extra.sql): el admin le suma formatos a una persona sin cambiarle el rol
+await comoUsuario();
+await db.query("select actualizar_formatos_extra($1, $2)", [PROD, ["ATS", "ot"]]);
+await falla("select actualizar_formatos_extra($1, $2)", [PROD, ["XX"]], /formatos_extra_check/);
+await comoUsuario(PROD);
+assert.deepEqual(await val("select mis_formatos()"), ["OT", "OS", "ATS"]);                               // produccion (OT, OS) + ATS
+assert.equal(await val("select puede('ATS')"), true);
+assert.equal(await val("select puede('PERMISO')"), false);
+assert.equal(await val("select rol::text from usuarios where id = auth.uid()"), "produccion");          // el rol no cambia
+await falla("select actualizar_formatos_extra($1, $2)", [PROD, ["PERMISO"]], /Solo un administrador/);    // nadie se los da a sí mismo
+await comoUsuario();
+await db.query("select actualizar_formatos_extra($1, '{}')", [PROD]);
+assert.deepEqual(await val("select mis_formatos()"), ["OT", "OS", "ATS", "PERMISO"]);                    // admin: todos
 
 // Sin rol: no hace nada
 await comoUsuario(SIN_ROL);

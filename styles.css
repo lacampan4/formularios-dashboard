@@ -289,3 +289,8 @@ label.btn.cargando { opacity: .6; pointer-events: none; }
 
 /* Costo unitario y proveedor que llena el responsable en la tabla de ítems (consulta.js) */
 .celda-item { width: 100%; min-width: 7em; }
+
+/* Usuarios: formularios adicionales por persona (los del rol salen bloqueados) */
+.formatos-extra { gap: 0 12px; flex-wrap: nowrap; }
+.formatos-extra .check { min-height: 36px; font-size: 13px; white-space: nowrap; }
+.formatos-extra input:disabled + * , .formatos-extra label:has(input:disabled) { color: var(--gris-600); cursor: default; }

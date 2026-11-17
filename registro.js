@@ -327,9 +327,11 @@ function pintarCodigos() {
 }
 
 async function alEntrar(perfil) {
-  // Solo las pestañas de los formatos de su rol (sql/3_roles.sql); la base de datos también lo impone
-  const { data: rf } = await db.from("rol_formatos").select("formato").eq("rol", perfil.rol);
-  const permitidos = perfil.rol === "admin" ? FORMS : FORMS.filter((f) => (rf ?? []).some((r) => r.formato === f.toUpperCase()));
+  // Solo las pestañas de los formatos de su rol más sus formularios adicionales (sql/30_formatos_extra.sql);
+  // la base de datos también lo impone. Sin el sql/30, solo los del rol.
+  let { data: formatos, error: sinSql30 } = await db.rpc("mis_formatos");
+  if (sinSql30) formatos = ((await db.from("rol_formatos").select("formato").eq("rol", perfil.rol)).data ?? []).map((r) => r.formato);
+  const permitidos = perfil.rol === "admin" ? FORMS : FORMS.filter((f) => (formatos ?? []).includes(f.toUpperCase()));
   FORMS.forEach((f) => $("tab" + f).hidden = !permitidos.includes(f));
   if (!permitidos.length) {
     $("vistaApp").innerHTML = `<div class="card"><h2>Sin formularios asignados</h2>
