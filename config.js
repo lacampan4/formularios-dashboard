@@ -22,7 +22,7 @@ const FRENTES = [
 ];
 const PERSONAS = ["Ivan Ibáñez", ...FRENTES.map((f) => f.lider)];
 
-// Lista de máquinas de la OT; al final del desplegable va "OTRO", que pide escribirla
+// Lista de máquinas de respaldo (la real está en la tabla maquinas, sql/17); ya no hay "OTRO" (sql/36)
 const MAQUINAS = [
   "CABALLETE", "CANAL PECHO PALOMA", "CTL BRONX", "CTL SESCO", "CUBIERTA ARQUITECTONICA", "CUBIERTA TRAPEZOIDAL",
   "ENTREPISO", "FORMACERO", "LÍNEA TUBERÍA GG80", "MAQUINAS PEQUENAS", "PERLIN EN C", "PLATINA",

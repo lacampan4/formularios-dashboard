@@ -72,7 +72,9 @@ await db.exec(readFileSync(`${dir}/32_os_libras_stock.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/33_os_listo_recoger.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/34_os_sin_descripcion.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/35_montacargas.sql`, "utf8"));
-await db.exec("insert into maquinas (nombre) values ('Formadora 1'), ('M')");  // máquinas de los ítems de prueba (28)
+await db.exec(readFileSync(`${dir}/36_ot_maquina_lista.sql`, "utf8"));
+await db.exec(`insert into maquinas (nombre) values ('Formadora 1'), ('M'),
+  ('Slitter'), ('Slitter 1'), ('Tubería 3'), ('Platina'), ('F1'), ('X')`);  // máquinas de las OT y OS de prueba (28 y 36)
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
 await db.exec(readFileSync(`${dir}/3_roles.sql`, "utf8"));
@@ -110,6 +112,7 @@ await db.exec(readFileSync(`${dir}/32_os_libras_stock.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/33_os_listo_recoger.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/34_os_sin_descripcion.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/35_montacargas.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/36_ot_maquina_lista.sql`, "utf8"));
 assert.equal((await db.query(`select frente from usuarios where id = '${SIN_ROL}'`)).rows[0].frente, "Abastecimiento");
 await db.exec(`update usuarios set nombre = 'lina.h', frente = null, encargo = null where id = '${SIN_ROL}'`);  // como estaba
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
@@ -492,6 +495,12 @@ await falla("select crear_os($1, $2)", [{ area_solicitante: "Corte", prioridad: 
 assert.equal(await val("select count(*)::int from maquinas where nombre like 'MONTACARGA #%'"), 13);
 assert.match(await os({ area_solicitante: "Corte", prioridad: "Verde" }, [{ maquina: "MONTACARGA #7", cantidad: 1, medida: "und", funcion: "Llanta" }]), /^OS-\d{4}$/);
 
+// Sin OTRO (36): la OT solo acepta máquinas de la lista, sin importar mayúsculas ni cómo la escriban
+await comoUsuario();
+await falla("select crear_ot($1, $2)", [{ maquina: "montacarga 7", prioridad: "Verde", responsable: U }, linea], /no está en la lista/);
+await falla("select crear_ot($1, $2)", [{ maquina: "Platina ", prioridad: "Verde", responsable: U }, linea], /no está en la lista/);
+assert.match(await ot({ maquina: "MONTACARGA #7", prioridad: "Verde" }, linea), /^OT-\d{4}$/);
+
 // Sin rol: no hace nada
 await comoUsuario(SIN_ROL);
 await falla("select crear_ot($1, $2)", [{ maquina: "F1", prioridad: "Rojo" }, linea], /row-level security/);
@@ -536,10 +545,10 @@ await assert.rejects(db.query("select crear_rol($1, $2)", ["bodega ñ", ["OS"]])
 await assert.rejects(db.query("select crear_rol($1, $2)", ["calidad", []]), /formatos/);
 await db.query("select actualizar_usuario($1, 'Cesar Riveros', 'bodega_n', ' Logística ', 'Despachos')", [PROD]);
 assert.equal(await val(`select rol::text || ' · ' || frente from usuarios where id = '${PROD}'`), "bodega_n · Logística");
-assert.equal(await val("select count(*)::int from maquinas"), 30);  // 15 de la lista + 2 de prueba (28) + 13 montacargas (35)
+assert.equal(await val("select count(*)::int from maquinas"), 36);  // 15 de la lista + 8 de prueba + 13 montacargas (35)
 assert.equal(await val("select agregar_maquina($1)", ["  dobladora "]), "DOBLADORA");
 assert.equal(await val("select agregar_maquina($1, $2)", ["Dobladora", "CTL"]), "DOBLADORA");     // ya existe: no se repite
-assert.equal(await val("select count(*)::int from maquinas"), 31);
+assert.equal(await val("select count(*)::int from maquinas"), 37);
 await assert.rejects(db.query("select agregar_maquina('otro')"), /ya es una opción/);
 await assert.rejects(db.query("select agregar_maquina('X', 'Bodega')"), /Línea no válida/);
 // Editar máquina (24): nombre y línea; sin repetir otra; las órdenes guardadas no cambian

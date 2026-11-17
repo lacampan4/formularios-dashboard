@@ -113,10 +113,11 @@ function numeroDe(sel, num) {
   num.value = lista.includes(Number(v)) ? v : "";
 }
 const conNumero = (maquina, num) => grupos()[maquina] ? `${maquina} #${num}` : maquina;
-// "+ Nueva máquina" (solo admin) de primero, como "+ Nuevo código"; OTRO al final
+// "+ Nueva máquina" (solo admin) de primero, como "+ Nuevo código". Sin "OTRO": escrita a mano, la misma máquina
+// salía repetida en el dashboard (sql/36_ot_maquina_lista.sql); si falta una, la agrega el admin.
 function pintarMaquinas(v = $("otMaquina").value) {
   $("otMaquina").innerHTML = opciones([], "Seleccione") + (esAdmin ? `<option value="nueva">+ Nueva máquina</option>` : "") +
-    opciones([...nombresLista(), "OTRO"]);
+    opciones(nombresLista());
   $("otMaquina").value = v;
   numeroDe($("otMaquina"), $("otMaquinaNum"));
   // OS: solo máquinas de la lista (sql/28_os_maquina_lista.sql); las agrega el admin desde la OT
@@ -183,11 +184,9 @@ $("fila-os").content.querySelector(".sel-medida").innerHTML = opciones(MEDIDAS, 
 $("fila-trab").content.querySelectorAll(".sel-sino").forEach((s) => s.innerHTML = SINO);
 
 // ---------------- Reglas en pantalla ----------------
-// Máquina OTRO: pide escribirla. "+ Nueva máquina": muestra el campo para agregarla; mientras esté elegida no se puede guardar
+// "+ Nueva máquina": muestra el campo para agregarla; mientras esté elegida no se puede guardar
 $("otMaquina").onchange = () => {
-  const v = $("otMaquina").value, otro = v === "OTRO", nueva = v === "nueva";
-  $("lblMaquinaOtro").hidden = !otro;
-  $("otMaquinaOtro").required = otro;
+  const v = $("otMaquina").value, nueva = v === "nueva";
   modoMaquina(null);
   $("nuevaMaquina").hidden = !nueva;
   $("editarMaquinaBox").hidden = !(esAdmin && maquinas.some((m) => m.nombre === v));
@@ -255,7 +254,7 @@ $("tiposPermiso").onchange = () => {
 // ---------------- Guardar ----------------
 $("formOT").onsubmit = (e) => { e.preventDefault(); guardar(e.target, async () => {
   const orden = datos(e.target);
-  orden.maquina = orden.maquina === "OTRO" ? orden.maquina_otro : conNumero(orden.maquina, $("otMaquinaNum").value);
+  orden.maquina = conNumero(orden.maquina, $("otMaquinaNum").value);
   const numero = ok(await db.rpc("crear_ot", { orden, lineas: filas(e.target.querySelector(".tabla")) }));
   return `${numero} guardada`;
 }); };
@@ -341,10 +340,10 @@ async function cargarCodigos() {
   pintarCodigos();
 }
 // Con una máquina de la lista: solo los códigos generales y los de su línea (guía, anexo de códigos).
-// Sin máquina u OTRO no se sabe la línea: se muestran todos.
+// Sin máquina no se sabe la línea: se muestran todos.
 function pintarCodigos() {
   const maquina = $("otMaquina").value, linea = lineaDe(maquina);
-  const filtrar = maquina && maquina !== "OTRO" && maquina !== "nueva";
+  const filtrar = maquina && maquina !== "nueva";
   // "+ Nuevo código" de primero, para no tener que bajar hasta el final de la lista
   const html = opciones([], "Seleccione") + (esAdmin ? `<option value="nuevo">+ Nuevo código</option>` : "") +
     opciones(codigos.filter((c) => !filtrar || !c.lineas?.length || c.lineas.includes(linea))
