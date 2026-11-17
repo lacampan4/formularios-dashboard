@@ -114,7 +114,7 @@ const filaEntrega = (o, i) => {
       ${esc(i.medida)} <button type="button" class="btn btn-red btn-firma" data-guardar-entrega="${x.id}">Guardar</button></span>` : ""}</div>`).join("");
   const recibio = lineas(entregas.filter((x) => x.recibido_por).map((x) => quien(x, x.recibido_por, x.recibido_en)));
   const entrega = !i.entregado_por && puede && o.responsable === yo, recibe = porRecibir && puede && o.creado_por === yo;
-  return [`${i.cantidad} ${i.medida} · ${i.descripcion}`,
+  return [`${i.cantidad} ${i.medida} · ${i.referencia ?? i.descripcion}`,   // ítems viejos sin referencia: la descripción
     { html: (entrego || (entrega ? "" : "Pendiente")) + (entrega ? `<div class="acciones-fila">${botonFirma({ ...i, cantidad: falta(i) }, "entrega",
       entregas.length ? "Entregar lo que falta" : "Firmar entrega").html}${parcial(i)}</div>` : "") },
     { html: (recibio || (recibe ? "" : "Pendiente")) + (recibe ? botonFirma(i, "recibe", "Firmar recibido").html : "") },
