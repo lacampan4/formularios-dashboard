@@ -302,3 +302,7 @@ label.btn.cargando { opacity: .6; pointer-events: none; }
 /* Usuarios: que se lean el nombre y las listas */
 #tabla td input[name=nombre] { min-width: 170px; }
 #tabla td select[name=rol], #tabla td select[name=frente], #tabla td select[name=encargo] { min-width: 150px; }
+
+/* OS: casilla del responsable "Listo para recoger en bodega" (sql/33) */
+.casilla-listo { font-weight: 600; margin-right: auto; }
+.casilla-listo input { width: 22px; height: 22px; min-height: 22px; accent-color: var(--ok); }

@@ -69,6 +69,7 @@ await db.exec(readFileSync(`${dir}/29_ats_vencimiento.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/30_formatos_extra.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/31_consulta_todos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/32_os_libras_stock.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/33_os_listo_recoger.sql`, "utf8"));
 await db.exec("insert into maquinas (nombre) values ('Formadora 1'), ('M')");  // máquinas de los ítems de prueba (28)
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
@@ -104,6 +105,7 @@ await db.exec(readFileSync(`${dir}/29_ats_vencimiento.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/30_formatos_extra.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/31_consulta_todos.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/32_os_libras_stock.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/33_os_listo_recoger.sql`, "utf8"));
 assert.equal((await db.query(`select frente from usuarios where id = '${SIN_ROL}'`)).rows[0].frente, "Abastecimiento");
 await db.exec(`update usuarios set nombre = 'lina.h', frente = null, encargo = null where id = '${SIN_ROL}'`);  // como estaba
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
@@ -460,6 +462,19 @@ const os32 = await val("select id from ordenes_suministro where numero = $1", [a
 assert.deepEqual((await db.query("select medida, stock from os_items where os_id = $1 order by id", [os32])).rows,
   [{ medida: "lb", stock: true }, { medida: "m", stock: false }]);
 await falla("select crear_os($1, $2)", [{ area_solicitante: "Corte", prioridad: "Verde", responsable: U }, [{ ...item, medida: "onzas" }]], /medida_check/);
+
+// Lista para recoger en bodega (33): solo el responsable la marca o desmarca; queda quién y cuándo
+await comoUsuario();
+const os33 = await val("select id from ordenes_suministro where numero = $1", [await os({ area_solicitante: "Corte", prioridad: "Verde", responsable: PROD }, [item])]);
+await falla("select marcar_listo_recoger($1, true)", [os33], /Solo el responsable/);                    // quien pidió no
+await comoUsuario(PROD);
+await db.query("select marcar_listo_recoger($1, true)", [os33]);
+assert.deepEqual((await db.query("select listo_recoger_en is not null as listo, listo_recoger_por::text por, estado from ordenes_suministro where id = $1", [os33])).rows[0],
+  { listo: true, por: PROD, estado: "Abierta" });                                                          // no cambia el estado
+await db.query("select marcar_listo_recoger($1, false)", [os33]);
+assert.equal(await val("select listo_recoger_en from ordenes_suministro where id = $1", [os33]), null);
+await falla("update ordenes_suministro set listo_recoger_en = now() where id = $1", [os33], /permission denied/);
+await comoUsuario();
 
 // Sin rol: no hace nada
 await comoUsuario(SIN_ROL);

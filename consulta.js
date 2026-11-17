@@ -161,6 +161,10 @@ const celda = (i, campo, tipo) => ({ html: `<input class="celda-item" type="${ti
   ${tipo === "number" ? 'min="0" step="any"' : 'maxlength="120"'} aria-label="${CAMPOS[campo]} de ${esc(i.descripcion)}" placeholder="${tipo === "number" ? "$" : "Proveedor"}">` });
 const celdas = () => [...$("detalle").querySelectorAll(".celda-item")];
 
+// Lista para recoger en bodega (sql/33_os_listo_recoger.sql): quién la marcó y cuándo
+const listoRecoger = (o) => o.listo_recoger_en
+  ? `<span class="chip chip-listo">✓ Listo</span> ${esc(nombres.get(o.listo_recoger_por) ?? "")} · ${fecha(o.listo_recoger_en)}` : "No";
+
 // Suma de los costos totales de los ítems que tienen costo; "—" si ninguno lo tiene
 const totalOS = (items) => {
   const con = items.filter((i) => i.costo_total != null);
@@ -190,10 +194,13 @@ const VISTA = {
       dato("Área solicitante", o.area_solicitante), datoHtml("Prioridad", chip(o.prioridad)), datoHtml("Estado", estado(o.estado)),
       dato("Registrado el", fecha(o.creado_en)), dato("Solicitante", nombres.get(o.creado_por)), dato("Responsable", nombres.get(o.responsable)),
       datoHtml("OT relacionada", o.ordenes_trabajo ? enlace("OT", o.ordenes_trabajo.id, o.ordenes_trabajo.numero) : "—"),
-      dato("Cerrada el", o.cerrada_en && fecha(o.cerrada_en))) +
-      // El responsable la marca En proceso cuando empieza a gestionarla (sql/27_os_en_proceso.sql)
-      (trabaja(o) && o.estado === "Abierta" ? `<div class="acciones-fila no-imprimir" style="justify-content:flex-end;margin-top:12px">
-        <button type="button" class="btn btn-sec" id="btnEnProceso" data-os="${o.id}" data-numero="${esc(o.numero)}">Poner en proceso</button></div>` : "")) +
+      dato("Cerrada el", o.cerrada_en && fecha(o.cerrada_en)),
+      datoHtml("Listo para recoger en bodega", listoRecoger(o))) +
+      // El responsable la marca En proceso cuando empieza a gestionarla (sql/27) y lista para recoger en bodega (sql/33)
+      (trabaja(o) ? `<div class="acciones-fila no-imprimir" style="justify-content:flex-end;margin-top:12px">
+        <label class="check casilla-listo"><input type="checkbox" id="chkListo" data-os="${o.id}" data-numero="${esc(o.numero)}" ${o.listo_recoger_en ? "checked" : ""}>
+          Listo para recoger en bodega</label>
+        ${o.estado === "Abierta" ? `<button type="button" class="btn btn-sec" id="btnEnProceso" data-os="${o.id}" data-numero="${esc(o.numero)}">Poner en proceso</button>` : ""}</div>` : "")) +
     bloque(2, "caja", "Ítems solicitados", tabla(["Máquina", "Referencia", "Marca", "Código", "Cantidad", "Medida", "Costo unitario (almacén)", "Costo total (almacén)", "Proveedor (almacén)", "Descripción", "Función", "Stock",
       ...(corrige(o) ? [""] : [])],
       [...o.os_items].sort((a, b) => a.id - b.id).map((i) => [i.maquina, i.referencia, i.marca, i.codigo, i.cantidad, i.medida,
@@ -379,7 +386,15 @@ $("detalle").oninput = (e) => {
     $("detalle").querySelector(".total-os b").textContent = con.length ? pesos(con.reduce((s, t) => s + Number(t), 0)) : "—";
   }
 };
-$("detalle").onchange = (e) => {
+$("detalle").onchange = async (e) => {
+  const cl = e.target.closest("#chkListo");
+  if (cl) {
+    cl.disabled = true;
+    const { error } = await db.rpc("marcar_listo_recoger", { os: Number(cl.dataset.os), listo: cl.checked });
+    if (error) { cl.checked = !cl.checked; cl.disabled = false; return aviso(error.message, true); }
+    aviso(cl.checked ? `${cl.dataset.numero} lista para recoger en bodega` : `${cl.dataset.numero} ya no está lista para recoger`);
+    return recargar();
+  }
   if (e.target.closest("#requisitos")) $("btnGuardarRequisitos").hidden = casillas().every((c) => c.checked === c.defaultChecked);
 };
 $("detalle").onclick = async (e) => {
@@ -522,7 +537,7 @@ $("btnExcel").onclick = async () => {
     const filasOS = os.data.flatMap((o) => (o.os_items.length ? [...o.os_items].sort((a, b) => a.id - b.id) : [{}]).map((i) => ({
       "No.": o.numero, "Creada": hora(o.creado_en), "Solicitante": n(o.creado_por), "Responsable": n(o.responsable),
       "Área solicitante": o.area_solicitante, "Prioridad": o.prioridad, "OT": o.ordenes_trabajo?.numero ?? "",
-      "Estado": o.estado, "Cerrada": hora(o.cerrada_en), "Horas hasta el cierre": horasEntre(o.creado_en, o.cerrada_en),
+      "Estado": o.estado, "Lista para recoger": hora(o.listo_recoger_en), "Cerrada": hora(o.cerrada_en), "Horas hasta el cierre": horasEntre(o.creado_en, o.cerrada_en),
       "Máquina": i.maquina ?? "", "Descripción": i.descripcion ?? "", "Referencia": i.referencia ?? "", "Marca": i.marca ?? "",
       "Código": i.codigo ?? "", "Cantidad": i.cantidad ?? "", "Cantidad entregada": i.cantidad_entregada ?? "", "Medida": i.medida ?? "", "Stock": i.stock == null ? "" : i.stock ? "Sí" : "No", "Función": i.funcion ?? "", "Proveedor (almacén)": i.proveedor ?? "",
       "Costo unitario (almacén)": i.costo_unitario ?? "", "Costo total (almacén)": i.costo_total ?? "",
