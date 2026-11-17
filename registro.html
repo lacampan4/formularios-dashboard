@@ -207,10 +207,7 @@
       <section class="card bloque">
         <h3 class="seccion"><span class="ico" data-icono="firma"></span>5. Fechas y responsables</h3>
         <div class="grid">
-          <label class="campo"><span class="req">Fecha de apertura</span><input type="date" name="fecha_apertura" required></label>
-          <label class="campo"><span class="req">Hora de apertura</span><input type="time" name="hora_apertura" required></label>
-          <label class="campo"><span class="req">Vigencia del ATS: válido hasta</span><input type="datetime-local" name="vigente_hasta" required>
-            <small class="nota" style="margin:0">Máximo 24 horas después de la apertura.</small></label>
+          <div class="campo"><span>Apertura y vigencia</span><p class="nota" style="margin:0">Empieza a contar al guardar. El ATS vale 24 horas y a las 24 horas se cierra solo (o antes, si se cierra su OT).</p></div>
           <label class="campo"><span class="req">Trabajador encargado de la tarea</span><input name="firma_encargado" required placeholder="Nombre completo"></label>
           <label class="campo"><span class="req">Jefe inmediato (firma)</span><input name="firma_jefe" list="dl-personas" required placeholder="Nombre completo"></label>
           <label class="campo"><span id="lblCoord">Coordinador de trabajo en alturas (si aplica)</span><input name="firma_coord_alturas" id="atsCoord" placeholder="Nombre completo"></label>

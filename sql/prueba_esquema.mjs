@@ -65,6 +65,7 @@ await db.exec(readFileSync(`${dir}/25_os_entregas_parciales.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/26_os_editar_entrega.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/27_os_en_proceso.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/28_os_maquina_lista.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/29_ats_vencimiento.sql`, "utf8"));
 await db.exec("insert into maquinas (nombre) values ('Formadora 1'), ('M')");  // máquinas de los ítems de prueba (28)
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
 // Todos se pueden volver a ejecutar sin romper nada
@@ -96,6 +97,7 @@ await db.exec(readFileSync(`${dir}/25_os_entregas_parciales.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/26_os_editar_entrega.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/27_os_en_proceso.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/28_os_maquina_lista.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/29_ats_vencimiento.sql`, "utf8"));
 assert.equal((await db.query(`select frente from usuarios where id = '${SIN_ROL}'`)).rows[0].frente, "Abastecimiento");
 await db.exec(`update usuarios set nombre = 'lina.h', frente = null, encargo = null where id = '${SIN_ROL}'`);  // como estaba
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
@@ -171,23 +173,24 @@ const n2 = await ot({ maquina: "Slitter", prioridad: "Amarillo" }, linea);
 assert.equal(n2, "OT-0004");
 const idDe = (n) => val("select id from ordenes_trabajo where numero = $1", [n]);
 const id2 = await idDe(n2);
-// Vigencia del ATS (21_ats_vigencia.sql): desde la fecha y hora de apertura, máximo 24 h
+// Vigencia del ATS (29_ats_vencimiento.sql): la pone la base al guardar (ahora + 24 h); lo que mande el navegador no cuenta
 const ats = { ot_id: id2, descripcion_labor: "Cambio de motor en altura", alturas: true, firma_encargado: "Fredy", firma_jefe: "Ivan",
-  fecha_apertura: "2026-11-09", hora_apertura: "07:00", vigente_hasta: "2026-11-09 17:00" };
+  fecha_apertura: "2020-01-01", hora_apertura: "07:00", vigente_hasta: "2030-01-01 00:00" };
 const trab = [{ nombre: "Fredy", salud_ok: true, medicamentos_sueno: false, afiliacion_ss: true, certificado: true }];
 const pasos = [{ paso: "Montar andamio", controles: "Arnés y línea de vida" }];
 await falla("select crear_ats($1, $2, $3)", [ats, trab, pasos], /check/);                                  // alturas sin coordinador
-const conAts = (cambios) => db.query("select crear_ats($1, $2, $3)", [{ ...ats, firma_coord_alturas: "Lina", ...cambios }, trab, pasos]);
-await db.exec("savepoint a21");
-await conAts({ vigente_hasta: "2026-11-10 07:00" });                                                       // justo 24 h: vale
-await db.exec("rollback to savepoint a21");
-await assert.rejects(conAts({ vigente_hasta: "2026-11-10 07:01" }), /ats_vigencia_24h/);                  // más de 24 h
-await db.exec("rollback to savepoint a21");
-await assert.rejects(conAts({ vigente_hasta: "2026-11-09 06:59" }), /ats_vigencia_24h/);                  // antes de la apertura
-await db.exec("rollback to savepoint a21");
-await assert.rejects(conAts({ hora_apertura: null }), /ats_vigencia_24h/);                                // sin hora de apertura
-await db.exec("rollback to savepoint a21");
 const atsId = await val("select crear_ats($1, $2, $3)", [{ ...ats, firma_coord_alturas: "Lina" }, trab, pasos]);
+assert.deepEqual((await db.query(`select vigente_hasta - creado_en = interval '24 hours' as h24,
+  fecha_apertura = (creado_en at time zone 'America/Bogota')::date as hoy from ats where id = $1`, [atsId])).rows[0], { h24: true, hoy: true });
+// A las 24 h se cierra solo, con la hora en que venció; los que no han vencido siguen abiertos
+await db.exec("savepoint a29");
+await db.exec("reset role");
+assert.equal(await val("select public.cerrar_ats_vencidos()"), 0);
+await db.query("update ats set vigente_hasta = now() - interval '1 minute' where id = $1", [atsId]);
+assert.equal(await val("select public.cerrar_ats_vencidos()"), 1);
+assert.equal(await val("select estado || (cerrada_en = vigente_hasta) from ats where id = $1", [atsId]), "Cerradatrue");
+await db.exec("rollback to savepoint a29");
+await falla("select public.cerrar_ats_vencidos()", [], /permission denied/);                               // nadie lo llama desde la app
 assert.equal(await val("select numero from ats where id = $1", [atsId]), "ATS-0001");   // cada formato cuenta aparte
 assert.equal(await val("select estado from ats where id = $1", [atsId]), "Abierta");
 // El ATS se cierra con su OT, a la misma hora; uno nuevo sobre una OT cerrada nace cerrado (18_ats_estado.sql)
