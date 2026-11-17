@@ -139,7 +139,7 @@ let itemsOS = new Map(); // id -> ítem, para llenar el formulario de correcció
 const corrige = (o) => [o.creado_por, o.responsable].includes(yo);
 const valorCampo = (k, v) => v == null || v === "" ? "—" : k.startsWith("costo_") ? pesos(v) : String(v);
 const cambiosDe = (c) => Object.keys(c.despues).length
-  ? { html: Object.keys(c.despues).map((k) => `${esc(CAMPOS[k] ?? k)}: ${esc(valorCampo(k, c.antes[k]))} → <b>${esc(valorCampo(k, c.despues[k]))}</b>`).join("<br>") }
+  ? { html: Object.keys(c.despues).filter((k) => k !== "descripcion" || !("funcion" in c.despues)).map((k) => `${esc(CAMPOS[k] ?? k)}: ${esc(valorCampo(k, c.antes[k]))} → <b>${esc(valorCampo(k, c.despues[k]))}</b>`).join("<br>") }
   : "Sin cambios en los datos";
 const correcciones = (o) => {
   const lista = o.os_items.flatMap((i) => (i.os_correcciones ?? []).map((c) => ({ ...c, item: i })))
@@ -201,11 +201,11 @@ const VISTA = {
         <label class="check casilla-listo"><input type="checkbox" id="chkListo" data-os="${o.id}" data-numero="${esc(o.numero)}" ${o.listo_recoger_en ? "checked" : ""}>
           Listo para recoger en bodega</label>
         ${o.estado === "Abierta" ? `<button type="button" class="btn btn-sec" id="btnEnProceso" data-os="${o.id}" data-numero="${esc(o.numero)}">Poner en proceso</button>` : ""}</div>` : "")) +
-    bloque(2, "caja", "Ítems solicitados", tabla(["Máquina", "Referencia", "Marca", "Código", "Cantidad", "Medida", "Costo unitario (almacén)", "Costo total (almacén)", "Proveedor (almacén)", "Descripción", "Función", "Stock",
+    bloque(2, "caja", "Ítems solicitados", tabla(["Máquina", "Referencia", "Marca", "Código", "Cantidad", "Medida", "Costo unitario (almacén)", "Costo total (almacén)", "Proveedor (almacén)", "Función", "Stock",
       ...(corrige(o) ? [""] : [])],
       [...o.os_items].sort((a, b) => a.id - b.id).map((i) => [i.maquina, i.referencia, i.marca, i.codigo, i.cantidad, i.medida,
         llena(o) ? celda(i, "costo_unitario", "number") : pesos(i.costo_unitario),
-        llena(o) ? { html: `<span id="ct-${i.id}">${esc(pesos(i.costo_total))}</span>` } : pesos(i.costo_total), llena(o) ? celda(i, "proveedor", "text") : i.proveedor, i.descripcion, i.funcion, i.stock ? "Sí" : "No",
+        llena(o) ? { html: `<span id="ct-${i.id}">${esc(pesos(i.costo_total))}</span>` } : pesos(i.costo_total), llena(o) ? celda(i, "proveedor", "text") : i.proveedor, i.funcion ?? i.descripcion, i.stock ? "Sí" : "No",
         ...(corrige(o) ? [{ html: `<button type="button" class="btn btn-sec btn-firma no-imprimir" data-corregir="${i.id}" ${o.creado_por === yo ? "" : "data-ajuste"}>${o.creado_por === yo ? "Corregir" : "Editar"}</button>` }] : [])])) +
       totalOS(o.os_items) +
       (llena(o) ? `<div class="acciones-fila no-imprimir" style="justify-content:flex-end"><button type="button" class="btn btn-red btn-ico" id="btnGuardarItems" hidden>
@@ -349,6 +349,7 @@ function abrirCorreccion(id, ajuste) {
   fc.querySelectorAll("[name=tipo]").forEach((r) => r.required = !ajuste);
   $("tituloCorregir").textContent = ajuste ? "Editar ítem" : "Corregir ítem";
   for (const k of Object.keys(CAMPOS)) if (fc[k]) fc[k].value = i[k] ?? "";
+  fc.funcion.value = i.funcion ?? i.descripcion ?? "";   // ítems viejos: solo tenían descripción
   $("dlgCorregir").showModal();
 }
 fc.onsubmit = async (e) => {
@@ -357,6 +358,7 @@ fc.onsubmit = async (e) => {
     const v = fc[k].value.trim();
     return [k, v === "" ? null : fc[k].type === "number" ? Number(v) : v];
   }));
+  cambios.descripcion = cambios.funcion;   // ya no hay descripción (sql/34): la base la guarda igual a la función
   const boton = fc.querySelector("button[type=submit]");
   boton.disabled = true;
   const { error } = await db.rpc("corregir_item", { item: Number(fc.dataset.item), tipo: fc.tipo.value || "Ajuste del responsable", detalle: fc.detalle.value, cambios });
@@ -538,8 +540,8 @@ $("btnExcel").onclick = async () => {
       "No.": o.numero, "Creada": hora(o.creado_en), "Solicitante": n(o.creado_por), "Responsable": n(o.responsable),
       "Área solicitante": o.area_solicitante, "Prioridad": o.prioridad, "OT": o.ordenes_trabajo?.numero ?? "",
       "Estado": o.estado, "Lista para recoger": hora(o.listo_recoger_en), "Cerrada": hora(o.cerrada_en), "Horas hasta el cierre": horasEntre(o.creado_en, o.cerrada_en),
-      "Máquina": i.maquina ?? "", "Descripción": i.descripcion ?? "", "Referencia": i.referencia ?? "", "Marca": i.marca ?? "",
-      "Código": i.codigo ?? "", "Cantidad": i.cantidad ?? "", "Cantidad entregada": i.cantidad_entregada ?? "", "Medida": i.medida ?? "", "Stock": i.stock == null ? "" : i.stock ? "Sí" : "No", "Función": i.funcion ?? "", "Proveedor (almacén)": i.proveedor ?? "",
+      "Máquina": i.maquina ?? "", "Referencia": i.referencia ?? "", "Marca": i.marca ?? "",
+      "Código": i.codigo ?? "", "Cantidad": i.cantidad ?? "", "Cantidad entregada": i.cantidad_entregada ?? "", "Medida": i.medida ?? "", "Stock": i.stock == null ? "" : i.stock ? "Sí" : "No", "Función": i.funcion ?? i.descripcion ?? "", "Proveedor (almacén)": i.proveedor ?? "",
       "Costo unitario (almacén)": i.costo_unitario ?? "", "Costo total (almacén)": i.costo_total ?? "",
       "Entregó": n(i.entregado_por), "Entregado el": hora(i.entregado_en), "Recibió": n(i.recibido_por), "Recibido el": hora(i.recibido_en),
     })));
