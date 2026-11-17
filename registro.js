@@ -113,15 +113,16 @@ function numeroDe(sel, num) {
   num.value = lista.includes(Number(v)) ? v : "";
 }
 const conNumero = (maquina, num) => grupos()[maquina] ? `${maquina} #${num}` : maquina;
-// "+ Nueva máquina" (solo admin) de primero, como "+ Nuevo código". Sin "OTRO": escrita a mano, la misma máquina
-// salía repetida en el dashboard (sql/36_ot_maquina_lista.sql); si falta una, la agrega el admin.
+// "+ Nueva máquina" (solo admin) de primero, como "+ Nuevo código"; "OTRO" al final, sin campo para escribir cuál
+// (escrita a mano, la misma máquina salía repetida en el dashboard: sql/36 y 38). Si falta una, la agrega el admin.
+const sinOtro = () => nombresLista().filter((n) => n !== "OTRO");
 function pintarMaquinas(v = $("otMaquina").value) {
   $("otMaquina").innerHTML = opciones([], "Seleccione") + (esAdmin ? `<option value="nueva">+ Nueva máquina</option>` : "") +
-    opciones(nombresLista());
+    opciones([...sinOtro(), "OTRO"]);
   $("otMaquina").value = v;
   numeroDe($("otMaquina"), $("otMaquinaNum"));
   // OS: solo máquinas de la lista (sql/28_os_maquina_lista.sql); las agrega el admin desde la OT
-  const html = opciones(nombresLista(), "Seleccione");
+  const html = opciones(sinOtro(), "Seleccione");   // en la OS no va OTRO
   $("fila-os").content.querySelector(".sel-maquina").innerHTML = html;
   $("formOS").querySelectorAll(".sel-maquina").forEach((s) => { const x = s.value; s.innerHTML = html; s.value = x; numeroDe(s, s.nextElementSibling); });
 }
@@ -189,7 +190,7 @@ $("otMaquina").onchange = () => {
   const v = $("otMaquina").value, nueva = v === "nueva";
   modoMaquina(null);
   $("nuevaMaquina").hidden = !nueva;
-  $("editarMaquinaBox").hidden = !(esAdmin && maquinas.some((m) => m.nombre === v));
+  $("editarMaquinaBox").hidden = !(esAdmin && v !== "OTRO" && maquinas.some((m) => m.nombre === v));
   $("otMaquina").setCustomValidity(nueva ? "Agregue la máquina nueva o elija una de la lista" : "");
   numeroDe($("otMaquina"), $("otMaquinaNum"));
   if (nueva) $("nmNombre").focus();
@@ -340,10 +341,10 @@ async function cargarCodigos() {
   pintarCodigos();
 }
 // Con una máquina de la lista: solo los códigos generales y los de su línea (guía, anexo de códigos).
-// Sin máquina no se sabe la línea: se muestran todos.
+// Sin máquina u OTRO no se sabe la línea: se muestran todos.
 function pintarCodigos() {
   const maquina = $("otMaquina").value, linea = lineaDe(maquina);
-  const filtrar = maquina && maquina !== "nueva";
+  const filtrar = maquina && maquina !== "nueva" && maquina !== "OTRO";   // con OTRO no se sabe la línea: todos
   // "+ Nuevo código" de primero, para no tener que bajar hasta el final de la lista
   const html = opciones([], "Seleccione") + (esAdmin ? `<option value="nuevo">+ Nuevo código</option>` : "") +
     opciones(codigos.filter((c) => !filtrar || !c.lineas?.length || c.lineas.includes(linea))
