@@ -313,7 +313,9 @@ async function mostrar() {
   $("vistaLista").classList.toggle("hidden", !!tipo);
   $("vistaDetalle").classList.toggle("hidden", !tipo);
   if (!tipo) return;
-  $("detalle").innerHTML = `<p class="nota">Cargando…</p>`;
+  // Al recargar tras guardar no se borra el detalle: si se vaciara, la página se encoge y salta arriba
+  const y = window.scrollY;
+  if (!recargando) $("detalle").innerHTML = `<p class="nota">Cargando…</p>`;
   const pedido = location.hash;
   let { data, error } = await db.from(DEF[tipo].tabla).select(DEF[tipo].detalle).eq("id", id).maybeSingle();
   // Sin sql/14_os_correcciones.sql en Supabase (PGRST200: no conoce la relación) la OS se ve igual, sin correcciones
@@ -326,7 +328,7 @@ async function mostrar() {
   $("detalle").innerHTML = VISTA[tipo](data);
   pintarIconos($("detalle"));
   document.title = `${$("detalle").querySelector(".no-orden .mono").textContent} | La Campana`;
-  if (!recargando) window.scrollTo(0, 0);
+  window.scrollTo(0, recargando ? y : 0);  // tras guardar, sigue en el mismo lugar
 }
 // Formulario de corrección: llega con los datos actuales del ítem; la base guarda solo lo que cambió
 const fc = $("formCorregir");
