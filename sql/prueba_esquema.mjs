@@ -73,6 +73,7 @@ await db.exec(readFileSync(`${dir}/33_os_listo_recoger.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/34_os_sin_descripcion.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/35_montacargas.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/36_ot_maquina_lista.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/37_restaurar_funciones_os.sql`, "utf8"));
 await db.exec(`insert into maquinas (nombre) values ('Formadora 1'), ('M'),
   ('Slitter'), ('Slitter 1'), ('Tubería 3'), ('Platina'), ('F1'), ('X')`);  // máquinas de las OT y OS de prueba (28 y 36)
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // formato de la guía
@@ -113,6 +114,7 @@ await db.exec(readFileSync(`${dir}/33_os_listo_recoger.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/34_os_sin_descripcion.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/35_montacargas.sql`, "utf8"));
 await db.exec(readFileSync(`${dir}/36_ot_maquina_lista.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/37_restaurar_funciones_os.sql`, "utf8"));
 assert.equal((await db.query(`select frente from usuarios where id = '${SIN_ROL}'`)).rows[0].frente, "Abastecimiento");
 await db.exec(`update usuarios set nombre = 'lina.h', frente = null, encargo = null where id = '${SIN_ROL}'`);  // como estaba
 assert.equal((await db.query("select numero from ordenes_trabajo")).rows[0].numero, "OT-0001");  // volver a ejecutar 6 no lo cambia
@@ -570,4 +572,14 @@ await assert.rejects(db.query("select crear_rol('x_rol', '{OT}')"), /Solo un adm
 await assert.rejects(db.query("select agregar_maquina('Y')"), /Solo un administrador/);
 await assert.rejects(db.query("select editar_maquina('DOBLADORA 2', 'Y')"), /Solo un administrador/);
 await db.exec("reset role");
+// Si alguien vuelve a ejecutar 15 (deja crear_os viejo), 37 lo restaura: la OS vuelve a guardar stock y función
+await db.exec("reset role; begin");
+await db.exec(readFileSync(`${dir}/15_os_proveedor.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/37_restaurar_funciones_os.sql`, "utf8"));
+await db.exec(`set app.uid = '${U}'; set role authenticated;`);
+const n37 = await val("select crear_os($1, $2)", [{ area_solicitante: "Corte", prioridad: "Verde", responsable: U },
+  [{ maquina: "Formadora 1", cantidad: 1, medida: "und", funcion: "Sello", stock: true }]]);
+assert.deepEqual((await db.query("select i.descripcion, i.stock from os_items i join ordenes_suministro o on o.id = i.os_id where o.numero = $1", [n37])).rows[0],
+  { descripcion: "Sello", stock: true });
+await db.exec("reset role; rollback");
 console.log("OK: todas las pruebas del esquema pasaron");
