@@ -291,6 +291,11 @@ label.btn.cargando { opacity: .6; pointer-events: none; }
 .celda-item { width: 100%; min-width: 7em; }
 
 /* Usuarios: formularios adicionales por persona (los del rol salen bloqueados) */
-.formatos-extra { gap: 0 12px; flex-wrap: nowrap; }
-.formatos-extra .check { min-height: 36px; font-size: 13px; white-space: nowrap; }
-.formatos-extra input:disabled + * , .formatos-extra label:has(input:disabled) { color: var(--gris-600); cursor: default; }
+/* Casillas pequeñas en 2 × 2: la regla general de la tabla (min-width: 90px) las estiraba */
+.formatos-extra { display: grid; grid-template-columns: repeat(2, max-content); gap: 0 14px; }
+.formatos-extra .check { min-height: 30px; gap: 6px; font-size: 13px; white-space: nowrap; }
+.tabla td .formatos-extra input { min-width: 0; width: 18px; height: 18px; min-height: 18px; }
+.formatos-extra label:has(input:disabled) { color: var(--gris-600); cursor: default; }
+/* Usuarios: que se lean el nombre y las listas */
+#tabla td input[name=nombre] { min-width: 170px; }
+#tabla td select[name=rol], #tabla td select[name=frente], #tabla td select[name=encargo] { min-width: 150px; }
