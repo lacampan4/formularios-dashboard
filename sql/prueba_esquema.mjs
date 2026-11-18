@@ -671,4 +671,28 @@ await db.exec(`update ordenes_suministro set estado = 'En proceso', cerrada_en =
 await db.exec(readFileSync(`${dir}/43_os_cierre_en_proceso.sql`, "utf8"));       // se puede volver a ejecutar y cierra las atascadas
 assert.equal(await val("select estado from ordenes_suministro where id = $1", [os43]), "Cerrada");
 assert.equal(await val("select count(*)::int from ordenes_suministro o where estado <> 'Cerrada' and exists (select 1 from os_items i where i.os_id = o.id) and not exists (select 1 from os_items i where i.os_id = o.id and not i.entregado)"), 0);
+// Al firmar, la OS en proceso vuelve a Abierta (44); la entrega parcial ya no la pone en proceso
+await db.exec(readFileSync(`${dir}/44_os_firma_abierta.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/44_os_firma_abierta.sql`, "utf8"));   // se puede volver a ejecutar
+await comoUsuario();
+const os44 = await val("select id from ordenes_suministro where numero = $1", [await os({ area_solicitante: "Corte", prioridad: "Verde", responsable: PROD }, [it43, it43])]);
+const [a44, b44] = (await db.query("select id from os_items where os_id = $1 order by id", [os44])).rows.map((r) => r.id);
+const estado44 = () => val("select estado from ordenes_suministro where id = $1", [os44]);
+await comoUsuario(PROD);
+await db.query("select firmar_item($1, 'entrega', 1)", [a44]);
+assert.equal(await estado44(), "Abierta");                                        // parcial: sigue abierta
+await db.query("select poner_en_proceso($1)", [os44]);
+await db.query("select firmar_item($1, 'entrega', 1)", [a44]);
+assert.equal(await estado44(), "Abierta");                                        // firma del responsable: vuelve a Abierta
+await db.query("select poner_en_proceso($1)", [os44]);
+await comoUsuario();
+await db.query("select firmar_item($1, 'recibe')", [a44]);
+assert.equal(await estado44(), "Abierta");                                        // recibido: vuelve a Abierta
+await comoUsuario(PROD);
+await db.query("select poner_en_proceso($1)", [os44]);
+await db.query("select firmar_item($1, 'entrega')", [b44]);
+await comoUsuario();
+await db.query("select firmar_item($1, 'recibe')", [b44]);
+assert.equal(await estado44(), "Cerrada");                                        // el último recibido la cierra
+await db.exec("reset role");
 console.log("OK: todas las pruebas del esquema pasaron");

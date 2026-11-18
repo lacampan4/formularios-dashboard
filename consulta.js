@@ -127,7 +127,7 @@ const cierreOS = (o) => {
   if (o.estado === "Cerrada" || !desdeBandeja || ![o.responsable, o.creado_por].includes(yo)) return "";
   const faltan = o.os_items.filter((i) => !i.entregado).length;
   if (faltan) return `<p class="nota no-imprimir">Faltan ${faltan} ítem${faltan === 1 ? "" : "s"} con las dos firmas (entrega y recibido).
-    La orden se cierra sola cuando quien la pidió firme el último recibido. Si no hay todo en el almacén, use <b>Entrega parcial</b>: la orden queda En proceso y lo que falta se entrega después.</p>`;
+    La orden se cierra sola cuando quien la pidió firme el último recibido. Si no hay todo en el almacén, use <b>Entrega parcial</b> y lo que falta se entrega después.</p>`;
   return trabaja(o) ? `<div class="acciones no-imprimir" id="cierreOS" data-os="${o.id}" data-numero="${esc(o.numero)}"><span></span>
     <button type="button" class="btn btn-red" id="btnCerrarOS">Cerrar orden</button></div>` : "";
 };
