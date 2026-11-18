@@ -646,4 +646,29 @@ assert.equal(await val("select count(*)::int from maquinas where nombre in ('MON
 await comoUsuario();
 assert.match(await os({ area_solicitante: "Corte", prioridad: "Verde" }, [{ maquina: "MONTACARGAS NISSAN 110 #13", referencia: "R", cantidad: 1, medida: "und", funcion: "Llanta" }]), /^OS-\d{4}$/);
 await db.exec("reset role");
+// OS en proceso (43): con el último recibido se cierra sola; el responsable la puede cerrar; las atascadas se cierran
+await db.exec(readFileSync(`${dir}/23_os_entrega_parcial.sql`, "utf8"));          // como si alguien volviera a ejecutar uno viejo
+await db.exec(readFileSync(`${dir}/43_os_cierre_en_proceso.sql`, "utf8"));
+await comoUsuario();
+const it43 = { maquina: "Formadora 1", referencia: "R", cantidad: 2, medida: "und", funcion: "Sello" };
+const os43 = await val("select id from ordenes_suministro where numero = $1", [await os({ area_solicitante: "Corte", prioridad: "Verde", responsable: PROD }, [it43])]);
+const i43 = await val("select id from os_items where os_id = $1", [os43]);
+await comoUsuario(PROD);
+await db.query("select poner_en_proceso($1)", [os43]);
+await db.query("select firmar_item($1, 'entrega', 1)", [i43]);
+await db.query("select firmar_item($1, 'entrega')", [i43]);
+await comoUsuario();
+await db.query("select firmar_item($1, 'recibe')", [i43]);
+assert.equal(await val("select estado from ordenes_suministro where id = $1", [os43]), "Cerrada");        // se cerró sola
+await db.exec("reset role");
+await db.exec(`update ordenes_suministro set estado = 'En proceso', cerrada_en = null where id = ${os43}`);  // atascada
+await comoUsuario(PROD);
+await db.query("select cerrar_os($1)", [os43]);
+assert.equal(await val("select estado from ordenes_suministro where id = $1", [os43]), "Cerrada");        // el responsable la cierra
+await assert.rejects(db.query("select cerrar_os($1)", [os43]), /no está cerrada/);
+await db.exec("reset role");
+await db.exec(`update ordenes_suministro set estado = 'En proceso', cerrada_en = null where id = ${os43}`);
+await db.exec(readFileSync(`${dir}/43_os_cierre_en_proceso.sql`, "utf8"));       // se puede volver a ejecutar y cierra las atascadas
+assert.equal(await val("select estado from ordenes_suministro where id = $1", [os43]), "Cerrada");
+assert.equal(await val("select count(*)::int from ordenes_suministro o where estado <> 'Cerrada' and exists (select 1 from os_items i where i.os_id = o.id) and not exists (select 1 from os_items i where i.os_id = o.id and not i.entregado)"), 0);
 console.log("OK: todas las pruebas del esquema pasaron");
