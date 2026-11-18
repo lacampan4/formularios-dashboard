@@ -635,5 +635,15 @@ assert.equal(await val("select count(*)::int from os_items where maquina like 'M
 await comoUsuario();
 assert.equal(await val("select agregar_maquina('Montacarga 1')"), "MONTACARGA 1");
 assert.equal(await val("select editar_maquina('MONTACARGA 1', 'Montacarga 01')"), "MONTACARGA 01");
+// Montacargas de la planta (42): 14, sin duplicar los que ya estén aunque estén escritos distinto
+await db.exec("reset role");
+await db.exec("insert into maquinas (nombre) values ('MONTACARGA snsc  20t #1'), ('CLARK #11')");
+await db.exec(readFileSync(`${dir}/42_montacargas_lista.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/42_montacargas_lista.sql`, "utf8"));   // se puede volver a ejecutar
+assert.equal(await val("select count(*)::int from maquinas where nombre like 'MONTACARGAS %'"), 12);   // 14 menos los 2 que ya estaban
+assert.equal(await val("select count(*)::int from maquinas where nombre in ('MONTACARGAS TOYOTA 5T #3', 'MONTACARGAS TOYOTA 5T #7', 'MONTACARGAS MITSUBISHI')"), 3);
+assert.equal(await val("select count(*)::int from maquinas where nombre in ('MONTACARGAS SNSC 20T #1', 'MONTACARGAS CLARK #11')"), 0);
+await comoUsuario();
+assert.match(await os({ area_solicitante: "Corte", prioridad: "Verde" }, [{ maquina: "MONTACARGAS NISSAN 110 #13", referencia: "R", cantidad: 1, medida: "und", funcion: "Llanta" }]), /^OS-\d{4}$/);
 await db.exec("reset role");
 console.log("OK: todas las pruebas del esquema pasaron");
