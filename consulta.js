@@ -124,6 +124,10 @@ const filaEntrega = (o, i) => {
 // La OS se cierra sola con el último recibido (sql/17_cierre_roles_maquinas.sql). "Cerrar" solo queda para
 // OS anteriores a eso que ya tienen todos los ítems firmados.
 const cierreOS = (o) => {
+  // Desde Consulta no se firma: a quien le toca se le da el enlace a la misma orden en modo Bandeja
+  if (!desdeBandeja && o.estado !== "Cerrada" && [o.responsable, o.creado_por].includes(yo))
+    return `<p class="nota no-imprimir">Aquí solo se consulta. Para firmar entregas o recibidos y cerrar:
+      <a class="btn btn-red" href="consulta.html?bandeja#OS/${o.id}">Abrir para firmar</a></p>`;
   if (o.estado === "Cerrada" || !desdeBandeja || ![o.responsable, o.creado_por].includes(yo)) return "";
   const faltan = o.os_items.filter((i) => !i.entregado).length;
   if (faltan) return `<p class="nota no-imprimir">Faltan ${faltan} ítem${faltan === 1 ? "" : "s"} con las dos firmas (entrega y recibido).
