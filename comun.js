@@ -14,6 +14,10 @@ const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 const fecha = (f) => f ? new Date(f).toLocaleString("es-CO", { timeZone: "America/Bogota", dateStyle: "short", timeStyle: "short" }) : "—";
 const pesos = (n) => n === null || n === undefined || n === "" ? "—"
   : new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }).format(n);
+// Costos como se escriben en Colombia: punto de miles y coma decimal ("15.632" son quince mil). Un campo
+// type=number toma el punto como decimal y guardaba 15,632 pesos.
+const aPesos = (t) => { const v = String(t ?? "").replace(/[$\s.]/g, "").replace(",", "."); return v === "" ? null : Number(v); };
+const numCO = (n) => n == null || n === "" ? "" : new Intl.NumberFormat("es-CO", { maximumFractionDigits: 4 }).format(n);
 const chip = (t) => `<span class="chip ${esc(t)}">${esc(t)}${PRIORIDADES[t] ? " · " + PRIORIDADES[t] : ""}</span>`;
 // Nombre con su frente y de qué se encarga (sql/16_usuarios_frentes.sql): "Fredy Verdugo (Mantenimiento · Mecánica de CTL's y slitters)"
 const quien = (u) => { const f = [u.frente, u.encargo].filter(Boolean).join(" · "); return f ? `${u.nombre} (${f})` : u.nombre; };

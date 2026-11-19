@@ -75,7 +75,7 @@
         <label class="campo"><span>Código</span><input name="codigo"></label>
         <label class="campo"><span class="req">Cantidad</span><input name="cantidad" type="number" min="0.01" step="any" required></label>
         <label class="campo"><span class="req">Medida</span><select name="medida" required></select></label>
-        <label class="campo"><span>Costo unitario (almacén)</span><input name="costo_unitario" type="number" min="0" step="any"></label>
+        <label class="campo"><span>Costo unitario (almacén)</span><input name="costo_unitario" type="text" inputmode="decimal" pattern="\$?\s*[0-9][0-9.]*(,[0-9]+)?" title="Pesos: punto para miles y coma para decimales (ej. 15.632 o 15.632,50)"></label>
         <label class="campo"><span>Proveedor (almacén)</span><input name="proveedor"></label>
         <label class="campo"><span class="req">Función</span><input name="funcion" required placeholder="Qué es el ítem y para qué se usa"></label>
       </div>

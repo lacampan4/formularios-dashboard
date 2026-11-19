@@ -364,7 +364,7 @@
     <td><input data-k="codigo" placeholder="Código"></td>
     <td><input data-k="cantidad" data-tipo="num" type="number" min="0.01" step="any" required placeholder="0"></td>
     <td><select data-k="medida" class="sel-medida" required></select></td>
-    <td><input data-k="costo_unitario" data-tipo="num" type="number" min="0" step="any" placeholder="$ 0"></td>
+    <td><input data-k="costo_unitario" data-tipo="pesos" type="text" inputmode="decimal" pattern="\$?\s*[0-9][0-9.]*(,[0-9]+)?" title="Pesos: punto para miles y coma para decimales (ej. 15.632 o 15.632,50)" placeholder="$ 0"></td>
     <td><input data-k="costo_total" data-tipo="num" type="number" readonly tabindex="-1" placeholder="Automático" title="Cantidad × costo unitario"></td>
     <td><input data-k="proveedor" placeholder="A quién se le compra"></td>
     <td><input data-k="funcion" required placeholder="Qué es el ítem y para qué se usa"></td>

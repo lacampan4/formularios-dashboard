@@ -157,8 +157,8 @@ const novedad = (i) => {
 // El responsable llena costo unitario y proveedor en la misma tabla; "Guardar" aparece al escribir.
 // Se guarda con corregir_item (sql/22_os_responsable.sql): queda en el historial de correcciones.
 const llena = (o) => o.responsable === yo;
-const celda = (i, campo, tipo) => ({ html: `<input class="celda-item" type="${tipo}" data-item="${i.id}" name="${campo}" value="${esc(i[campo] ?? "")}"
-  ${tipo === "number" ? 'min="0" step="any"' : 'maxlength="120"'} aria-label="${CAMPOS[campo]} de ${esc(i.descripcion)}" placeholder="${tipo === "number" ? "$" : "Proveedor"}">` });
+const celda = (i, campo, tipo) => ({ html: `<input class="celda-item" data-item="${i.id}" name="${campo}" value="${esc(tipo === "number" ? numCO(i[campo]) : i[campo] ?? "")}"
+  ${tipo === "number" ? 'type="text" inputmode="decimal" pattern="\\$?\\s*[0-9][0-9.]*(,[0-9]+)?" title="Pesos: punto para miles y coma para decimales (ej. 15.632 o 15.632,50)"' : 'type="text" maxlength="120"'} aria-label="${CAMPOS[campo]} de ${esc(i.descripcion)}" placeholder="${tipo === "number" ? "$" : "Proveedor"}">` });
 const celdas = () => [...$("detalle").querySelectorAll(".celda-item")];
 
 // Lista para recoger en bodega (sql/33_os_listo_recoger.sql): quién la marcó y cuándo
@@ -354,6 +354,7 @@ function abrirCorreccion(id, ajuste) {
   fc.querySelectorAll("[name=tipo]").forEach((r) => r.required = !ajuste);
   $("tituloCorregir").textContent = ajuste ? "Editar ítem" : "Corregir ítem";
   for (const k of Object.keys(CAMPOS)) if (fc[k]) fc[k].value = i[k] ?? "";
+  fc.costo_unitario.value = numCO(i.costo_unitario);
   fc.funcion.value = i.funcion ?? i.descripcion ?? "";   // ítems viejos: solo tenían descripción
   $("dlgCorregir").showModal();
 }
@@ -361,7 +362,7 @@ fc.onsubmit = async (e) => {
   e.preventDefault();
   const cambios = Object.fromEntries(Object.keys(CAMPOS).filter((k) => fc[k]).map((k) => {
     const v = fc[k].value.trim();
-    return [k, v === "" ? null : fc[k].type === "number" ? Number(v) : v];
+    return [k, v === "" ? null : k === "costo_unitario" ? aPesos(v) : fc[k].type === "number" ? Number(v) : v];
   }));
   cambios.descripcion = cambios.funcion;   // ya no hay descripción (sql/34): la base la guarda igual a la función
   const boton = fc.querySelector("button[type=submit]");
@@ -385,7 +386,7 @@ $("detalle").oninput = (e) => {
   if (e.target.matches(".celda-item[name=costo_unitario]")) {
     const total = (i) => {
       const c = $("detalle").querySelector(`.celda-item[data-item="${i.id}"][name=costo_unitario]`);
-      return !c ? i.costo_total : c.value === "" ? null : Math.round(Number(i.cantidad) * Number(c.value) * 100) / 100;
+      return !c ? i.costo_total : c.value === "" ? null : Math.round(Number(i.cantidad) * aPesos(c.value) * 100) / 100;
     };
     const i = itemsOS.get(Number(e.target.dataset.item));
     $("ct-" + i.id).textContent = pesos(total(i));
@@ -414,7 +415,7 @@ $("detalle").onclick = async (e) => {
     if (!cambiadas.every((c) => c.reportValidity())) return;
     const porItem = new Map();
     for (const c of cambiadas) porItem.set(c.dataset.item, { ...porItem.get(c.dataset.item),
-      [c.name]: c.value.trim() === "" ? null : c.type === "number" ? Number(c.value) : c.value.trim() });
+      [c.name]: c.value.trim() === "" ? null : c.name === "costo_unitario" ? aPesos(c.value) : c.value.trim() });
     gi.disabled = true;
     for (const [item, cambios] of porItem) {
       // La base lo guarda como "Ajuste del responsable"; si el responsable también pidió la OS, queda como "Mal diligenciado"

@@ -10,6 +10,7 @@ const valor = (el) => {
   const v = el.value.trim();
   if (v === "") return null;
   if (el.dataset.tipo === "num") return Number(v);
+  if (el.dataset.tipo === "pesos") return aPesos(v);
   if (el.dataset.tipo === "bool") return v === "true";
   return v;
 };
