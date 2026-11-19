@@ -35,7 +35,9 @@ const LINEA_DE_MAQUINA = {
 };
 
 const PRIORIDADES = { Rojo: "Urgente", Amarillo: "Programable", Verde: "Preventivo" };
-const MEDIDAS = ["und", "kg", "lb", "m", "L", "gal"]; // gal: galones (sql/24); lb: libras (sql/32_os_libras_stock.sql)
+// Se guarda la sigla (v); en la lista sale con el nombre para que nadie pida litros como unidades
+const MEDIDAS = [{ v: "und", t: "und (unidades)" }, { v: "kg", t: "kg (kilos)" }, { v: "lb", t: "lb (libras)" }, { v: "m", t: "m (metros)" },
+  { v: "L", t: "L (litros)" }, { v: "gal", t: "gal (galones)" }]; // gal: galones (sql/24); lb: libras (sql/32_os_libras_stock.sql)
 const TIPOS_PERMISO = { alturas: "Trabajo en alturas", caliente: "Trabajo en caliente", energias: "Energías peligrosas (bloqueo y etiquetado)",
   electrico: "Trabajo riesgo eléctrico", izaje: "Trabajo con izaje de cargas" };
 
