@@ -695,4 +695,32 @@ await comoUsuario();
 await db.query("select firmar_item($1, 'recibe')", [b44]);
 assert.equal(await estado44(), "Cerrada");                                        // el último recibido la cierra
 await db.exec("reset role");
+// Corregir la cantidad pedida recalcula el ítem y cierra la OS (45): pidieron 6, solo había 1
+await db.exec(readFileSync(`${dir}/45_os_corregir_cantidad.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/45_os_corregir_cantidad.sql`, "utf8"));   // se puede volver a ejecutar
+await comoUsuario();
+const os45 = await val("select id from ordenes_suministro where numero = $1", [await os({ area_solicitante: "Corte", prioridad: "Verde", responsable: PROD }, [{ ...it43, cantidad: 6 }, { ...it43, cantidad: 3 }])]);
+const [a45, b45] = (await db.query("select id from os_items where os_id = $1 order by id", [os45])).rows.map((r) => r.id);
+const estado45 = () => val("select estado from ordenes_suministro where id = $1", [os45]);
+const entregado45 = (id) => val("select entregado from os_items where id = $1", [id]);
+await comoUsuario(PROD);
+await db.query("select firmar_item($1, 'entrega')", [a45]);                      // entrega 6...
+await db.query("select editar_entrega($1, 1)", [await val("select id from os_entregas where item_id = $1", [a45])]);  // ...y la corrige a 1
+await db.query("select firmar_item($1, 'entrega', 2)", [b45]);
+await comoUsuario();
+await db.query("select firmar_item($1, 'recibe')", [a45]);
+await db.query("select firmar_item($1, 'recibe')", [b45]);
+assert.equal(await entregado45(a45), false);                                      // "Parcial: 1 de 6"
+await assert.rejects(db.query("select corregir_item($1, 'Mal diligenciado', 'x', $2)", [a45, { cantidad: 0.5 }]), /no puede ser menor/);
+await db.query("select corregir_item($1, 'Mal diligenciado', 'Solo había 1', $2)", [a45, { cantidad: 1 }]);
+assert.equal(await entregado45(a45), true);                                       // completo, con las firmas de la entrega
+assert.equal(await val("select recibido_por::text from os_items where id = $1", [a45]), U);
+assert.equal(await estado45(), "Abierta");                                        // falta el otro ítem
+await comoUsuario(PROD);
+await db.query("select corregir_item($1, 'Ajuste del responsable', 'Solo había 2', $2)", [b45, { cantidad: 2 }]);
+assert.equal(await estado45(), "Cerrada");                                        // lo último completo la cierra
+await comoUsuario();
+await db.query("select corregir_item($1, 'Mal diligenciado', 'Eran 4', $2)", [b45, { cantidad: 4 }]);
+assert.equal(await entregado45(b45), false);                                      // pidieron más: vuelve a pendiente
+await db.exec("reset role");
 console.log("OK: todas las pruebas del esquema pasaron");
