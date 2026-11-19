@@ -108,7 +108,7 @@ const filaEntrega = (o, i) => {
   const quien = (x, por, en) => `${x.cantidad} ${i.medida} · ${firmaItem(por, en)}`;
   // El responsable corrige la cantidad mientras no la hayan recibido (sql/26_os_editar_entrega.sql)
   const editable = (x) => !x.recibido_por && puede && o.responsable === yo;
-  const entrego = entregas.map((x) => `<div>${esc(quien(x, x.entregado_por, x.entregado_en))}${x.cantidad_anterior != null ? ` <small class="nota">(corregida; antes ${esc(x.cantidad_anterior)})</small>` : ""}${editable(x)
+  const entrego = entregas.map((x) => `<div>${esc(quien(x, x.entregado_por, x.entregado_en))}${x.cantidad_anterior != null ? ` <small class="nota">${esc(`(${(nombres.get(o.responsable) ?? "El responsable").split(" (")[0]} la corrigió de ${x.cantidad_anterior} a ${x.cantidad} ${i.medida}${x.editada_en ? ` el ${fecha(x.editada_en)}` : ""})`)}</small>` : ""}${editable(x)
     ? ` <button type="button" class="btn btn-sec btn-firma" data-editar-entrega="${x.id}">Editar cantidad</button>
       <span class="cant-entrega" id="editar-${x.id}" hidden><input type="number" value="${x.cantidad}" min="0.01" max="${Number(x.cantidad) + falta(i)}" step="any" required aria-label="Cantidad entregada">
       ${esc(i.medida)} <button type="button" class="btn btn-red btn-firma" data-guardar-entrega="${x.id}">Guardar</button></span>` : ""}</div>`).join("");
