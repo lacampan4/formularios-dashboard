@@ -11,7 +11,7 @@ f.onsubmit = (e) => e.preventDefault();
 const falla = (l) => `<div><b>${esc(String(l.codigo_falla).padStart(2, "0"))} – ${esc(l.codigos_falla?.descripcion)}</b><br>${esc(l.reporte)}</div>`;
 // Resumen del ítem en la fila; las firmas y el cierre de la OS se hacen en "Abrir" (consulta.js)
 const item = (i) => `<div class="item-os${i.entregado ? " listo" : ""}"><b>${i.entregado ? '<span class="chulo" aria-label="Entregado">✓</span> ' : ""}${esc(i.cantidad)} ${esc(i.medida)} · ${esc(i.descripcion)}</b><br>${esc(i.maquina)}
-  <div class="firmas-item">${i.entregado ? "Entregado y recibido" : i.entregado_por ? "Entregado, falta firmar el recibido" : "Entrega pendiente"}${i.cantidad_entregada != null && i.cantidad_entregada < i.cantidad ? ` (${i.cantidad_entregada} de ${i.cantidad})` : ""}</div></div>`;
+  <div class="firmas-item">${i.entregado ? "Entregado y recibido" : i.entregado_por ? "Entregado, falta firmar el recibido" : "Entrega pendiente"}${i.cantidad_entregada != null && i.cantidad_entregada < i.cantidad ? ` (${i.cantidad_entregada} de ${i.cantidad})` : ""}${!i.entregado && i.listo_recoger_en ? ' · <b style="color:var(--ok)">Listo para recoger</b>' : ""}</div></div>`;
 const progreso = (items) => `<p class="nota">${items.filter((i) => i.entregado).length} de ${items.length} ítem${items.length === 1 ? "" : "s"} entregado${items.length === 1 ? "" : "s"}</p>`;
 // La OT se sigue cerrando desde la fila
 const accion = (o) => o.tipo === "OT" && o.estado === "Abierta" ?
@@ -28,7 +28,11 @@ function toca(o) {
     o.responsable === yo && !n((i) => !i.entregado) && "Lista para cerrar"].filter(Boolean);
 }
 // Lista para recoger en bodega (sql/33): se ve en la fila para quien pidió y para el responsable
-const listo = (o) => o.tipo === "OS" && o.listo_recoger_en && o.estado !== "Cerrada" ? '<span class="chip chip-listo">Lista para recoger en bodega</span>' : "";
+// Ítems listos para recoger en bodega (sql/46): cuántos de los que faltan
+const listo = (o) => {
+  const n = o.tipo === "OS" && o.estado !== "Cerrada" ? o.os_items.filter((i) => !i.entregado && i.listo_recoger_en).length : 0;
+  return n ? `<span class="chip chip-listo">${n} listo${n === 1 ? "" : "s"} para recoger</span>` : "";
+};
 const pendientes = (t, o) => o.estado === "Cerrada" ? "" : `<div class="toca">${listo(o)}${t.length
   ? t.map((x) => `<span class="chip ${x === "Lista para cerrar" ? "chip-listo" : "chip-toca"}">${x}</span>`).join("")
   : '<span class="nota" style="margin:0">Esperando a la otra persona</span>'}</div>`;
@@ -39,8 +43,8 @@ async function cargar() {
   const [ot, os] = await Promise.all([
     filtro(db.from("ordenes_trabajo").select("id, numero, creado_en, creado_por, prioridad, estado, maquina, ot_lineas(codigo_falla, reporte, codigos_falla(descripcion))").eq("responsable", yo)),
     // OS: las que debe entregar (responsable) y las que pidió (solicitante, para firmar el recibido)
-    filtro(db.from("ordenes_suministro").select("id, numero, creado_en, creado_por, responsable, prioridad, estado, area_solicitante, listo_recoger_en, " +
-      "os_items(id, maquina, cantidad, medida, descripcion, entregado_por, recibido_por, entregado, cantidad_entregada, os_entregas(recibido_por))")
+    filtro(db.from("ordenes_suministro").select("id, numero, creado_en, creado_por, responsable, prioridad, estado, area_solicitante, " +
+      "os_items(id, maquina, cantidad, medida, descripcion, entregado_por, recibido_por, entregado, cantidad_entregada, listo_recoger_en, os_entregas(recibido_por))")
       .or(`responsable.eq.${yo},creado_por.eq.${yo}`).order("id", { referencedTable: "os_items" })),
   ]);
   const error = ot.error || os.error;

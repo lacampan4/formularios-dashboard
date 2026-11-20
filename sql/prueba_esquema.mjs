@@ -723,4 +723,21 @@ await comoUsuario();
 await db.query("select corregir_item($1, 'Mal diligenciado', 'Eran 4', $2)", [b45, { cantidad: 4 }]);
 assert.equal(await entregado45(b45), false);                                      // pidieron más: vuelve a pendiente
 await db.exec("reset role");
+// Listo para recoger por ítem (46): lo marca el responsable; las OS ya marcadas pasan a sus ítems pendientes
+await comoUsuario();
+const os46 = await val("select id from ordenes_suministro where numero = $1", [await os({ area_solicitante: "Corte", prioridad: "Verde", responsable: PROD }, [it43, it43])]);
+const [a46, b46] = (await db.query("select id from os_items where os_id = $1 order by id", [os46])).rows.map((r) => r.id);
+await comoUsuario(PROD);
+await db.query("select marcar_listo_recoger($1, true)", [os46]);                  // marca vieja de toda la orden
+await db.exec("reset role");
+await db.exec(readFileSync(`${dir}/46_os_item_listo.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/46_os_item_listo.sql`, "utf8"));           // se puede volver a ejecutar
+assert.equal(await val("select count(*)::int from os_items where os_id = $1 and listo_recoger_por is not null", [os46]), 2);
+await comoUsuario(PROD);
+await db.query("select marcar_item_listo($1, false)", [b46]);
+assert.equal(await val("select listo_recoger_en is null from os_items where id = $1", [b46]), true);
+await comoUsuario();
+await assert.rejects(db.query("select marcar_item_listo($1, true)", [b46]), /Solo el responsable/);   // quien pidió solo lo ve
+assert.equal(await val("select listo_recoger_en is not null from os_items where id = $1", [a46]), true);
+await db.exec("reset role");
 console.log("OK: todas las pruebas del esquema pasaron");

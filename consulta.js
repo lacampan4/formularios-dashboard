@@ -119,7 +119,13 @@ const filaEntrega = (o, i) => {
       entregas.length ? "Entregar lo que falta" : "Firmar entrega").html}${parcial(i)}</div>` : "") },
     { html: (recibio || (recibe ? "" : "Pendiente")) + (recibe ? botonFirma(i, "recibe", "Firmar recibido").html : "") },
     { html: (i.entregado ? '<span class="chulo">✓ Entregado</span>' : i.entregado_por ? "Entregado, falta el recibido"
-      : i.cantidad_entregada ? `<span class="chip proceso">Parcial: ${esc(i.cantidad_entregada)} de ${esc(i.cantidad)} ${esc(i.medida)}</span>` : "Pendiente") + novedad(i) }];
+      : i.cantidad_entregada ? `<span class="chip proceso">Parcial: ${esc(i.cantidad_entregada)} de ${esc(i.cantidad)} ${esc(i.medida)}</span>` : "Pendiente") + novedad(i) },
+    // Listo para recoger por ítem (sql/46_os_item_listo.sql): lo marca el responsable, todos lo ven
+    { html: puede && o.responsable === yo && !i.entregado
+      ? `<label class="check casilla-listo"><input type="checkbox" data-listo-item="${i.id}" ${i.listo_recoger_en ? "checked" : ""}
+          aria-label="Listo para recoger: ${esc(i.referencia ?? i.descripcion)}"> Listo</label>`
+      : i.listo_recoger_en && !i.entregado ? `<span class="chip chip-listo">✓ Listo</span><br><small class="nota">${esc(fecha(i.listo_recoger_en))}</small>`
+      : i.entregado ? "—" : "No" }];
 };
 // La OS se cierra sola con el último recibido (sql/17_cierre_roles_maquinas.sql). "Cerrar" solo queda para
 // OS anteriores a eso que ya tienen todos los ítems firmados.
@@ -165,9 +171,6 @@ const celda = (i, campo, tipo) => ({ html: `<input class="celda-item" data-item=
   ${tipo === "number" ? 'type="text" inputmode="decimal" pattern="\\$?\\s*[0-9][0-9.]*(,[0-9]+)?" title="Pesos: punto para miles y coma para decimales (ej. 15.632 o 15.632,50)"' : 'type="text" maxlength="120"'} aria-label="${CAMPOS[campo]} de ${esc(i.descripcion)}" placeholder="${tipo === "number" ? "$" : "Proveedor"}">` });
 const celdas = () => [...$("detalle").querySelectorAll(".celda-item")];
 
-// Lista para recoger en bodega (sql/33_os_listo_recoger.sql): quién la marcó y cuándo
-const listoRecoger = (o) => o.listo_recoger_en
-  ? `<span class="chip chip-listo">✓ Listo</span> ${esc(nombres.get(o.listo_recoger_por) ?? "")} · ${fecha(o.listo_recoger_en)}` : "No";
 
 // Suma de los costos totales de los ítems que tienen costo; "—" si ninguno lo tiene
 const totalOS = (items) => {
@@ -198,12 +201,9 @@ const VISTA = {
       dato("Área solicitante", o.area_solicitante), datoHtml("Prioridad", chip(o.prioridad)), datoHtml("Estado", estado(o.estado)),
       dato("Registrado el", fecha(o.creado_en)), dato("Solicitante", nombres.get(o.creado_por)), dato("Responsable", nombres.get(o.responsable)),
       datoHtml("OT relacionada", o.ordenes_trabajo ? enlace("OT", o.ordenes_trabajo.id, o.ordenes_trabajo.numero) : "—"),
-      dato("Cerrada el", o.cerrada_en && fecha(o.cerrada_en)),
-      datoHtml("Listo para recoger en bodega", listoRecoger(o))) +
-      // El responsable la marca En proceso cuando empieza a gestionarla (sql/27) y lista para recoger en bodega (sql/33)
-      (trabaja(o) ? `<div class="acciones-fila no-imprimir" style="justify-content:flex-end;margin-top:12px">
-        <label class="check casilla-listo"><input type="checkbox" id="chkListo" data-os="${o.id}" data-numero="${esc(o.numero)}" ${o.listo_recoger_en ? "checked" : ""}>
-          Listo para recoger en bodega</label>
+      dato("Cerrada el", o.cerrada_en && fecha(o.cerrada_en))) +
+      // El responsable la marca En proceso cuando empieza a gestionarla (sql/27)
+      (trabaja(o) && o.estado === "Abierta" ? `<div class="acciones-fila no-imprimir" style="justify-content:flex-end;margin-top:12px">
         ${o.estado === "Abierta" ? `<button type="button" class="btn btn-sec" id="btnEnProceso" data-os="${o.id}" data-numero="${esc(o.numero)}">Poner en proceso</button>` : ""}</div>` : "") +
       // Observaciones (sql/40): solo el responsable las escribe; los demás las leen
       (trabaja(o) ? `<label class="campo no-imprimir" style="margin-top:12px"><span>Observaciones del responsable</span>
@@ -220,7 +220,7 @@ const VISTA = {
       (llena(o) ? `<div class="acciones-fila no-imprimir" style="justify-content:flex-end"><button type="button" class="btn btn-red btn-ico" id="btnGuardarItems" hidden>
         <span class="ico" data-icono="guardar"></span>Guardar</button></div>` : "")) +
     // Firmas por ítem (sql/12_os_firmas_items.sql): cada quien con su usuario y la hora en que firmó
-    bloque(3, "firma", "Entregas por ítem", tabla(["Ítem", "Entregó", "Recibió", "Estado"],
+    bloque(3, "firma", "Entregas por ítem", tabla(["Ítem", "Entregó", "Recibió", "Estado", "Listo para recoger"],
       [...o.os_items].sort((a, b) => a.id - b.id).map((i) => filaEntrega(o, i)))) +
     correcciones(o) +
     // OS anteriores a la bandeja: se siguen viendo sus firmas
@@ -399,12 +399,12 @@ $("detalle").oninput = (e) => {
   }
 };
 $("detalle").onchange = async (e) => {
-  const cl = e.target.closest("#chkListo");
+  const cl = e.target.closest("[data-listo-item]");
   if (cl) {
     cl.disabled = true;
-    const { error } = await db.rpc("marcar_listo_recoger", { os: Number(cl.dataset.os), listo: cl.checked });
+    const { error } = await db.rpc("marcar_item_listo", { item: Number(cl.dataset.listoItem), listo: cl.checked });
     if (error) { cl.checked = !cl.checked; cl.disabled = false; return aviso(error.message, true); }
-    aviso(cl.checked ? `${cl.dataset.numero} lista para recoger en bodega` : `${cl.dataset.numero} ya no está lista para recoger`);
+    aviso(cl.checked ? "Ítem listo para recoger en bodega" : "El ítem ya no está listo para recoger");
     return recargar();
   }
   if (e.target.closest("#requisitos")) $("btnGuardarRequisitos").hidden = casillas().every((c) => c.checked === c.defaultChecked);
@@ -557,11 +557,11 @@ $("btnExcel").onclick = async () => {
     const filasOS = os.data.flatMap((o) => (o.os_items.length ? [...o.os_items].sort((a, b) => a.id - b.id) : [{}]).map((i) => ({
       "No.": o.numero, "Creada": hora(o.creado_en), "Solicitante": n(o.creado_por), "Responsable": n(o.responsable),
       "Área solicitante": o.area_solicitante, "Prioridad": o.prioridad, "OT": o.ordenes_trabajo?.numero ?? "",
-      "Estado": o.estado, "Lista para recoger": hora(o.listo_recoger_en), "Observaciones": o.observaciones ?? "", "Cerrada": hora(o.cerrada_en), "Horas hasta el cierre": horasEntre(o.creado_en, o.cerrada_en),
+      "Estado": o.estado, "Observaciones": o.observaciones ?? "", "Cerrada": hora(o.cerrada_en), "Horas hasta el cierre": horasEntre(o.creado_en, o.cerrada_en),
       "Máquina": i.maquina ?? "", "Referencia": i.referencia ?? "", "Marca": i.marca ?? "",
       "Código": i.codigo ?? "", "Cantidad": i.cantidad ?? "", "Cantidad entregada": i.cantidad_entregada ?? "", "Medida": i.medida ?? "", "Stock": i.stock == null ? "" : i.stock ? "Sí" : "No", "Función": i.funcion ?? i.descripcion ?? "", "Proveedor (almacén)": i.proveedor ?? "",
       "Costo unitario (almacén)": i.costo_unitario ?? "", "Costo total (almacén)": i.costo_total ?? "",
-      "Entregó": n(i.entregado_por), "Entregado el": hora(i.entregado_en), "Recibió": n(i.recibido_por), "Recibido el": hora(i.recibido_en),
+      "Listo para recoger": hora(i.listo_recoger_en), "Entregó": n(i.entregado_por), "Entregado el": hora(i.entregado_en), "Recibió": n(i.recibido_por), "Recibido el": hora(i.recibido_en),
     })));
 
     const libro = XLSX.utils.book_new();
