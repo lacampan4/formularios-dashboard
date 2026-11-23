@@ -27,11 +27,13 @@ function toca(o) {
   return [entregar && `Firmar entrega (${entregar})`, recibir && `Firmar recibido (${recibir})`,
     o.responsable === yo && !n((i) => !i.entregado) && "Lista para cerrar"].filter(Boolean);
 }
-// Lista para recoger en bodega (sql/33): se ve en la fila para quien pidió y para el responsable
-// Ítems listos para recoger en bodega (sql/46): cuántos de los que faltan
+// Lista para recoger en bodega: toda la orden (sql/33) y cuántos ítems de los que faltan (sql/46);
+// se ve en la fila para quien pidió y para el responsable
 const listo = (o) => {
-  const n = o.tipo === "OS" && o.estado !== "Cerrada" ? o.os_items.filter((i) => !i.entregado && i.listo_recoger_en).length : 0;
-  return n ? `<span class="chip chip-listo">${n} listo${n === 1 ? "" : "s"} para recoger</span>` : "";
+  if (o.tipo !== "OS" || o.estado === "Cerrada") return "";
+  const n = o.os_items.filter((i) => !i.entregado && i.listo_recoger_en).length;
+  return (o.listo_recoger_en ? '<span class="chip chip-listo">Lista para recoger en bodega</span>' : "") +
+    (n ? `<span class="chip chip-listo">${n} ítem${n === 1 ? "" : "s"} listo${n === 1 ? "" : "s"} para recoger</span>` : "");
 };
 const pendientes = (t, o) => o.estado === "Cerrada" ? "" : `<div class="toca">${listo(o)}${t.length
   ? t.map((x) => `<span class="chip ${x === "Lista para cerrar" ? "chip-listo" : "chip-toca"}">${x}</span>`).join("")
@@ -43,7 +45,7 @@ async function cargar() {
   const [ot, os] = await Promise.all([
     filtro(db.from("ordenes_trabajo").select("id, numero, creado_en, creado_por, prioridad, estado, maquina, ot_lineas(codigo_falla, reporte, codigos_falla(descripcion))").eq("responsable", yo)),
     // OS: las que debe entregar (responsable) y las que pidió (solicitante, para firmar el recibido)
-    filtro(db.from("ordenes_suministro").select("id, numero, creado_en, creado_por, responsable, prioridad, estado, area_solicitante, " +
+    filtro(db.from("ordenes_suministro").select("id, numero, creado_en, creado_por, responsable, prioridad, estado, area_solicitante, listo_recoger_en, " +
       "os_items(id, maquina, cantidad, medida, descripcion, entregado_por, recibido_por, entregado, cantidad_entregada, listo_recoger_en, os_entregas(recibido_por))")
       .or(`responsable.eq.${yo},creado_por.eq.${yo}`).order("id", { referencedTable: "os_items" })),
   ]);

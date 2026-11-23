@@ -170,6 +170,9 @@ const llena = (o) => o.responsable === yo;
 const celda = (i, campo, tipo) => ({ html: `<input class="celda-item" data-item="${i.id}" name="${campo}" value="${esc(tipo === "number" ? numCO(i[campo]) : i[campo] ?? "")}"
   ${tipo === "number" ? 'type="text" inputmode="decimal" pattern="\\$?\\s*[0-9][0-9.]*(,[0-9]+)?" title="Pesos: punto para miles y coma para decimales (ej. 15.632 o 15.632,50)"' : 'type="text" maxlength="120"'} aria-label="${CAMPOS[campo]} de ${esc(i.descripcion)}" placeholder="${tipo === "number" ? "$" : "Proveedor"}">` });
 const celdas = () => [...$("detalle").querySelectorAll(".celda-item")];
+// Lista para recoger en bodega, toda la orden (sql/33_os_listo_recoger.sql): quién la marcó y cuándo
+const listoRecoger = (o) => o.listo_recoger_en
+  ? `<span class="chip chip-listo">✓ Listo</span> ${esc(nombres.get(o.listo_recoger_por) ?? "")} · ${fecha(o.listo_recoger_en)}` : "No";
 
 
 // Suma de los costos totales de los ítems que tienen costo; "—" si ninguno lo tiene
@@ -201,9 +204,13 @@ const VISTA = {
       dato("Área solicitante", o.area_solicitante), datoHtml("Prioridad", chip(o.prioridad)), datoHtml("Estado", estado(o.estado)),
       dato("Registrado el", fecha(o.creado_en)), dato("Solicitante", nombres.get(o.creado_por)), dato("Responsable", nombres.get(o.responsable)),
       datoHtml("OT relacionada", o.ordenes_trabajo ? enlace("OT", o.ordenes_trabajo.id, o.ordenes_trabajo.numero) : "—"),
-      dato("Cerrada el", o.cerrada_en && fecha(o.cerrada_en))) +
-      // El responsable la marca En proceso cuando empieza a gestionarla (sql/27)
-      (trabaja(o) && o.estado === "Abierta" ? `<div class="acciones-fila no-imprimir" style="justify-content:flex-end;margin-top:12px">
+      dato("Cerrada el", o.cerrada_en && fecha(o.cerrada_en)),
+      datoHtml("Listo para recoger en bodega", listoRecoger(o))) +
+      // El responsable marca toda la orden lista para recoger (sql/33; además del chulo por ítem, sql/46)
+      // y la pone En proceso cuando empieza a gestionarla (sql/27)
+      (trabaja(o) ? `<div class="acciones-fila no-imprimir" style="justify-content:flex-end;margin-top:12px">
+        <label class="check casilla-listo"><input type="checkbox" id="chkListo" data-os="${o.id}" data-numero="${esc(o.numero)}" ${o.listo_recoger_en ? "checked" : ""}>
+          Listo para recoger en bodega</label>
         ${o.estado === "Abierta" ? `<button type="button" class="btn btn-sec" id="btnEnProceso" data-os="${o.id}" data-numero="${esc(o.numero)}">Poner en proceso</button>` : ""}</div>` : "") +
       // Observaciones (sql/40): solo el responsable las escribe; los demás las leen
       (trabaja(o) ? `<label class="campo no-imprimir" style="margin-top:12px"><span>Observaciones del responsable</span>
@@ -407,6 +414,14 @@ $("detalle").onchange = async (e) => {
     aviso(cl.checked ? "Ítem listo para recoger en bodega" : "El ítem ya no está listo para recoger");
     return recargar();
   }
+  const co = e.target.closest("#chkListo");
+  if (co) {
+    co.disabled = true;
+    const { error } = await db.rpc("marcar_listo_recoger", { os: Number(co.dataset.os), listo: co.checked });
+    if (error) { co.checked = !co.checked; co.disabled = false; return aviso(error.message, true); }
+    aviso(co.checked ? `${co.dataset.numero} lista para recoger en bodega` : `${co.dataset.numero} ya no está lista para recoger`);
+    return recargar();
+  }
   if (e.target.closest("#requisitos")) $("btnGuardarRequisitos").hidden = casillas().every((c) => c.checked === c.defaultChecked);
 };
 $("detalle").onclick = async (e) => {
@@ -557,7 +572,7 @@ $("btnExcel").onclick = async () => {
     const filasOS = os.data.flatMap((o) => (o.os_items.length ? [...o.os_items].sort((a, b) => a.id - b.id) : [{}]).map((i) => ({
       "No.": o.numero, "Creada": hora(o.creado_en), "Solicitante": n(o.creado_por), "Responsable": n(o.responsable),
       "Área solicitante": o.area_solicitante, "Prioridad": o.prioridad, "OT": o.ordenes_trabajo?.numero ?? "",
-      "Estado": o.estado, "Observaciones": o.observaciones ?? "", "Cerrada": hora(o.cerrada_en), "Horas hasta el cierre": horasEntre(o.creado_en, o.cerrada_en),
+      "Estado": o.estado, "Lista para recoger": hora(o.listo_recoger_en), "Observaciones": o.observaciones ?? "", "Cerrada": hora(o.cerrada_en), "Horas hasta el cierre": horasEntre(o.creado_en, o.cerrada_en),
       "Máquina": i.maquina ?? "", "Referencia": i.referencia ?? "", "Marca": i.marca ?? "",
       "Código": i.codigo ?? "", "Cantidad": i.cantidad ?? "", "Cantidad entregada": i.cantidad_entregada ?? "", "Medida": i.medida ?? "", "Stock": i.stock == null ? "" : i.stock ? "Sí" : "No", "Función": i.funcion ?? i.descripcion ?? "", "Proveedor (almacén)": i.proveedor ?? "",
       "Costo unitario (almacén)": i.costo_unitario ?? "", "Costo total (almacén)": i.costo_total ?? "",
