@@ -170,7 +170,7 @@ const llena = (o) => o.responsable === yo;
 const celda = (i, campo, tipo) => ({ html: `<input class="celda-item" data-item="${i.id}" name="${campo}" value="${esc(tipo === "number" ? numCO(i[campo]) : i[campo] ?? "")}"
   ${tipo === "number" ? 'type="text" inputmode="decimal" pattern="\\$?\\s*[0-9][0-9.]*(,[0-9]+)?" title="Pesos: punto para miles y coma para decimales (ej. 15.632 o 15.632,50)"' : 'type="text" maxlength="120"'} aria-label="${CAMPOS[campo]} de ${esc(i.descripcion)}" placeholder="${tipo === "number" ? "$" : "Proveedor"}">` });
 const celdas = () => [...$("detalle").querySelectorAll(".celda-item")];
-// Lista para recoger en bodega, toda la orden (sql/33_os_listo_recoger.sql): quién la marcó y cuándo
+// Lista para recoger en almacén, toda la orden (sql/33_os_listo_recoger.sql): quién la marcó y cuándo
 const listoRecoger = (o) => o.listo_recoger_en
   ? `<span class="chip chip-listo">✓ Listo</span> ${esc(nombres.get(o.listo_recoger_por) ?? "")} · ${fecha(o.listo_recoger_en)}` : "No";
 
@@ -205,16 +205,16 @@ const VISTA = {
       dato("Registrado el", fecha(o.creado_en)), dato("Solicitante", nombres.get(o.creado_por)), dato("Responsable", nombres.get(o.responsable)),
       datoHtml("OT relacionada", o.ordenes_trabajo ? enlace("OT", o.ordenes_trabajo.id, o.ordenes_trabajo.numero) : "—"),
       dato("Cerrada el", o.cerrada_en && fecha(o.cerrada_en)),
-      datoHtml("Listo para recoger en bodega", listoRecoger(o))) +
+      datoHtml("Listo para recoger en almacén", listoRecoger(o))) +
       // El responsable marca toda la orden lista para recoger (sql/33; además del chulo por ítem, sql/46)
       // y la pone En proceso cuando empieza a gestionarla (sql/27)
       (trabaja(o) ? `<div class="acciones-fila no-imprimir" style="justify-content:flex-end;margin-top:12px">
         <label class="check casilla-listo"><input type="checkbox" id="chkListo" data-os="${o.id}" data-numero="${esc(o.numero)}" ${o.listo_recoger_en ? "checked" : ""}>
-          Listo para recoger en bodega</label>
+          Listo para recoger en almacén</label>
         ${o.estado === "Abierta" ? `<button type="button" class="btn btn-sec" id="btnEnProceso" data-os="${o.id}" data-numero="${esc(o.numero)}">Poner en proceso</button>` : ""}</div>` : "") +
       // Observaciones (sql/40): solo el responsable las escribe; los demás las leen
       (trabaja(o) ? `<label class="campo no-imprimir" style="margin-top:12px"><span>Observaciones del responsable</span>
-        <textarea id="txtObs" rows="2" maxlength="500" placeholder="Ej.: el material está en bodega pero no han pasado por él">${esc(o.observaciones ?? "")}</textarea></label>
+        <textarea id="txtObs" rows="2" maxlength="500" placeholder="Ej.: el material está en almacén pero no han pasado por él">${esc(o.observaciones ?? "")}</textarea></label>
         <div class="acciones-fila no-imprimir" style="justify-content:flex-end"><button type="button" class="btn btn-sec" id="btnObs" data-os="${o.id}">Guardar observaciones</button></div>`
         : o.observaciones ? `<div style="margin-top:12px">${texto("Observaciones del responsable", o.observaciones)}</div>` : "")) +
     bloque(2, "caja", "Ítems solicitados", tabla(["Máquina", "Referencia", "Marca", "Código", "Cantidad", "Medida", "Costo unitario (almacén)", "Costo total (almacén)", "Proveedor (almacén)", "Función", "Stock",
@@ -411,7 +411,7 @@ $("detalle").onchange = async (e) => {
     cl.disabled = true;
     const { error } = await db.rpc("marcar_item_listo", { item: Number(cl.dataset.listoItem), listo: cl.checked });
     if (error) { cl.checked = !cl.checked; cl.disabled = false; return aviso(error.message, true); }
-    aviso(cl.checked ? "Ítem listo para recoger en bodega" : "El ítem ya no está listo para recoger");
+    aviso(cl.checked ? "Ítem listo para recoger en almacén" : "El ítem ya no está listo para recoger");
     return recargar();
   }
   const co = e.target.closest("#chkListo");
@@ -419,7 +419,7 @@ $("detalle").onchange = async (e) => {
     co.disabled = true;
     const { error } = await db.rpc("marcar_listo_recoger", { os: Number(co.dataset.os), listo: co.checked });
     if (error) { co.checked = !co.checked; co.disabled = false; return aviso(error.message, true); }
-    aviso(co.checked ? `${co.dataset.numero} lista para recoger en bodega` : `${co.dataset.numero} ya no está lista para recoger`);
+    aviso(co.checked ? `${co.dataset.numero} lista para recoger en almacén` : `${co.dataset.numero} ya no está lista para recoger`);
     return recargar();
   }
   if (e.target.closest("#requisitos")) $("btnGuardarRequisitos").hidden = casillas().every((c) => c.checked === c.defaultChecked);

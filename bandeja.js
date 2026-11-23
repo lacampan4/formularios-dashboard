@@ -27,12 +27,12 @@ function toca(o) {
   return [entregar && `Firmar entrega (${entregar})`, recibir && `Firmar recibido (${recibir})`,
     o.responsable === yo && !n((i) => !i.entregado) && "Lista para cerrar"].filter(Boolean);
 }
-// Lista para recoger en bodega: toda la orden (sql/33) y cuántos ítems de los que faltan (sql/46);
+// Lista para recoger en almacén: toda la orden (sql/33) y cuántos ítems de los que faltan (sql/46);
 // se ve en la fila para quien pidió y para el responsable
 const listo = (o) => {
   if (o.tipo !== "OS" || o.estado === "Cerrada") return "";
   const n = o.os_items.filter((i) => !i.entregado && i.listo_recoger_en).length;
-  return (o.listo_recoger_en ? '<span class="chip chip-listo">Lista para recoger en bodega</span>' : "") +
+  return (o.listo_recoger_en ? '<span class="chip chip-listo">Lista para recoger en almacén</span>' : "") +
     (n ? `<span class="chip chip-listo">${n} ítem${n === 1 ? "" : "s"} listo${n === 1 ? "" : "s"} para recoger</span>` : "");
 };
 const pendientes = (t, o) => o.estado === "Cerrada" ? "" : `<div class="toca">${listo(o)}${t.length
