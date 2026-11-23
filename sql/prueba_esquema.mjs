@@ -740,4 +740,23 @@ await comoUsuario();
 await assert.rejects(db.query("select marcar_item_listo($1, true)", [b46]), /Solo el responsable/);   // quien pidió solo lo ve
 assert.equal(await val("select listo_recoger_en is not null from os_items where id = $1", [a46]), true);
 await db.exec("reset role");
+// OT en proceso (47): solo el responsable, solo si está abierta; en proceso marca requisitos y se cierra
+await db.exec(readFileSync(`${dir}/47_ot_en_proceso.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/47_ot_en_proceso.sql`, "utf8"));   // se puede volver a ejecutar
+await comoUsuario();
+const ot47 = await val("select id from ordenes_trabajo where numero = $1", [await ot({ maquina: "Platina", prioridad: "Verde", responsable: PROD }, linea)]);
+const estado47 = () => val("select estado from ordenes_trabajo where id = $1", [ot47]);
+await assert.rejects(db.query("select poner_ot_en_proceso($1)", [ot47]), /Solo el responsable/);   // quien pidió no
+await comoUsuario(PROD);
+await db.query("select poner_ot_en_proceso($1)", [ot47]);
+assert.equal(await estado47(), "En proceso");
+await assert.rejects(db.query("select poner_ot_en_proceso($1)", [ot47]), /solo si está abierta/);
+await db.query("select marcar_requisitos_ot($1, true, false)", [ot47]);
+assert.equal(await val("select requiere_ats from ordenes_trabajo where id = $1", [ot47]), true);
+await db.query("select cerrar_ot($1)", [ot47]);
+assert.equal(await estado47(), "Cerrada");
+await assert.rejects(db.query("select cerrar_ot($1)", [ot47]), /no está cerrada/);
+await assert.rejects(db.query("select marcar_requisitos_ot($1, false, false)", [ot47]), /no debe estar cerrada/);
+await db.exec("reset role");
+await assert.rejects(db.query("update ordenes_trabajo set estado = 'Otra' where id = $1", [ot47]), /estado_check/);
 console.log("OK: todas las pruebas del esquema pasaron");

@@ -14,7 +14,7 @@ const item = (i) => `<div class="item-os${i.entregado ? " listo" : ""}"><b>${i.e
   <div class="firmas-item">${i.entregado ? "Entregado y recibido" : i.entregado_por ? "Entregado, falta firmar el recibido" : "Entrega pendiente"}${i.cantidad_entregada != null && i.cantidad_entregada < i.cantidad ? ` (${i.cantidad_entregada} de ${i.cantidad})` : ""}${!i.entregado && i.listo_recoger_en ? ' · <b style="color:var(--ok)">Listo para recoger</b>' : ""}</div></div>`;
 const progreso = (items) => `<p class="nota">${items.filter((i) => i.entregado).length} de ${items.length} ítem${items.length === 1 ? "" : "s"} entregado${items.length === 1 ? "" : "s"}</p>`;
 // La OT se sigue cerrando desde la fila
-const accion = (o) => o.tipo === "OT" && o.estado === "Abierta" ?
+const accion = (o) => o.tipo === "OT" && o.estado !== "Cerrada" ?   // abierta o en proceso (sql/47)
   `<button class="btn btn-red" data-cerrar="${o.id}" data-tipo="ot" data-numero="${esc(o.numero)}">Cerrar orden</button>` : "";
 
 // Qué le toca hacer al usuario en cada orden abierta, para saberlo sin abrirla

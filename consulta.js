@@ -196,7 +196,9 @@ const VISTA = {
       datoHtml("Permisos de trabajo", enlaces("PT", o.permisos_trabajo, (x) => x.numero)))) +
     // OT anteriores a la bandeja: se siguen viendo sus firmas
     (o.autorizado_por || o.entregado_por || o.recibido_por ? bloque(5, "firma", "Firmas (formato anterior)", firmas(o)) : "") +
-    (trabaja(o) ? `<div class="acciones no-imprimir"><span></span><a class="btn btn-red btn-ico" href="registro.html?ot=${o.id}" target="_top">
+    // El responsable la pone En proceso cuando empieza a trabajarla (sql/47_ot_en_proceso.sql)
+    (trabaja(o) ? `<div class="acciones no-imprimir"><span></span>${o.estado === "Abierta" ? `<button type="button" class="btn btn-sec" id="btnEnProceso"
+      data-ot="${o.id}" data-numero="${esc(o.numero)}">Poner en proceso</button>` : ""}<a class="btn btn-red btn-ico" href="registro.html?ot=${o.id}" target="_top">
       <span class="ico" data-icono="mas"></span>Generar orden de suministro</a></div>` : ""),
 
   OS: (o) => cabecera("OS", "FO-OPE-002 · Versión 01", o.numero) +
@@ -487,7 +489,8 @@ $("detalle").onclick = async (e) => {
   const ep = e.target.closest("#btnEnProceso");
   if (ep) {
     ep.disabled = true;
-    const { error } = await db.rpc("poner_en_proceso", { os: Number(ep.dataset.os) });
+    const { error } = ep.dataset.ot ? await db.rpc("poner_ot_en_proceso", { ot: Number(ep.dataset.ot) })
+      : await db.rpc("poner_en_proceso", { os: Number(ep.dataset.os) });
     if (error) { ep.disabled = false; return aviso(error.message, true); }
     aviso(`${ep.dataset.numero} en proceso`);
     return recargar();
