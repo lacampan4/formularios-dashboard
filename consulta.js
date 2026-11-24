@@ -95,12 +95,14 @@ const botonFirma = (i, como, txt) => ({ html: `<button type="button" class="btn 
 // Entregas del ítem (sql/25_os_entregas_parciales.sql): "Firmar entrega" entrega todo lo que falta;
 // "Entrega parcial" pide cuánto y lo que falta se entrega después. Cada entrega se recibe aparte.
 const falta = (i) => Number(i.cantidad) - Number(i.cantidad_entregada ?? 0);
-const lineas = (lista) => lista.map((x) => `<div>${esc(x)}</div>`).join("");
 const parcial = (i) => `<button type="button" class="btn btn-sec btn-firma" data-abrir-parcial="${i.id}">Entrega parcial</button>
   <div class="cant-entrega" id="parcial-${i.id}" hidden>Entrega <input type="number" data-cant="${i.id}" min="0.01" max="${falta(i)}" step="any" required
     aria-label="Cantidad que entrega"> de ${falta(i)} ${esc(i.medida)} que faltan
     <button type="button" class="btn btn-red btn-firma" data-firmar="${i.id}" data-como="entrega" data-parcial
       data-texto="${esc(`${i.medida} · ${i.descripcion}`)}">Firmar entrega parcial</button></div>`;
+// El admin quita una firma mal puesta (sql/50_os_quitar_firma.sql); queda en Correcciones
+const quitar = (x, que) => esAdmin ? ` <button type="button" class="btn btn-sec btn-firma no-imprimir" data-quitar-firma="${x.id}" data-que="${que}"
+  data-texto="${esc(`${que === "entrega" ? "la entrega" : "el recibido"} de ${x.cantidad}`)}">Quitar firma</button>` : "";
 const filaEntrega = (o, i) => {
   const puede = desdeBandeja && o.estado !== "Cerrada";
   const entregas = [...(i.os_entregas ?? [])].sort((a, b) => a.id - b.id);
@@ -111,8 +113,8 @@ const filaEntrega = (o, i) => {
   const entrego = entregas.map((x) => `<div>${esc(quien(x, x.entregado_por, x.entregado_en))}${x.cantidad_anterior != null ? ` <small class="nota">${esc(`(${(nombres.get(o.responsable) ?? "El responsable").split(" (")[0]} la corrigió de ${x.cantidad_anterior} a ${x.cantidad} ${i.medida}${x.editada_en ? ` el ${fecha(x.editada_en)}` : ""})`)}</small>` : ""}${editable(x)
     ? ` <button type="button" class="btn btn-sec btn-firma" data-editar-entrega="${x.id}">Editar cantidad</button>
       <span class="cant-entrega" id="editar-${x.id}" hidden><input type="number" value="${x.cantidad}" min="0.01" max="${Number(x.cantidad) + falta(i)}" step="any" required aria-label="Cantidad entregada">
-      ${esc(i.medida)} <button type="button" class="btn btn-red btn-firma" data-guardar-entrega="${x.id}">Guardar</button></span>` : ""}</div>`).join("");
-  const recibio = lineas(entregas.filter((x) => x.recibido_por).map((x) => quien(x, x.recibido_por, x.recibido_en)));
+      ${esc(i.medida)} <button type="button" class="btn btn-red btn-firma" data-guardar-entrega="${x.id}">Guardar</button></span>` : ""}${quitar(x, "entrega")}</div>`).join("");
+  const recibio = entregas.filter((x) => x.recibido_por).map((x) => `<div>${esc(quien(x, x.recibido_por, x.recibido_en))}${quitar(x, "recibido")}</div>`).join("");
   const entrega = !i.entregado_por && puede && o.responsable === yo, recibe = porRecibir && puede && o.creado_por === yo;
   return [`${i.cantidad} ${i.medida} · ${i.referencia ?? i.descripcion}`,   // ítems viejos sin referencia: la descripción
     { html: (entrego || (entrega ? "" : "Pendiente")) + (entrega ? `<div class="acciones-fila">${botonFirma({ ...i, cantidad: falta(i) }, "entrega",
@@ -517,6 +519,16 @@ $("detalle").onclick = async (e) => {
   if (ap) {
     const caja = $("parcial-" + ap.dataset.abrirParcial);
     ap.hidden = true; caja.hidden = false; return caja.querySelector("input").focus();
+  }
+  const qf = e.target.closest("[data-quitar-firma]");
+  if (qf) {
+    const extra = qf.dataset.que === "entrega" ? " Si ya la habían recibido, también se quita el recibido." : "";
+    if (!confirm(`¿Quitar la firma de ${qf.dataset.texto}?${extra} Quedará en Correcciones.`)) return;
+    qf.disabled = true;
+    const { error } = await db.rpc("quitar_firma", { entrega: Number(qf.dataset.quitarFirma), que: qf.dataset.que });
+    if (error) { qf.disabled = false; return aviso(error.message, true); }
+    aviso("Firma quitada");
+    return recargar();
   }
   const fi = e.target.closest("[data-firmar]");
   if (fi) {

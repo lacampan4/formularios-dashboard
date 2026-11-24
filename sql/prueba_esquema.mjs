@@ -797,4 +797,43 @@ assert.ok(await val("select crear_ats($1, null, null)", [solo]) > 0);
 await assert.rejects(db.query("select crear_ats($1, '[]', '[]')", [{ ...solo, alturas: true }]), /check/);   // alturas sigue pidiendo coordinador
 await assert.rejects(db.query("select crear_ats($1, '[]', '[]')", [{ ...solo, firma_jefe: null }]), /firma_jefe|null/);
 await db.exec("reset role");
+
+// 50: el admin quita una firma mal puesta; el ítem se recalcula, la OS se reabre y queda en Correcciones
+await db.exec(readFileSync(`${dir}/50_os_quitar_firma.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/50_os_quitar_firma.sql`, "utf8"));   // se puede volver a ejecutar
+{
+  await comoUsuario();
+  const num = await val("select crear_os($1, $2)", [{ area_solicitante: "Formadoras", prioridad: "Rojo", responsable: U },
+    [{ maquina: "Formadora 1", referencia: "Manguera X", funcion: "Hidráulica", cantidad: 2, medida: "m", descripcion: "Manguera" }]]);
+  const oid = await val("select id from ordenes_suministro where numero = $1", [num]);
+  const it = await val("select id from os_items where os_id = $1", [oid]);
+  await db.query("select firmar_item($1, 'entrega', 1)", [it]);
+  await db.query("select firmar_item($1, 'entrega')", [it]);
+  await db.query("select firmar_item($1, 'recibe')", [it]);
+  assert.equal(await val("select estado from ordenes_suministro where id = $1", [oid]), "Cerrada");
+  const [e1, e2] = (await db.query("select id from os_entregas where item_id = $1 order by id", [it])).rows.map((r) => r.id);
+  const item = async () => (await db.query("select * from os_items where id = $1", [it])).rows[0];
+  await comoUsuario(PROD);
+  await assert.rejects(db.query("select quitar_firma($1, 'recibido')", [e2]), /Solo el administrador/);
+  await comoUsuario();
+  await assert.rejects(db.query("select quitar_firma($1, 'otra')", [e2]), /Firma no válida/);
+  await db.query("select quitar_firma($1, 'recibido')", [e2]);
+  let r = await item();
+  assert.equal(r.entregado, false); assert.ok(r.entregado_por); assert.equal(r.recibido_por, null); assert.equal(Number(r.cantidad_entregada), 2);
+  assert.equal(await val("select estado from ordenes_suministro where id = $1", [oid]), "Abierta");
+  assert.ok(await val("select recibido_por from os_entregas where id = $1", [e1]));   // la otra entrega no se toca
+  await assert.rejects(db.query("select quitar_firma($1, 'recibido')", [e2]), /no tiene firma de recibido/);
+  await db.query("select quitar_firma($1, 'entrega')", [e2]);
+  r = await item();
+  assert.equal(Number(r.cantidad_entregada), 1); assert.equal(r.entregado_por, null);
+  await db.query("select quitar_firma($1, 'entrega')", [e1]);
+  assert.equal((await item()).cantidad_entregada, null);
+  assert.equal(await val("select count(*)::int from os_correcciones where item_id = $1 and tipo = 'Firma quitada'", [it]), 3);
+  assert.match(await val("select detalle from os_correcciones where item_id = $1 order by id limit 1", [it]), /recibido de 1 m \(firmada por Fredy Verdugo/);
+  // Se vuelve a firmar normal y se cierra
+  await db.query("select firmar_item($1, 'entrega')", [it]);
+  await db.query("select firmar_item($1, 'recibe')", [it]);
+  assert.equal(await val("select estado from ordenes_suministro where id = $1", [oid]), "Cerrada");
+  await db.exec("reset role");
+}
 console.log("OK: todas las pruebas del esquema pasaron");
