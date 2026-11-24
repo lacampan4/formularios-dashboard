@@ -10,7 +10,7 @@ f.onsubmit = (e) => e.preventDefault();
 
 const falla = (l) => `<div><b>${esc(String(l.codigo_falla).padStart(2, "0"))} – ${esc(l.codigos_falla?.descripcion)}</b><br>${esc(l.reporte)}</div>`;
 // Resumen del ítem en la fila; las firmas y el cierre de la OS se hacen en "Abrir" (consulta.js)
-const item = (i) => `<div class="item-os${i.entregado ? " listo" : ""}"><b>${i.entregado ? '<span class="chulo" aria-label="Entregado">✓</span> ' : ""}${esc(i.cantidad)} ${esc(i.medida)} · ${esc(i.descripcion)}</b><br>${esc(i.maquina)}
+const item = (i) => `<div class="item-os${i.entregado ? " listo" : ""}"><b>${i.entregado ? '<span class="chulo" aria-label="Entregado">✓</span> ' : ""}${esc(i.cantidad)} ${esc(i.medida)} · ${esc(i.referencia || i.funcion || i.descripcion)}</b><br>${esc(i.maquina)}
   <div class="firmas-item">${i.entregado ? "Entregado y recibido" : i.entregado_por ? "Entregado, falta firmar el recibido" : "Entrega pendiente"}${i.cantidad_entregada != null && i.cantidad_entregada < i.cantidad ? ` (${i.cantidad_entregada} de ${i.cantidad})` : ""}${!i.entregado && i.listo_recoger_en ? ' · <b style="color:var(--ok)">Listo para recoger</b>' : ""}</div></div>`;
 const progreso = (items) => `<p class="nota">${items.filter((i) => i.entregado).length} de ${items.length} ítem${items.length === 1 ? "" : "s"} entregado${items.length === 1 ? "" : "s"}</p>`;
 // La OT se sigue cerrando desde la fila
@@ -46,7 +46,7 @@ async function cargar() {
     filtro(db.from("ordenes_trabajo").select("id, numero, creado_en, creado_por, prioridad, estado, maquina, ot_lineas(codigo_falla, reporte, codigos_falla(descripcion))").eq("responsable", yo)),
     // OS: las que debe entregar (responsable) y las que pidió (solicitante, para firmar el recibido)
     filtro(db.from("ordenes_suministro").select("id, numero, creado_en, creado_por, responsable, prioridad, estado, area_solicitante, listo_recoger_en, " +
-      "os_items(id, maquina, cantidad, medida, descripcion, entregado_por, recibido_por, entregado, cantidad_entregada, listo_recoger_en, os_entregas(recibido_por))")
+      "os_items(id, maquina, cantidad, medida, referencia, funcion, descripcion, entregado_por, recibido_por, entregado, cantidad_entregada, listo_recoger_en, os_entregas(recibido_por))")
       .or(`responsable.eq.${yo},creado_por.eq.${yo}`).order("id", { referencedTable: "os_items" })),
   ]);
   const error = ot.error || os.error;
