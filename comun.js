@@ -25,6 +25,21 @@ const quien = (u) => { const f = [u.frente, u.encargo].filter(Boolean).join(" ·
 const opciones = (lista, primero) => (primero != null ? `<option value="">${esc(primero)}</option>` : "") +
   lista.map((x) => typeof x === "object" ? `<option value="${esc(x.v)}">${esc(x.t)}</option>` : `<option>${esc(x)}</option>`).join("");
 
+// Listas de chequeo del permiso (config.js, PERMISO_CALIENTE): en el registro (día 1) y en Consulta (días 2 a 7, sql/48)
+// Cada pregunta son botones; la primera opción lleva el required del grupo
+const pregunta = (name, texto, opciones) => `<div class="pregunta" role="radiogroup" aria-label="${esc(texto)}"><p>${esc(texto)}</p><div class="opciones">${
+  opciones.map((o, i) => `<label><input type="radio" name="${name}" value="${esc(o)}"${i ? "" : " required"}><span>${esc(o)}</span></label>`).join("")}</div></div>`;
+// previos: datos del día anterior ([pregunta, valor]), para no volver a escribir la referencia del equipo
+const listaEquipo = (q, qi, previos = []) => `<div class="grid">${q.datos.map((t, j) => `<label class="campo"><span class="req">${esc(t)}</span>
+  <input name="x-cd-${qi}-${j}" value="${esc(previos.find(([k]) => k === t)?.[1] ?? "")}" required></label>`).join("")}</div>
+  ${q.estado ? pregunta(`x-cs-${qi}`, q.estado, ["Bueno", "Regular", "Malo", "N/A"]) : ""}
+  ${q.items.map((t, j) => pregunta(`x-c-${qi}-${j}`, t, ["Sí", "No"])).join("")}`;
+const leerEquipo = (raiz, q, qi) => {
+  const v = (n) => raiz.querySelector(`[name="${n}"]:checked, input[name="${n}"]:not([type=radio])`)?.value.trim() || null;
+  return { titulo: q.titulo, datos: q.datos.map((t, j) => [t, v(`x-cd-${qi}-${j}`)]),
+    respuestas: [...(q.estado ? [[q.estado, v(`x-cs-${qi}`)]] : []), ...q.items.map((t, j) => [t, v(`x-c-${qi}-${j}`)])] };
+};
+
 // Íconos de trazo (formas de Lucide, licencia ISC). Uso: <span class="ico" data-icono="doc"></span>
 const ICONOS = {
   doc: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>',

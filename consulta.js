@@ -251,7 +251,11 @@ const VISTA = {
     bloque(5, "firma", "Fechas y responsables", datos(
       dato("Fecha de apertura", o.fecha_apertura), dato("Hora de apertura", o.hora_apertura?.slice(0, 5)),
       dato("Vigencia (se cierra solo a las 24 h)", o.vigente_hasta && fecha(o.vigente_hasta)), dato("Fecha de cierre", o.fecha_cierre), dato("Trabajador encargado", o.firma_encargado),
-      dato("Jefe inmediato", o.firma_jefe), dato("Coordinador de alturas", o.firma_coord_alturas), dato("SST", o.firma_sst))),
+      dato("Jefe inmediato", o.firma_jefe), dato("Coordinador de alturas", o.firma_coord_alturas), dato("SST", o.firma_sst))) +
+    // El permiso completo que se llena dentro del ATS (sql/48); los ATS de antes no lo tienen
+    (Object.keys(o.permiso ?? {}).length ? `<div class="page-head" style="margin-top:8px"><span class="ico ico-lg" data-icono="escudo"></span>
+      <div><h2>Permiso de Trabajo Tareas de Alto Riesgo</h2><p>FR-SST-039 · Versión 1 · Área de Mantenimiento</p></div></div>` +
+      seccionesPermiso({ ...o.permiso, id: o.id, creado_por: o.creado_por }, 5, "ATS") : ""),
 
   PT: (o) => permiso(o),
 };
@@ -263,37 +267,78 @@ const respuestas = (lista, vacio = "—") => tabla(["Ítem", "Respuesta"], (list
 const pares = (lista) => (lista ?? []).map(([k, v]) => dato(k, v));
 const subtitulo = (t) => `<h4 style="margin:16px 0 6px">${esc(t)}</h4>`;
 const hay = (lista) => Array.isArray(lista) && lista.length > 0;
-function permiso(o) {
-  const x = o.detalle_extra ?? {}, c = x.cierre ?? {};
-  return VISTA_PT(o) +
-    (hay(x.generalidades) ? bloque(4, "lista", "Generalidades de la actividad", respuestas(x.generalidades)) : "") +
-    (hay(x.especificas) ? bloque(5, "escudo", "Medidas preventivas específicas",
+const permiso = (o) => cabecera("PT", "FR-SST-039 · Versión 1 · Área de Mantenimiento", o.numero) + seccionesPermiso(o, 0, "PT");
+// Las 10 secciones del permiso; en el ATS van de la 6 a la 15 (n0 = 5) y sin la OT ni el ATS relacionado
+function seccionesPermiso(o, n0, formato) {
+  const x = o.detalle_extra ?? {}, c = x.cierre ?? {}, n = (k) => n0 + k;
+  // Listas de chequeo y verificación por día (sql/48); los permisos de antes tenían un solo día, sin fecha
+  const dias = x.dias ?? (hay(x.caliente) || hay(x.verificacion) ? [{ caliente: x.caliente, verificacion: x.verificacion }] : []);
+  const dia = (d, k) => `Día ${k + 1}${d.fecha ? ` · ${d.fecha}` : ""}`;
+  return bloque(n(1), "info", "Datos básicos del permiso", datos(
+      ...(formato === "PT" ? [datoHtml("Orden de trabajo", o.ordenes_trabajo ? enlace("OT", o.ordenes_trabajo.id, o.ordenes_trabajo.numero) : "—"),
+        datoHtml("ATS relacionado", o.ats ? enlace("ATS", o.ats.id, o.ats.numero) : "—")] : []),
+      dato("Área / proceso", o.area_proceso), dato("Ubicación", o.ubicacion), dato("Sede", o.sede), dato("Fecha de ejecución", o.fecha_ejecucion),
+      dato("Hora de inicio", o.hora_inicio?.slice(0, 5)), dato("Hora de finalización", o.hora_fin?.slice(0, 5)), dato("Vigencia (válido hasta)", o.vigente_hasta ? fecha(o.vigente_hasta) : o.vigencia),
+      dato("Trabajador encargado", o.trabajador_encargado), dato("Ayudante de seguridad", o.ayudante_seguridad), ...(formato === "PT" ? registro(o) : []))) +
+    bloque(n(2), "llave", "Descripción del trabajo", datos(
+      dato("Tarea a realizar", o.tarea), dato("Tipo de tarea", (o.tipos ?? []).map((t) => TIPOS_PERMISO[t] ?? t).join(", ")),
+      dato("Método eléctrico", o.metodo_electrico), dato("Nivel de tensión", o.nivel_tension)) +
+      `<div class="grid grid-2" style="margin-top:16px">${texto("Descripción de la tarea", o.descripcion)}${texto("Herramientas y equipos", o.herramientas)}</div>`) +
+    bloque(n(3), "escudo", "Elementos de protección personal", datos(...Object.entries(o.epp ?? {}).map(([e, v]) => dato(e, siNo(v))))) +
+    (hay(x.generalidades) ? bloque(n(4), "lista", "Generalidades de la actividad", respuestas(x.generalidades)) : "") +
+    (hay(x.especificas) ? bloque(n(5), "escudo", "Medidas preventivas específicas",
       x.especificas.map((g) => subtitulo(g.titulo) + respuestas(g.respuestas)).join("")) : "") +
-    (hay(x.caliente) ? bloque(6, "llave", "Trabajo en caliente: listas de verificación",
-      x.caliente.map((l) => subtitulo(l.titulo) + datos(...pares(l.datos)) + `<div style="margin-top:10px">${respuestas(l.respuestas)}</div>`).join("")) : "") +
-    (hay(x.verificacion) ? bloque(7, "check", "Verificación y control diario", datos(...pares(x.verificacion))) : "") +
-    bloque(8, "doc", "Documentos anexos", datos(
+    (dias.some((d) => hay(d.caliente)) ? bloque(n(6), "llave", "Trabajo en caliente: listas de verificación",
+      dias.map((d, k) => hay(d.caliente) ? `<h4 style="margin:18px 0 0">${esc(dia(d, k))}</h4>` +
+        d.caliente.map((l) => subtitulo(l.titulo) + datos(...pares(l.datos)) + `<div style="margin-top:10px">${respuestas(l.respuestas)}</div>`).join("") : "").join("")) : "") +
+    (dias.length ? bloque(n(7), "check", "Verificación y control diario",
+      tabla(["Día", ...(dias[0].verificacion ?? []).map(([k]) => k)], dias.map((d, k) => [dia(d, k), ...(d.verificacion ?? []).map(([, v]) => v)])) +
+      nuevoDia(o, x.dias, formato)) : "") +
+    bloque(n(8), "doc", "Documentos anexos", datos(
       dato("Afiliación a seguridad social", siNo(o.afiliacion_ss)), dato("Aptitud médica", siNo(o.aptitud_medica)), ...pares(x.anexos))) +
-    bloque(9, "firma", "Firmas de emisión", datos(dato("Ejecutor", o.firma_ejecutor), dato("Emisor", o.firma_emisor), dato("Revisado por SST", o.revisado_sst))) +
-    bloque(10, "check", "Cierre del permiso", datos(
+    bloque(n(9), "firma", "Firmas de emisión", datos(dato("Ejecutor", o.firma_ejecutor), dato("Emisor", o.firma_emisor), dato("Revisado por SST", o.revisado_sst))) +
+    bloque(n(10), "check", "Cierre del permiso", datos(
       dato("Cierre trabajador", o.cierre_trabajador == null ? "Pendiente" : siNo(o.cierre_trabajador)),
       dato("Cierre jefe de SST", o.cierre_sst == null ? "Pendiente" : siNo(o.cierre_sst)),
       dato("Nombre y C.C. del trabajador", c.cc_trabajador), dato("Nombre y C.C. del emisor", c.cc_emisor)) +
       (hay(c.trabajador) ? subtitulo("Trabajador: personalmente declaro que") + respuestas(c.trabajador, "Pendiente") : "") +
       (hay(c.sst) ? subtitulo("Jefe del área de SST: personalmente he verificado que") + respuestas(c.sst, "Pendiente") : ""));
 }
-const VISTA_PT = (o) => cabecera("PT", "FR-SST-039 · Versión 1 · Área de Mantenimiento", o.numero) +
-    bloque(1, "info", "Datos básicos del permiso", datos(
-      datoHtml("Orden de trabajo", o.ordenes_trabajo ? enlace("OT", o.ordenes_trabajo.id, o.ordenes_trabajo.numero) : "—"),
-      datoHtml("ATS relacionado", o.ats ? enlace("ATS", o.ats.id, o.ats.numero) : "—"),
-      dato("Área / proceso", o.area_proceso), dato("Ubicación", o.ubicacion), dato("Sede", o.sede), dato("Fecha de ejecución", o.fecha_ejecucion),
-      dato("Hora de inicio", o.hora_inicio?.slice(0, 5)), dato("Hora de finalización", o.hora_fin?.slice(0, 5)), dato("Vigencia (válido hasta)", o.vigente_hasta ? fecha(o.vigente_hasta) : o.vigencia),
-      dato("Trabajador encargado", o.trabajador_encargado), dato("Ayudante de seguridad", o.ayudante_seguridad), ...registro(o))) +
-    bloque(2, "llave", "Descripción del trabajo", datos(
-      dato("Tarea a realizar", o.tarea), dato("Tipo de tarea", (o.tipos ?? []).map((t) => TIPOS_PERMISO[t] ?? t).join(", ")),
-      dato("Método eléctrico", o.metodo_electrico), dato("Nivel de tensión", o.nivel_tension)) +
-      `<div class="grid grid-2" style="margin-top:16px">${texto("Descripción de la tarea", o.descripcion)}${texto("Herramientas y equipos", o.herramientas)}</div>`) +
-    bloque(3, "escudo", "Elementos de protección personal", datos(...Object.entries(o.epp ?? {}).map(([e, v]) => dato(e, siNo(v)))));
+// Día siguiente de las listas (sql/48, agregar_dia): quien lo registró, SST o el admin; hasta 7 días, uno por fecha.
+// Lleva las listas de los mismos equipos del día 1, con los datos del último día ya escritos.
+const hoyCO = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
+function nuevoDia(o, dias, formato) {
+  if (!dias || dias.length >= 7 || dias.some((d) => d.fecha === hoyCO()) || !(o.creado_por === yo || esAdmin || soloSeguridad)) return "";
+  const ultimo = dias.at(-1);
+  const equipos = (dias[0].caliente ?? []).map((l) => PERMISO_CALIENTE.findIndex((q) => q.titulo === l.titulo)).filter((qi) => qi >= 0);
+  return `<form id="formDia" class="no-imprimir" data-formato="${formato}" data-id="${o.id}" novalidate style="margin-top:18px">
+    <h4 style="margin:0 0 8px">Agregar día ${dias.length + 1} (hoy, ${hoyCO()})</h4>
+    <div class="grid grid-2">
+      <label class="campo"><span class="req">Responsable de SST</span><input name="x-v-sst" required placeholder="Nombre completo"></label>
+      <label class="campo"><span class="req">Responsable de inspección del equipo</span><input name="x-v-insp" required placeholder="Nombre completo"></label>
+    </div>
+    ${equipos.map((qi) => subtitulo(`Lista de verificación: ${PERMISO_CALIENTE[qi].titulo}`) +
+      listaEquipo(PERMISO_CALIENTE[qi], qi, ultimo.caliente?.find((l) => l.titulo === PERMISO_CALIENTE[qi].titulo)?.datos)).join("")}
+    <div class="acciones-fila" style="justify-content:flex-end;margin-top:12px"><button class="btn btn-red btn-ico">
+      <span class="ico" data-icono="guardar"></span>Guardar día ${dias.length + 1}</button></div></form>`;
+}
+$("detalle").addEventListener("submit", async (e) => {
+  if (e.target.id !== "formDia") return;
+  e.preventDefault();
+  const fd = e.target;
+  if (!fd.reportValidity()) return;
+  const v = (n) => fd.querySelector(`[name="${n}"]`).value.trim();
+  const dia = {
+    verificacion: [["Responsable de SST", v("x-v-sst")], ["Responsable de inspección del equipo", v("x-v-insp")]],
+    caliente: PERMISO_CALIENTE.flatMap((q, qi) => fd.querySelector(`[name="x-c-${qi}-0"]`) ? [leerEquipo(fd, q, qi)] : []),
+  };
+  const b = fd.querySelector("button");
+  b.disabled = true;
+  const { data: n, error } = await db.rpc("agregar_dia", { formato: fd.dataset.formato, registro: Number(fd.dataset.id), dia });
+  if (error) { b.disabled = false; return aviso(error.message, true); }
+  aviso(`Día ${n} guardado`);
+  recargar();
+});
 
 // ---------------- Lista ----------------
 const f = $("filtros");

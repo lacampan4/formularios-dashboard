@@ -759,4 +759,31 @@ await assert.rejects(db.query("select cerrar_ot($1)", [ot47]), /no está cerrada
 await assert.rejects(db.query("select marcar_requisitos_ot($1, false, false)", [ot47]), /no debe estar cerrada/);
 await db.exec("reset role");
 await assert.rejects(db.query("update ordenes_trabajo set estado = 'Otra' where id = $1", [ot47]), /estado_check/);
+// ATS con el permiso completo y listas de 7 días (48)
+await db.exec(readFileSync(`${dir}/48_ats_permiso_dias.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/48_ats_permiso_dias.sql`, "utf8"));   // se puede volver a ejecutar
+await comoUsuario();
+const ot48 = await val("select id from ordenes_trabajo where numero = $1", [await ot({ maquina: "Platina", prioridad: "Verde" }, linea)]);
+const dia1 = { fecha: "2020-01-01", verificacion: [["Responsable de SST", "Ana"]], caliente: [{ titulo: "Taladro", datos: [], respuestas: [] }] };
+const ats48 = await val("select crear_ats($1, $2, $3)", [{ ...ats, ot_id: ot48, firma_coord_alturas: "Lina",
+  permiso: { tarea: "Soldar", tipos: ["caliente"], detalle_extra: { dias: [dia1] } } }, trab, pasos]);
+assert.equal(await val("select permiso ->> 'tarea' from ats where id = $1", [ats48]), "Soldar");
+assert.equal(await val("select agregar_dia('ATS', $1, $2)", [ats48, { verificacion: [["Responsable de SST", "Luis"]], fecha: "1999-01-01", por: PROD }]), 2);
+assert.deepEqual((await db.query(`select d ->> 'fecha' = (now() at time zone 'America/Bogota')::date::text as hoy, d ->> 'por' as por
+  from ats, jsonb_array_elements(permiso -> 'detalle_extra' -> 'dias') with ordinality x(d, n) where id = $1 and n = 2`, [ats48])).rows[0], { hoy: true, por: U });  // fecha y usuario los pone la base
+await assert.rejects(db.query("select agregar_dia('ATS', $1, '{}')", [ats48]), /ya está diligenciado/);   // uno por fecha
+await assert.rejects(db.query("select agregar_dia('ATS', $1, '[]')", [ats48]), /inválido/);
+assert.equal(await val("select crear_ats($1, $2, $3)", [{ ...ats, ot_id: ot48, firma_coord_alturas: "Lina" }, trab, pasos]) > 0, true);  // sin permiso: vale
+await assert.rejects(db.query("select agregar_dia('ATS', $1, '{}')", [atsId]), /No puede agregar/);       // ATS de antes, sin listas
+await comoUsuario(PROD);
+await assert.rejects(db.query("select agregar_dia('ATS', $1, '{}')", [ats48]), /No puede agregar/);      // otro usuario no
+await db.exec("reset role");
+await db.query("update ats set permiso = jsonb_set(permiso, '{detalle_extra,dias}', (select jsonb_agg(jsonb_build_object('fecha', '2020-01-0' || g)) from generate_series(1, 7) g)) where id = $1", [ats48]);
+await comoUsuario();
+await assert.rejects(db.query("select agregar_dia('ATS', $1, '{}')", [ats48]), /7 días/);
+const pt48 = await val(`insert into permisos_trabajo (ot_id, area_proceso, fecha_ejecucion, hora_inicio, vigente_hasta, trabajador_encargado, tarea, tipos, firma_ejecutor, firma_emisor, detalle_extra)
+  values ($1, 'Mantenimiento', current_date, '07:00', current_date + time '15:00', 'Fredy', 'Soldar', '{caliente}', 'Fredy', 'Ivan', $2) returning id`, [ot48, { dias: [dia1] }]);
+assert.equal(await val("select agregar_dia('PT', $1, '{}')", [pt48]), 2);
+await assert.rejects(db.query("select agregar_dia('XX', $1, '{}')", [pt48]), /No puede agregar/);
+await db.exec("reset role");
 console.log("OK: todas las pruebas del esquema pasaron");
