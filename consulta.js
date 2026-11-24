@@ -19,7 +19,7 @@ const DEF = {
   ATS: {
     nombre: "Análisis de Trabajo Seguro", tabla: "ats", conEstado: true,
     lista: "id, numero, creado_en, estado, descripcion_labor, ordenes_trabajo!ats_ot_id_fkey(numero)",
-    fila: (o) => ({ numero: o.numero, detalle: `${o.ordenes_trabajo ? `${o.ordenes_trabajo.numero} · ` : ""}${o.descripcion_labor}`, estado: o.estado }),
+    fila: (o) => ({ numero: o.numero, detalle: `${o.ordenes_trabajo ? `${o.ordenes_trabajo.numero} · ` : ""}${o.descripcion_labor ?? ""}`, estado: o.estado }),
     detalle: "*, ats_trabajadores(*), ats_pasos(*), ordenes_trabajo!ats_ot_id_fkey(id, numero), permisos_trabajo!permisos_trabajo_ats_id_fkey(id, numero)",
   },
   PT: {
@@ -236,26 +236,33 @@ const VISTA = {
     (o.autorizado_por || o.entregado_por || o.recibido_por ? bloque(5, "firma", "Firmas (formato anterior)", firmas(o)) : "") +
     cierreOS(o),
 
-  ATS: (o) => cabecera("ATS", "FR-SST-011 · Versión 1", o.numero) +
-    bloque(1, "info", "Información general", datos(
-      datoHtml("Orden de trabajo", o.ordenes_trabajo ? enlace("OT", o.ordenes_trabajo.id, o.ordenes_trabajo.numero) : "—"),
-      datoHtml("Estado", estado(o.estado)), dato("Realizado el", o.cerrada_en && fecha(o.cerrada_en)),
-      dato("Sede", o.sede), dato("Área de ubicación", o.area), dato("Jefe inmediato", o.jefe_inmediato), dato("Responsables", o.responsables),
-      dato("Permisos adicionales", [o.alturas && "Alturas", o.caliente && "Caliente", o.energias && "Energías peligrosas"].filter(Boolean).join(", ")),
-      ...registro(o), datoHtml("Permisos de trabajo", enlaces("PT", o.permisos_trabajo, (x) => x.numero)))) +
-    bloque(2, "personas", "Trabajadores autorizados", tabla(["Nombre", "Cargo", "Óptimo estado de salud", "Medicamentos que causan sueño", "Afiliación SGSS", "Certificado"],
-      o.ats_trabajadores.map((t) => [t.nombre, t.cargo, siNo(t.salud_ok), siNo(t.medicamentos_sueno), siNo(t.afiliacion_ss), siNo(t.certificado)]))) +
-    bloque(3, "caja", "Descripción de la labor", `<div class="grid grid-2">${texto("Descripción de la labor", o.descripcion_labor)}${texto("Equipos, herramientas y sustancias", o.equipos)}</div>`) +
-    bloque(4, "lista", "Paso a paso de la actividad", tabla(["Paso", "Peligros / riesgos", "Consecuencias", "Medidas de control"],
-      o.ats_pasos.map((p) => [p.paso, p.peligros, p.consecuencias, p.controles]))) +
-    bloque(5, "firma", "Fechas y responsables", datos(
+  // ATS de antes (con trabajadores): las 5 secciones de siempre más el permiso si lo tiene (sql/48).
+  // ATS nuevos (sql/49): "1. Fechas y responsables" con la OT, y el permiso completo de la 2 a la 11.
+  ATS: (o) => {
+    const viejo = o.ats_trabajadores.length > 0, n0 = viejo ? 4 : 0;
+    const fechas = bloque(n0 + 1, "firma", "Fechas y responsables", datos(
+      ...(viejo ? [] : [datoHtml("Orden de trabajo", o.ordenes_trabajo ? enlace("OT", o.ordenes_trabajo.id, o.ordenes_trabajo.numero) : "—"),
+        datoHtml("Estado", estado(o.estado)), ...registro(o), datoHtml("Permisos de trabajo", enlaces("PT", o.permisos_trabajo, (x) => x.numero))]),
       dato("Fecha de apertura", o.fecha_apertura), dato("Hora de apertura", o.hora_apertura?.slice(0, 5)),
       dato("Vigencia (se cierra solo a las 24 h)", o.vigente_hasta && fecha(o.vigente_hasta)), dato("Fecha de cierre", o.fecha_cierre), dato("Trabajador encargado", o.firma_encargado),
-      dato("Jefe inmediato", o.firma_jefe), dato("Coordinador de alturas", o.firma_coord_alturas), dato("SST", o.firma_sst))) +
-    // El permiso completo que se llena dentro del ATS (sql/48); los ATS de antes no lo tienen
-    (Object.keys(o.permiso ?? {}).length ? `<div class="page-head" style="margin-top:8px"><span class="ico ico-lg" data-icono="escudo"></span>
-      <div><h2>Permiso de Trabajo Tareas de Alto Riesgo</h2><p>FR-SST-039 · Versión 1 · Área de Mantenimiento</p></div></div>` +
-      seccionesPermiso({ ...o.permiso, id: o.id, creado_por: o.creado_por }, 5, "ATS") : ""),
+      dato("Jefe inmediato", o.firma_jefe), dato("Coordinador de alturas", o.firma_coord_alturas), dato("SST", o.firma_sst)));
+    return cabecera("ATS", "FR-SST-011 · Versión 1", o.numero) +
+      (viejo ? bloque(1, "info", "Información general", datos(
+        datoHtml("Orden de trabajo", o.ordenes_trabajo ? enlace("OT", o.ordenes_trabajo.id, o.ordenes_trabajo.numero) : "—"),
+        datoHtml("Estado", estado(o.estado)), dato("Realizado el", o.cerrada_en && fecha(o.cerrada_en)),
+        dato("Sede", o.sede), dato("Área de ubicación", o.area), dato("Jefe inmediato", o.jefe_inmediato), dato("Responsables", o.responsables),
+        dato("Permisos adicionales", [o.alturas && "Alturas", o.caliente && "Caliente", o.energias && "Energías peligrosas"].filter(Boolean).join(", ")),
+        ...registro(o), datoHtml("Permisos de trabajo", enlaces("PT", o.permisos_trabajo, (x) => x.numero)))) +
+      bloque(2, "personas", "Trabajadores autorizados", tabla(["Nombre", "Cargo", "Óptimo estado de salud", "Medicamentos que causan sueño", "Afiliación SGSS", "Certificado"],
+        o.ats_trabajadores.map((t) => [t.nombre, t.cargo, siNo(t.salud_ok), siNo(t.medicamentos_sueno), siNo(t.afiliacion_ss), siNo(t.certificado)]))) +
+      bloque(3, "caja", "Descripción de la labor", `<div class="grid grid-2">${texto("Descripción de la labor", o.descripcion_labor)}${texto("Equipos, herramientas y sustancias", o.equipos)}</div>`) +
+      bloque(4, "lista", "Paso a paso de la actividad", tabla(["Paso", "Peligros / riesgos", "Consecuencias", "Medidas de control"],
+        o.ats_pasos.map((p) => [p.paso, p.peligros, p.consecuencias, p.controles]))) : "") +
+      fechas +
+      (Object.keys(o.permiso ?? {}).length ? `<div class="page-head" style="margin-top:8px"><span class="ico ico-lg" data-icono="escudo"></span>
+        <div><h2>Permiso de Trabajo Tareas de Alto Riesgo</h2><p>FR-SST-039 · Versión 1 · Área de Mantenimiento</p></div></div>` +
+        seccionesPermiso({ ...o.permiso, id: o.id, creado_por: o.creado_por }, n0 + 1, "ATS") : "");
+  },
 
   PT: (o) => permiso(o),
 };

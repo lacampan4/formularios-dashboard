@@ -52,6 +52,7 @@ function reiniciar(form) {
   form.querySelectorAll(".tabla").forEach((t) => { t.tBodies[0].innerHTML = ""; agregarFila(t); });
   form.querySelectorAll(".alerta").forEach((a) => a.classList.add("hidden"));
   if (form.fecha_apertura) form.fecha_apertura.value = hoy();
+  if (form.id === "formATS") { $("atsCoord").required = false; $("lblCoord").classList.remove("req"); }
   permisos.forEach((r) => { P(r, "bloqueElectrico").hidden = true; mostrarSeccionesPermiso(r); });
   $("otMaquina").onchange();
   totalesOS();
@@ -133,15 +134,15 @@ P(fp, "cierreTrabajador").innerHTML = cierre("trabajador");
 P(fp, "cierreSst").innerHTML = cierre("sst");
 P(fp, "eppLista").innerHTML = EPP.map((e) => `<label class="campo"><span class="req">${esc(e)}</span><select data-epp="${esc(e)}" data-tipo="bool" required>${SINO}</select></label>`).join("");
 
-// El ATS lleva el permiso completo (sql/48): las mismas secciones, sin la OT, el ATS relacionado ni la sede (ya están en el ATS)
+// El ATS lleva el permiso completo (sql/48), después de "1. Fechas y responsables" (sql/49): las mismas secciones, sin la OT ni el ATS relacionado
 const atsPerm = Object.assign(document.createElement("fieldset"), { className: "perm" });
 atsPerm.innerHTML = `<div class="page-head" style="margin-top:8px"><span class="ico ico-lg" data-icono="escudo"></span>
   <div><h2>Permiso de Trabajo Tareas de Alto Riesgo</h2><p>FR-SST-039 · Versión 1 · Área de Mantenimiento, con las listas de chequeo de cada herramienta</p></div></div>`;
 fp.querySelectorAll(":scope > section.bloque").forEach((sec) => {
   const c = sec.cloneNode(true);
-  c.querySelectorAll("[name=ot_id], [name=ats_id], [name=sede]").forEach((el) => el.closest("label").remove());
+  c.querySelectorAll("[name=ot_id], [name=ats_id]").forEach((el) => el.closest("label").remove());
   const h = c.querySelector("h3.seccion").lastChild;
-  h.textContent = h.textContent.replace(/^(\d+)\./, (_, n) => `${Number(n) + 5}.`);   // sigue la numeración del ATS (1 a 5)
+  h.textContent = h.textContent.replace(/^(\d+)\./, (_, n) => `${Number(n) + 1}.`);   // sigue la numeración del ATS (1)
   atsPerm.append(c);
 });
 $("formATS").querySelector(".acciones").before(atsPerm);
@@ -185,7 +186,6 @@ permisos.forEach((r) => {
 });
 
 $("fila-os").content.querySelector(".sel-medida").innerHTML = opciones(MEDIDAS, "—");
-$("fila-trab").content.querySelectorAll(".sel-sino").forEach((s) => s.innerHTML = SINO);
 
 // ---------------- Reglas en pantalla ----------------
 // "+ Nueva máquina": muestra el campo para agregarla; mientras esté elegida no se puede guardar
@@ -245,7 +245,12 @@ $("formOT").addEventListener("click", async (e) => {
   aviso(`Código ${String(codigo).padStart(2, "0")} agregado a la lista`);
 });
 // En alturas firma el coordinador
-$("atsAlturas").onchange = (e) => { $("atsCoord").required = e.target.checked; $("lblCoord").classList.toggle("req", e.target.checked); };
+// En el ATS con trabajo en alturas firma el coordinador
+atsPerm.addEventListener("change", (e) => {
+  if (e.target.name !== "tipos") return;
+  const alturas = atsPerm.querySelector("[name=tipos][value=alturas]").checked;
+  $("atsCoord").required = alturas; $("lblCoord").classList.toggle("req", alturas);
+});
 
 // ---------------- Guardar ----------------
 $("formOT").onsubmit = (e) => { e.preventDefault(); guardar(e.target, async () => {
@@ -304,10 +309,12 @@ $("formATS").onsubmit = (e) => {
   e.preventDefault();
   validarPermiso(atsPerm);
   guardar(e.target, async () => {
-    const [trab, pasos] = e.target.querySelectorAll(".tabla");
+    // Sin trabajadores, descripción ni paso a paso (sql/49): el ATS es "Fechas y responsables" más el permiso completo
     const d = datos(e.target);
-    d.permiso = { ...leerPermiso(atsPerm), sede: d.sede };
-    const id = ok(await db.rpc("crear_ats", { datos: d, trabajadores: filas(trab), pasos: filas(pasos) }));
+    d.permiso = leerPermiso(atsPerm);
+    ["alturas", "caliente", "energias"].forEach((t) => d[t] = d.permiso.tipos.includes(t));
+    Object.assign(d, { sede: d.permiso.sede, area: d.permiso.ubicacion, descripcion_labor: d.permiso.tarea, equipos: d.permiso.herramientas });
+    const id = ok(await db.rpc("crear_ats", { datos: d, trabajadores: [], pasos: [] }));
     const { numero } = ok(await db.from("ats").select("numero").eq("id", id).single());
     return `${numero} guardado`;
   });

@@ -786,4 +786,15 @@ const pt48 = await val(`insert into permisos_trabajo (ot_id, area_proceso, fecha
 assert.equal(await val("select agregar_dia('PT', $1, '{}')", [pt48]), 2);
 await assert.rejects(db.query("select agregar_dia('XX', $1, '{}')", [pt48]), /No puede agregar/);
 await db.exec("reset role");
+// ATS sin secciones 1 a 4 (49): sin descripción, trabajadores ni pasos; lo demás se sigue exigiendo
+await db.exec(readFileSync(`${dir}/49_ats_sin_secciones.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/49_ats_sin_secciones.sql`, "utf8"));   // se puede volver a ejecutar
+await comoUsuario();
+const solo = { ot_id: ot48, firma_encargado: "Fredy", firma_jefe: "Ivan", descripcion_labor: " ", permiso: { tarea: "Soldar", detalle_extra: { dias: [dia1] } } };
+const ats49 = await val("select crear_ats($1, '[]', '[]')", [solo]);
+assert.equal(await val("select descripcion_labor is null and permiso ->> 'tarea' = 'Soldar' from ats where id = $1", [ats49]), true);
+assert.ok(await val("select crear_ats($1, null, null)", [solo]) > 0);
+await assert.rejects(db.query("select crear_ats($1, '[]', '[]')", [{ ...solo, alturas: true }]), /check/);   // alturas sigue pidiendo coordinador
+await assert.rejects(db.query("select crear_ats($1, '[]', '[]')", [{ ...solo, firma_jefe: null }]), /firma_jefe|null/);
+await db.exec("reset role");
 console.log("OK: todas las pruebas del esquema pasaron");

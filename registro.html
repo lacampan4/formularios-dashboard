@@ -154,58 +154,9 @@
       </div>
 
       <section class="card bloque">
-        <h3 class="seccion"><span class="ico" data-icono="info"></span>1. Información general</h3>
+        <h3 class="seccion"><span class="ico" data-icono="firma"></span>1. Fechas y responsables</h3>
         <div class="grid">
           <label class="campo"><span class="req">Orden de trabajo</span><select name="ot_id" data-tipo="num" class="sel-ot" required></select></label>
-          <label class="campo"><span>Sede</span><input name="sede" placeholder="Sede"></label>
-          <label class="campo"><span>Área de ubicación del trabajo</span><input name="area" placeholder="Área"></label>
-          <label class="campo"><span>Jefe inmediato</span><input name="jefe_inmediato" list="dl-personas" placeholder="Nombre completo"></label>
-          <label class="campo"><span>Responsables del trabajo</span><input name="responsables" placeholder="Nombres"></label>
-        </div>
-        <fieldset style="margin-top:16px">
-          <legend>Permisos de trabajo adicionales</legend>
-          <div class="checks">
-            <label class="check"><input type="checkbox" name="alturas" id="atsAlturas"> Trabajo en alturas</label>
-            <label class="check"><input type="checkbox" name="caliente"> Trabajo en caliente</label>
-            <label class="check"><input type="checkbox" name="energias"> Energías peligrosas</label>
-          </div>
-        </fieldset>
-      </section>
-
-      <section class="card bloque">
-        <h3 class="seccion"><span class="ico" data-icono="personas"></span>2. Trabajadores autorizados</h3>
-        <div class="table-wrap">
-          <table class="tabla" data-fila="trab">
-            <thead><tr><th class="req">Nombre</th><th>Cargo</th><th class="req">Óptimo estado de salud</th><th class="req">Medicamentos que causan sueño</th><th class="req">Afiliación vigente al SGSS</th><th class="req">Certificado para la actividad</th><th><span class="sr-only">Quitar</span></th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-        <button type="button" class="btn btn-sec btn-ico" data-agregar><span class="ico" data-icono="mas"></span>Agregar trabajador</button>
-      </section>
-
-      <section class="card bloque">
-        <h3 class="seccion"><span class="ico" data-icono="caja"></span>3. Descripción de la labor</h3>
-        <div class="grid grid-2">
-          <label class="campo"><span class="req">Descripción de la labor</span><textarea name="descripcion_labor" required placeholder="Tarea a realizar y medios o recursos que necesita"></textarea></label>
-          <label class="campo"><span>Equipos, herramientas, materiales y/o sustancias químicas</span><textarea name="equipos" placeholder="Escriba los equipos (opcional)"></textarea></label>
-        </div>
-      </section>
-
-      <section class="card bloque">
-        <h3 class="seccion"><span class="ico" data-icono="lista"></span>4. Paso a paso de la actividad</h3>
-        <div class="table-wrap">
-          <table class="tabla" data-fila="paso">
-            <thead><tr><th class="req">Paso</th><th>Peligros / riesgos del entorno</th><th>Consecuencias</th><th class="req">Medidas de control</th><th><span class="sr-only">Quitar</span></th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-        <button type="button" class="btn btn-sec btn-ico" data-agregar><span class="ico" data-icono="mas"></span>Agregar paso</button>
-        <p class="nota">Si cambian las condiciones (lluvia, viento fuerte, tormenta eléctrica, emergencia) el permiso queda suspendido hasta nueva orden.</p>
-      </section>
-
-      <section class="card bloque">
-        <h3 class="seccion"><span class="ico" data-icono="firma"></span>5. Fechas y responsables</h3>
-        <div class="grid">
           <div class="campo"><span>Apertura y vigencia</span><p class="nota" style="margin:0">Empieza a contar al guardar. El ATS vale 24 horas y a las 24 horas se cierra solo (o antes, si se cierra su OT).</p></div>
           <label class="campo"><span class="req">Trabajador encargado de la tarea</span><input name="firma_encargado" required placeholder="Nombre completo"></label>
           <label class="campo"><span class="req">Jefe inmediato (firma)</span><input name="firma_jefe" list="dl-personas" required placeholder="Nombre completo"></label>
@@ -372,22 +323,6 @@
     <td><input data-k="funcion" required placeholder="Qué es el ítem y para qué se usa"></td>
     <td class="stock"><label class="check"><input type="checkbox" data-k="stock"> Es para stock</label></td>
     <td class="quitar"><button type="button" class="btn-link" data-quitar aria-label="Quitar ítem">✕</button></td>
-  </tr></template>
-  <template id="fila-trab"><tr>
-    <td><input data-k="nombre" required placeholder="Nombre completo"></td>
-    <td><input data-k="cargo" placeholder="Cargo"></td>
-    <td><select data-k="salud_ok" data-tipo="bool" class="sel-sino" required></select></td>
-    <td><select data-k="medicamentos_sueno" data-tipo="bool" class="sel-sino" required></select></td>
-    <td><select data-k="afiliacion_ss" data-tipo="bool" class="sel-sino" required></select></td>
-    <td><select data-k="certificado" data-tipo="bool" class="sel-sino" required></select></td>
-    <td class="quitar"><button type="button" class="btn-link" data-quitar aria-label="Quitar trabajador">✕</button></td>
-  </tr></template>
-  <template id="fila-paso"><tr>
-    <td><textarea data-k="paso" rows="2" required placeholder="Describa el paso"></textarea></td>
-    <td><textarea data-k="peligros" rows="2" placeholder="A qué se expone"></textarea></td>
-    <td><textarea data-k="consecuencias" rows="2" placeholder="Qué puede pasar"></textarea></td>
-    <td><textarea data-k="controles" rows="2" required placeholder="Cómo se controla"></textarea></td>
-    <td class="quitar"><button type="button" class="btn-link" data-quitar aria-label="Quitar paso">✕</button></td>
   </tr></template>
 
   <datalist id="dl-personas"></datalist>
