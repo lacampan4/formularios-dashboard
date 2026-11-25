@@ -836,4 +836,10 @@ await db.exec(readFileSync(`${dir}/50_os_quitar_firma.sql`, "utf8"));   // se pu
   assert.equal(await val("select estado from ordenes_suministro where id = $1", [oid]), "Cerrada");
   await db.exec("reset role");
 }
+// SST como máquina de la OS (51)
+await db.exec(readFileSync(`${dir}/51_os_maquina_sst.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/51_os_maquina_sst.sql`, "utf8"));   // se puede volver a ejecutar
+await comoUsuario();
+assert.match(await os({ area_solicitante: "SST", prioridad: "Verde", responsable: PROD }, [{ ...it43, maquina: "SST" }]), /^OS-\d{4}$/);
+await db.exec("reset role");
 console.log("OK: todas las pruebas del esquema pasaron");

@@ -97,13 +97,14 @@ let maquinas = MAQUINAS.map((nombre) => ({ nombre, linea: LINEA_DE_MAQUINA[nombr
 const lineaDe = (nombre) => maquinas.find((m) => m.nombre === nombre)?.linea;
 // "+ Nueva máquina" (solo admin) de primero, como "+ Nuevo código"; "OTRO" al final, sin campo para escribir cuál
 // (escrita a mano, la misma máquina salía repetida en el dashboard: sql/36 y 38). Si falta una, la agrega el admin.
-const sinOtro = () => maquinas.map((m) => m.nombre).filter((n) => n !== "OTRO");
+// OTRO solo en la OT y SST solo en la OS (sql/51), ambos al final
+const sinOtro = () => maquinas.map((m) => m.nombre).filter((n) => n !== "OTRO" && n !== "SST");
 function pintarMaquinas(v = $("otMaquina").value) {
   $("otMaquina").innerHTML = opciones([], "Seleccione") + (esAdmin ? `<option value="nueva">+ Nueva máquina</option>` : "") +
     opciones([...sinOtro(), "OTRO"]);
   $("otMaquina").value = v;
   // OS: solo máquinas de la lista (sql/28_os_maquina_lista.sql); las agrega el admin desde la OT
-  const html = opciones(sinOtro(), "Seleccione");   // en la OS no va OTRO
+  const html = opciones([...sinOtro(), "SST"], "Seleccione");   // en la OS no va OTRO
   $("fila-os").content.querySelector(".sel-maquina").innerHTML = html;
   $("formOS").querySelectorAll(".sel-maquina").forEach((s) => { const x = s.value; s.innerHTML = html; s.value = x; });
 }
