@@ -842,4 +842,11 @@ await db.exec(readFileSync(`${dir}/51_os_maquina_sst.sql`, "utf8"));   // se pue
 await comoUsuario();
 assert.match(await os({ area_solicitante: "SST", prioridad: "Verde", responsable: PROD }, [{ ...it43, maquina: "SST" }]), /^OS-\d{4}$/);
 await db.exec("reset role");
+// El ATS vale 24 h: con el ATS cerrado ya no se agregan días (52)
+await db.exec(readFileSync(`${dir}/52_ats_dias_vigencia.sql`, "utf8"));
+await db.exec(readFileSync(`${dir}/52_ats_dias_vigencia.sql`, "utf8"));   // se puede volver a ejecutar
+await db.exec(`update ats set estado = 'Cerrada', cerrada_en = now() where id = ${ats48}`);
+await comoUsuario();
+await assert.rejects(db.query("select agregar_dia('ATS', $1, '{}')", [ats48]), /ya está cerrado/);
+await db.exec("reset role");
 console.log("OK: todas las pruebas del esquema pasaron");

@@ -141,7 +141,7 @@ atsPerm.innerHTML = `<div class="page-head" style="margin-top:8px"><span class="
   <div><h2>Permiso de Trabajo Tareas de Alto Riesgo</h2><p>FR-SST-039 · Versión 1 · Área de Mantenimiento, con las listas de chequeo de cada herramienta</p></div></div>`;
 fp.querySelectorAll(":scope > section.bloque").forEach((sec) => {
   const c = sec.cloneNode(true);
-  c.querySelectorAll("[name=ot_id], [name=ats_id]").forEach((el) => el.closest("label").remove());
+  c.querySelectorAll("[name=ot_id], [name=ats_id], [name=vigente_hasta]").forEach((el) => el.closest("label").remove());
   const h = c.querySelector("h3.seccion").lastChild;
   h.textContent = h.textContent.replace(/^(\d+)\./, (_, n) => `${Number(n) + 1}.`);   // sigue la numeración del ATS (1)
   atsPerm.append(c);
@@ -167,6 +167,7 @@ const local = (d) => new Date(d - d.getTimezoneOffset() * 6e4).toISOString().sli
 const campo = (r, n) => r.querySelector(`[name="${n}"]`);
 function vigenciaPermiso(r) {
   const v = campo(r, "vigente_hasta"), fe = campo(r, "fecha_ejecucion").value, hi = campo(r, "hora_inicio").value;
+  if (!v) return;   // el ATS no lo tiene: vale 24 h desde que se guarda
   const inicio = fe && hi ? new Date(`${fe}T${hi}`) : null;
   v.min = inicio ? local(new Date(inicio.getTime() + 6e4)) : "";
   const fin = v.value ? new Date(v.value) : null;

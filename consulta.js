@@ -263,7 +263,7 @@ const VISTA = {
       fechas +
       (Object.keys(o.permiso ?? {}).length ? `<div class="page-head" style="margin-top:8px"><span class="ico ico-lg" data-icono="escudo"></span>
         <div><h2>Permiso de Trabajo Tareas de Alto Riesgo</h2><p>FR-SST-039 · Versión 1 · Área de Mantenimiento</p></div></div>` +
-        seccionesPermiso({ ...o.permiso, id: o.id, creado_por: o.creado_por }, n0 + 1, "ATS") : "");
+        seccionesPermiso({ ...o.permiso, id: o.id, creado_por: o.creado_por, estado: o.estado }, n0 + 1, "ATS") : "");
   },
 
   PT: (o) => permiso(o),
@@ -287,7 +287,7 @@ function seccionesPermiso(o, n0, formato) {
       ...(formato === "PT" ? [datoHtml("Orden de trabajo", o.ordenes_trabajo ? enlace("OT", o.ordenes_trabajo.id, o.ordenes_trabajo.numero) : "—"),
         datoHtml("ATS relacionado", o.ats ? enlace("ATS", o.ats.id, o.ats.numero) : "—")] : []),
       dato("Área / proceso", o.area_proceso), dato("Ubicación", o.ubicacion), dato("Sede", o.sede), dato("Fecha de ejecución", o.fecha_ejecucion),
-      dato("Hora de inicio", o.hora_inicio?.slice(0, 5)), dato("Hora de finalización", o.hora_fin?.slice(0, 5)), dato("Vigencia (válido hasta)", o.vigente_hasta ? fecha(o.vigente_hasta) : o.vigencia),
+      dato("Hora de inicio", o.hora_inicio?.slice(0, 5)), dato("Hora de finalización", o.hora_fin?.slice(0, 5)), ...(formato === "ATS" ? [] : [dato("Vigencia (válido hasta)", o.vigente_hasta ? fecha(o.vigente_hasta) : o.vigencia)]),
       dato("Trabajador encargado", o.trabajador_encargado), dato("Ayudante de seguridad", o.ayudante_seguridad), ...(formato === "PT" ? registro(o) : []))) +
     bloque(n(2), "llave", "Descripción del trabajo", datos(
       dato("Tarea a realizar", o.tarea), dato("Tipo de tarea", (o.tipos ?? []).map((t) => TIPOS_PERMISO[t] ?? t).join(", ")),
@@ -317,7 +317,7 @@ function seccionesPermiso(o, n0, formato) {
 // Lleva las listas de los mismos equipos del día 1, con los datos del último día ya escritos.
 const hoyCO = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
 function nuevoDia(o, dias, formato) {
-  if (!dias || dias.length >= 7 || dias.some((d) => d.fecha === hoyCO()) || !(o.creado_por === yo || esAdmin || soloSeguridad)) return "";
+  if (!dias || dias.length >= 7 || (formato === "ATS" && o.estado === "Cerrada") || dias.some((d) => d.fecha === hoyCO()) || !(o.creado_por === yo || esAdmin || soloSeguridad)) return "";
   const ultimo = dias.at(-1);
   const equipos = (dias[0].caliente ?? []).map((l) => PERMISO_CALIENTE.findIndex((q) => q.titulo === l.titulo)).filter((qi) => qi >= 0);
   return `<form id="formDia" class="no-imprimir" data-formato="${formato}" data-id="${o.id}" novalidate style="margin-top:18px">
